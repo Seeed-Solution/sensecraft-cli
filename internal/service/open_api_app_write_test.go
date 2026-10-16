@@ -1,0 +1,595 @@
+package service
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"sensecraft-cloud-terminal/internal/app"
+	"sensecraft-cloud-terminal/internal/client"
+	"sensecraft-cloud-terminal/internal/config"
+	"sensecraft-cloud-terminal/internal/enum"
+)
+
+func TestRequireYes(t *testing.T) {
+	t.Setenv("SENSECRAFT_NO_CONFIRM_PROMPT", "1")
+	if err := requireYes(false); !errors.Is(err, ErrConfirmRequired) {
+		t.Fatalf("want ErrConfirmRequired, got %v", err)
+	}
+	if !strings.Contains(ErrConfirmRequired.Error(), "intent, not confirmation") {
+		t.Fatalf("error should tell agents the first request is not confirmation: %v", ErrConfirmRequired)
+	}
+	if err := requireYes(true); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestRequireAgreeDeclaration(t *testing.T) {
+	if err := requireAgreeDeclaration(false); !errors.Is(err, ErrDeclarationRequired) {
+		t.Fatalf("want ErrDeclarationRequired, got %v", err)
+	}
+	if err := requireAgreeDeclaration(true); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestRequireAgreeDisclaimer(t *testing.T) {
+	if err := requireAgreeDisclaimer(false); !errors.Is(err, ErrCloneDisclaimerRequired) {
+		t.Fatalf("want ErrCloneDisclaimerRequired, got %v", err)
+	}
+	if err := requireAgreeDisclaimer(true); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestCloneRequiresAgreeDisclaimer(t *testing.T) {
+	s := sandboxAppSvc()
+	_, err := s.CloneApp(AppCloneParams{AppID: "public-1", Name: "Clone_X", Yes: true})
+	if !errors.Is(err, ErrCloneDisclaimerRequired) {
+		t.Fatalf("want ErrCloneDisclaimerRequired, got %v", err)
+	}
+	if _, err := s.CloneApp(AppCloneParams{
+		AppID: "public-1", Name: "Clone_X", Yes: true, AgreeDisclaimer: true,
+	}); err != nil {
+		t.Fatalf("clone with disclaimer must work: %v", err)
+	}
+}
+
+func TestPublishRequiresAgreeDeclaration(t *testing.T) {
+	s := sandboxAppSvc()
+	_, err := s.SetAppPrivacy(AppPrivacyParams{AppID: "sandbox-app-1", Privacy: 2, Yes: true})
+	if !errors.Is(err, ErrDeclarationRequired) {
+		t.Fatalf("want ErrDeclarationRequired, got %v", err)
+	}
+	_, err = s.SetAppPrivacy(AppPrivacyParams{
+		AppID: "sandbox-app-1", Privacy: 2, Yes: true, AgreeDeclaration: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// unpublish does not require declaration agreement
+	_, err = s.SetAppPrivacy(AppPrivacyParams{AppID: "sandbox-app-1", Privacy: 0, Yes: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestTruncateRunes(t *testing.T) {
+	if got := truncateRunes("abcdef", 3); got != "abc" {
+		t.Fatalf("got %q", got)
+	}
+	if got := truncateRunes("你好世界", 2); got != "你好" {
+		t.Fatalf("got %q", got)
+	}
+}
+
+func TestAppPrivacyRejectsOne(t *testing.T) {
+	s := AppService{}
+	_, err := s.SetAppPrivacy(AppPrivacyParams{AppID: "a1", Privacy: 1, Yes: true})
+	if err == nil {
+		t.Fatal("expected error for privacy=1")
+	}
+}
+
+func TestFinalizeAppCreateResultKeepsIDWhenUpdateEmpty(t *testing.T) {
+	created, _ := json.Marshal(map[string]any{"app_id": "11683", "app_name": "My App"})
+	updated := json.RawMessage(`{}`)
+	got := finalizeAppCreateResult(created, updated, "11683", "My App")
+	var m map[string]any
+	if err := json.Unmarshal(got, &m); err != nil {
+		t.Fatal(err)
+	}
+	if m["app_id"] != "11683" {
+		t.Fatalf("lost app_id: %#v", m)
+	}
+	if m["app_name"] != "My App" {
+		t.Fatalf("lost app_name: %#v", m)
+	}
+}
+
+func TestFinalizeAppCreateResultPrefersUpdateWithID(t *testing.T) {
+	created, _ := json.Marshal(map[string]any{"app_id": "1"})
+	updated, _ := json.Marshal(map[string]any{"app_id": "1", "ok": true})
+	got := finalizeAppCreateResult(created, updated, "1", "n")
+	var m map[string]any
+	if err := json.Unmarshal(got, &m); err != nil {
+		t.Fatal(err)
+	}
+	if m["ok"] != true {
+		t.Fatalf("expected update body kept: %#v", m)
+	}
+}
+
+func TestCreateAppFromJSONReturnsIdentityInSandbox(t *testing.T) {
+	s := GetAppService(app.AICmdContext{
+		Ctx:     context.Background(),
+		Access:  config.AccessApiConfig{RemoteType: "Global"},
+		SandBox: true,
+	})
+	dir := t.TempDir()
+	path := filepath.Join(dir, "app.json")
+	payload := `{"app_name":"Sandbox Full","excerpt":"hi","scene":"5","allow_clone":1,"allow_commerce":0,"images":["https://example.invalid/a.jpg"]}`
+	if err := os.WriteFile(path, []byte(payload), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := s.CreateApp(AppCreateParams{FromJSON: path})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var m map[string]any
+	if err := json.Unmarshal(raw, &m); err != nil {
+		t.Fatal(err)
+	}
+	if m["app_id"] != "sandbox-created-app" {
+		t.Fatalf("app_id: %#v", m["app_id"])
+	}
+	if m["console_url"] == nil || m["detail_url"] == nil {
+		t.Fatalf("missing console links: %#v", m)
+	}
+}
+
+func TestMergeAppInfoFromExisting(t *testing.T) {
+	body := map[string]any{"app_name": "Renamed"}
+	existing := map[string]any{
+		"app_name":       "Old",
+		"excerpt":        "Keep me",
+		"scene":          float64(1),
+		"allow_clone":    float64(0),
+		"allow_commerce": float64(1),
+		"images": []any{
+			map[string]any{"url": "https://example.com/a.jpg"},
+		},
+		"author":    "alice",
+		"be_public": float64(1),
+	}
+	mergeAppInfoFromExisting(body, existing)
+	if body["app_name"] != "Renamed" {
+		t.Fatalf("name overwritten: %#v", body["app_name"])
+	}
+	if body["excerpt"] != "Keep me" {
+		t.Fatalf("excerpt not merged: %#v", body["excerpt"])
+	}
+	if body["scene"] != "1" {
+		t.Fatalf("scene not stringified: %#v", body["scene"])
+	}
+	imgs, ok := body["images"].([]string)
+	if !ok || len(imgs) != 1 || imgs[0] != "https://example.com/a.jpg" {
+		t.Fatalf("images not normalized: %#v", body["images"])
+	}
+	if _, ok := body["be_public"]; ok {
+		t.Fatal("be_public must not be merged into update body")
+	}
+}
+
+func TestSyncAppCoverFieldsFromImages(t *testing.T) {
+	body := map[string]any{"images": []any{"https://cdn.example/cover.png", "https://cdn.example/2.png"}}
+	syncAppCoverFields(body)
+	if body["pic_url"] != "https://cdn.example/cover.png" {
+		t.Fatalf("pic_url: %#v", body["pic_url"])
+	}
+}
+
+func TestSyncAppCoverFieldsFromPicURL(t *testing.T) {
+	body := map[string]any{"pic_url": "https://cdn.example/from-list.png"}
+	syncAppCoverFields(body)
+	imgs, ok := body["images"].([]string)
+	if !ok || len(imgs) != 1 || imgs[0] != "https://cdn.example/from-list.png" {
+		t.Fatalf("images: %#v", body["images"])
+	}
+}
+
+func TestCreateAppFromPicURLFillsImages(t *testing.T) {
+	s := GetAppService(app.AICmdContext{
+		Ctx:     context.Background(),
+		Access:  config.AccessApiConfig{RemoteType: "Global"},
+		SandBox: true,
+	})
+	dir := t.TempDir()
+	path := filepath.Join(dir, "app.json")
+	payload := `{"app_name":"Cover Restore","pic_url":"https://example.invalid/cover.png","excerpt":"hi","scene":"5","allow_clone":0,"allow_commerce":0}`
+	if err := os.WriteFile(path, []byte(payload), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := s.CreateApp(AppCreateParams{FromJSON: path})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var m map[string]any
+	if err := json.Unmarshal(raw, &m); err != nil {
+		t.Fatal(err)
+	}
+	if m["pic_url"] != "https://example.invalid/cover.png" {
+		t.Fatalf("pic_url: %#v", m)
+	}
+	imgs, ok := m["images"].([]any)
+	if !ok || len(imgs) < 1 || imgs[0] != "https://example.invalid/cover.png" {
+		t.Fatalf("cover not first in images: %#v", m["images"])
+	}
+}
+
+func TestUpdateAppMergesInfoWhenOnlyNameProvided(t *testing.T) {
+	s := GetAppService(app.AICmdContext{
+		Ctx:     context.Background(),
+		Access:  config.AccessApiConfig{RemoteType: "Global"},
+		SandBox: true,
+	})
+	dir := t.TempDir()
+	path := filepath.Join(dir, "patch.json")
+	if err := os.WriteFile(path, []byte(`{"app_name":"Renamed App"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := s.UpdateApp(AppUpdateParams{
+		AppID:    "sandbox-app-1",
+		FromJSON: path,
+		Yes:      true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var result map[string]any
+	if err := json.Unmarshal(raw, &result); err != nil {
+		t.Fatal(err)
+	}
+	if result["app_name"] != "Renamed App" {
+		t.Fatalf("app_name: %#v", result["app_name"])
+	}
+	if result["excerpt"] != "Sandbox application detail" {
+		t.Fatalf("expected merged excerpt, got %#v", result["excerpt"])
+	}
+	if result["scene"] != "1" {
+		t.Fatalf("expected scene string 1, got %#v", result["scene"])
+	}
+	imgs, ok := result["images"].([]any)
+	if !ok || len(imgs) != 1 || imgs[0] != "https://example.invalid/sandbox-cover.jpg" {
+		t.Fatalf("expected merged images, got %#v", result["images"])
+	}
+	if _, ok := result["be_public"]; ok {
+		t.Fatal("be_public must not appear on info rename update")
+	}
+}
+
+func TestUpdateAppMaterialsOnlyDoesNotForceInfoMerge(t *testing.T) {
+	s := GetAppService(app.AICmdContext{
+		Ctx:     context.Background(),
+		Access:  config.AccessApiConfig{RemoteType: "Global"},
+		SandBox: true,
+	})
+	dir := t.TempDir()
+	path := filepath.Join(dir, "bom.json")
+	payload := `{"materials":[{"name":"Custom","quantity":"1","note":"","buy_url":""}]}`
+	if err := os.WriteFile(path, []byte(payload), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := s.UpdateApp(AppUpdateParams{
+		AppID:    "sandbox-app-1",
+		FromJSON: path,
+		Yes:      true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var result map[string]any
+	if err := json.Unmarshal(raw, &result); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := result["app_name"]; ok {
+		t.Fatalf("materials-only update should not inject app_name: %#v", result)
+	}
+	if _, ok := result["materials"]; !ok {
+		t.Fatalf("materials missing: %#v", result)
+	}
+}
+
+func TestAttachCoverImagePrepends(t *testing.T) {
+	s := GetAppService(app.AICmdContext{
+		Ctx:     context.Background(),
+		Access:  config.AccessApiConfig{RemoteType: "Global"},
+		SandBox: true,
+	})
+	_, err := s.AttachCoverImage("sandbox-app-1", "https://example.invalid/new-cover.png", false)
+	if !errors.Is(err, ErrConfirmRequired) {
+		t.Fatalf("want confirm required, got %v", err)
+	}
+	raw, err := s.AttachCoverImage("sandbox-app-1", "https://example.invalid/new-cover.png", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var result map[string]any
+	if err := json.Unmarshal(raw, &result); err != nil {
+		t.Fatal(err)
+	}
+	imgs, ok := result["images"].([]any)
+	if !ok || len(imgs) < 1 {
+		t.Fatalf("images: %#v", result["images"])
+	}
+	if imgs[0] != "https://example.invalid/new-cover.png" {
+		t.Fatalf("cover not prepended: %#v", imgs)
+	}
+}
+
+func TestUpdateAppRejectsTooManyImages(t *testing.T) {
+	s := sandboxAppSvc()
+	dir := t.TempDir()
+	path := filepath.Join(dir, "images.json")
+	imgs := make([]string, MaxAppImageCount+1)
+	for i := range imgs {
+		imgs[i] = fmt.Sprintf("https://example.invalid/%d.png", i)
+	}
+	body, _ := json.Marshal(map[string]any{"images": imgs})
+	if err := os.WriteFile(path, body, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, err := s.UpdateApp(AppUpdateParams{AppID: "sandbox-app-1", FromJSON: path, Yes: true})
+	if err == nil || !strings.Contains(err.Error(), "maxImageCount") {
+		t.Fatalf("want maxImageCount rejection, got %v", err)
+	}
+}
+
+func sandboxAppSvc() AppService {
+	return GetAppService(app.AICmdContext{
+		Ctx:     context.Background(),
+		Access:  config.AccessApiConfig{RemoteType: "Global"},
+		SandBox: true,
+	})
+}
+
+func TestUpdateOwnPublishedAppSavesSketch(t *testing.T) {
+	s := sandboxAppSvc()
+	dir := t.TempDir()
+	path := filepath.Join(dir, "patch.json")
+	if err := os.WriteFile(path, []byte(`{"app_name":"Plaza Draft"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := s.UpdateApp(AppUpdateParams{
+		AppID:    "sandbox-published-1",
+		FromJSON: path,
+		Yes:      true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var result map[string]any
+	if err := json.Unmarshal(raw, &result); err != nil {
+		t.Fatal(err)
+	}
+	if result["sketch_saved"] != true {
+		t.Fatalf("expected sketch_saved: %#v", result)
+	}
+	if result["be_public"] != float64(1) {
+		t.Fatalf("expected be_public=1 on published info save: %#v", result["be_public"])
+	}
+}
+
+func TestUpdateAppLockedUnderReview(t *testing.T) {
+	s := sandboxAppSvc()
+	dir := t.TempDir()
+	path := filepath.Join(dir, "patch.json")
+	if err := os.WriteFile(path, []byte(`{"app_name":"No"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, err := s.UpdateApp(AppUpdateParams{
+		AppID:    "sandbox-review-1",
+		FromJSON: path,
+		Yes:      true,
+	})
+	if !errors.Is(err, ErrAppLockedUnderReview) {
+		t.Fatalf("want locked, got %v", err)
+	}
+}
+
+func TestDeletePublishedAppRefused(t *testing.T) {
+	s := sandboxAppSvc()
+	_, err := s.DeleteApp(AppDeleteParams{AppID: "sandbox-published-1", Yes: true})
+	if !errors.Is(err, ErrPublishedAppNoDelete) {
+		t.Fatalf("want no-delete, got %v", err)
+	}
+	_, err = s.DeleteApp(AppDeleteParams{AppID: "sandbox-app-1", Yes: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestPublishAlreadyPublicIsDraftPublish(t *testing.T) {
+	s := sandboxAppSvc()
+	raw, err := s.SetAppPrivacy(AppPrivacyParams{
+		AppID: "sandbox-published-1", Privacy: 2, Yes: true, AgreeDeclaration: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var result map[string]any
+	if err := json.Unmarshal(raw, &result); err != nil {
+		t.Fatal(err)
+	}
+	if result["draft_publish"] != true {
+		t.Fatalf("expected draft_publish: %#v", result)
+	}
+}
+
+func TestPublishLockedUnderReview(t *testing.T) {
+	s := sandboxAppSvc()
+	_, err := s.SetAppPrivacy(AppPrivacyParams{
+		AppID: "sandbox-review-1", Privacy: 2, Yes: true, AgreeDeclaration: true,
+	})
+	if !errors.Is(err, ErrAppLockedUnderReview) {
+		t.Fatalf("want locked, got %v", err)
+	}
+}
+
+func TestSetBOMLockedUnderReview(t *testing.T) {
+	s := sandboxAppSvc()
+	dir := t.TempDir()
+	path := filepath.Join(dir, "bom.json")
+	payload := `{"materials":[{"name":"Custom","quantity":"1","note":"","buy_url":""}]}`
+	if err := os.WriteFile(path, []byte(payload), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, err := s.SetBOM(AppBOMSetParams{AppID: "sandbox-review-1", FromJSON: path, Yes: true})
+	if !errors.Is(err, ErrAppLockedUnderReview) {
+		t.Fatalf("want locked, got %v", err)
+	}
+}
+
+func TestRejectForeignAppWrite(t *testing.T) {
+	s := sandboxAppSvc()
+	dir := t.TempDir()
+	path := filepath.Join(dir, "patch.json")
+	if err := os.WriteFile(path, []byte(`{"app_name":"No"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, err := s.UpdateApp(AppUpdateParams{AppID: "public-1", FromJSON: path, Yes: true})
+	if !errors.Is(err, ErrForeignAppNoEdit) {
+		t.Fatalf("want foreign refuse, got %v", err)
+	}
+	_, err = s.DeleteApp(AppDeleteParams{AppID: "public-1", Yes: true})
+	if !errors.Is(err, ErrForeignAppNoEdit) {
+		t.Fatalf("want foreign refuse on delete, got %v", err)
+	}
+	_, err = s.SetAppPrivacy(AppPrivacyParams{
+		AppID: "public-1", Privacy: 2, Yes: true, AgreeDeclaration: true,
+	})
+	if !errors.Is(err, ErrForeignAppNoEdit) {
+		t.Fatalf("want foreign refuse on publish, got %v", err)
+	}
+	if _, err := s.CloneApp(AppCloneParams{
+		AppID: "public-1", Name: "Clone_X", Yes: true, AgreeDisclaimer: true,
+	}); err != nil {
+		t.Fatalf("clone of plaza app must still work: %v", err)
+	}
+}
+
+func TestRejectUnownedAppWriteLiveAuthor(t *testing.T) {
+	s := AppService{userID: "me"}
+	if err := s.rejectUnownedAppWrite("a1", map[string]any{"user_id": "other"}); !errors.Is(err, ErrForeignAppNoEdit) {
+		t.Fatalf("want foreign refuse, got %v", err)
+	}
+	if err := s.rejectUnownedAppWrite("a1", map[string]any{"user_id": "me"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.rejectUnownedAppWrite("a1", map[string]any{}); err != nil {
+		t.Fatalf("missing user_id should not block: %v", err)
+	}
+}
+
+func TestCreateAppWritesPayloadWhenSketchIsMissing(t *testing.T) {
+	var updateBody map[string]any
+	var updateCalls int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case enum.AIApiPathAppCreate:
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"code": 0,
+				"data": map[string]any{"app_id": "11567", "app_name": "Snake"},
+			})
+		case enum.AIApiPathAppView:
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"code": 11306,
+				"msg":  "Not Found the resources",
+			})
+		case enum.AIApiPathAppUpdate:
+			updateCalls++
+			raw, _ := io.ReadAll(r.Body)
+			_ = json.Unmarshal(raw, &updateBody)
+			_ = json.NewEncoder(w).Encode(map[string]any{"code": 0, "data": map[string]any{}})
+		default:
+			t.Errorf("unexpected %s %s", r.Method, r.URL.Path)
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(srv.Close)
+
+	s := appServiceForTest(t, srv)
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, "app.json")
+	payload := `{"app_name":"Snake","excerpt":"a board game"}`
+	if err := os.WriteFile(path, []byte(payload), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := s.CreateApp(AppCreateParams{FromJSON: path})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updateCalls != 1 {
+		t.Fatalf("update calls=%d", updateCalls)
+	}
+	if updateBody["app_id"] != "11567" || updateBody["excerpt"] != "a board game" {
+		t.Fatalf("update body: %#v", updateBody)
+	}
+	var got map[string]any
+	if err := json.Unmarshal(raw, &got); err != nil {
+		t.Fatal(err)
+	}
+	if got["app_id"] != "11567" {
+		t.Fatalf("app_id: %#v", got)
+	}
+}
+
+func TestUpdateAppStillFailsWhenSnapshotMissing(t *testing.T) {
+	var updateCalls int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case enum.AIApiPathAppView:
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"code": 11306,
+				"msg":  "Not Found the resources",
+			})
+		case enum.AIApiPathAppUpdate:
+			updateCalls++
+			_ = json.NewEncoder(w).Encode(map[string]any{"code": 0, "data": map[string]any{}})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(srv.Close)
+
+	s := appServiceForTest(t, srv)
+	dir := t.TempDir()
+	path := filepath.Join(dir, "patch.json")
+	if err := os.WriteFile(path, []byte(`{"excerpt":"keep"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, err := s.UpdateApp(AppUpdateParams{AppID: "11567", FromJSON: path, Yes: true})
+	if err == nil || !strings.Contains(err.Error(), "11306") {
+		t.Fatalf("want 11306, got %v", err)
+	}
+	if updateCalls != 0 {
+		t.Fatalf("update must not run when the snapshot is missing, calls=%d", updateCalls)
+	}
+}
+
+func appServiceForTest(t *testing.T, srv *httptest.Server) AppService {
+	t.Helper()
+	return AppService{
+		client:     client.NewAIApiClientAt(srv.URL, srv.Client()),
+		remoteType: "Global",
+	}
+}

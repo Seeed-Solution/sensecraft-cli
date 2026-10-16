@@ -1,0 +1,156 @@
+package client
+
+import (
+	"bytes"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"net/http"
+	"net/url"
+	"os"
+	"strings"
+	"time"
+)
+
+var ErrSandboxMode = errors.New("sandbox mode: no real request sent")
+
+// HTTPError is a non-2xx HTTP response. Error() keeps the historical
+// "HTTP <status>: <body>" form used by callers and tests.
+type HTTPError struct {
+	StatusCode int
+	Body       []byte
+}
+
+func (e HTTPError) Error() string {
+	return fmt.Sprintf("HTTP %d: %s", e.StatusCode, string(e.Body))
+}
+
+// RequestOption 单次请求的额外配置。
+type RequestOption func(*http.Request)
+
+func WithBasicAuth(username, password string) RequestOption {
+	return func(req *http.Request) {
+		req.SetBasicAuth(username, password)
+	}
+}
+
+func WithHeader(key, value string) RequestOption {
+	return func(req *http.Request) {
+		req.Header.Set(key, value)
+	}
+}
+
+// BaseClient 通用 HTTP 客户端，负责 URL 拼接、请求发送与原始响应读取。
+type BaseClient struct {
+	baseURL     string
+	httpClient  *http.Client
+	sandbox     bool
+	defaultOpts []RequestOption
+}
+
+type BaseClientOption func(*BaseClient)
+
+func WithHTTPClient(c *http.Client) BaseClientOption {
+	return func(bc *BaseClient) {
+		if c != nil {
+			bc.httpClient = c
+		}
+	}
+}
+
+func WithSandbox(enabled bool) BaseClientOption {
+	return func(bc *BaseClient) {
+		bc.sandbox = enabled
+	}
+}
+
+func WithDefaultRequestOptions(opts ...RequestOption) BaseClientOption {
+	return func(bc *BaseClient) {
+		bc.defaultOpts = append(bc.defaultOpts, opts...)
+	}
+}
+
+func NewBaseClient(baseURL string, opts ...BaseClientOption) *BaseClient {
+	c := &BaseClient{
+		baseURL: strings.TrimSuffix(strings.TrimSpace(baseURL), "/"),
+		httpClient: &http.Client{
+			Timeout: 15 * time.Second,
+		},
+	}
+	for _, opt := range opts {
+		opt(c)
+	}
+	return c
+}
+
+func (c *BaseClient) BaseURL() string {
+	return c.baseURL
+}
+
+func (c *BaseClient) Do(method, path string, query url.Values, body any, opts ...RequestOption) ([]byte, error) {
+	u, err := url.Parse(c.baseURL + path)
+	if err != nil {
+		return nil, err
+	}
+	if len(query) > 0 {
+		u.RawQuery = query.Encode()
+	}
+
+	if c.sandbox {
+		_, _ = fmt.Fprintln(os.Stderr, fmt.Sprintf("sandBox====> method=%s url=%s body=%#v", method, u.String(), body))
+		return nil, ErrSandboxMode
+	}
+
+	var bodyReader io.Reader
+	if body != nil {
+		b, err := json.Marshal(body)
+		if err != nil {
+			return nil, err
+		}
+		bodyReader = bytes.NewReader(b)
+	}
+
+	req, err := http.NewRequest(method, u.String(), bodyReader)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, opt := range c.defaultOpts {
+		opt(req)
+	}
+	for _, opt := range opts {
+		opt(req)
+	}
+
+	if body != nil && req.Header.Get("Content-Type") == "" {
+		req.Header.Set("Content-Type", "application/json; charset=utf-8")
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	raw, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, HTTPError{StatusCode: resp.StatusCode, Body: raw}
+	}
+	return raw, nil
+}
+
+func (c *BaseClient) Get(path string, query url.Values, opts ...RequestOption) ([]byte, error) {
+	return c.Do(http.MethodGet, path, query, nil, opts...)
+}
+
+func (c *BaseClient) Post(path string, body any, opts ...RequestOption) ([]byte, error) {
+	return c.Do(http.MethodPost, path, nil, body, opts...)
+}
+
+func (c *BaseClient) PostQuery(path string, query url.Values, opts ...RequestOption) ([]byte, error) {
+	return c.Do(http.MethodPost, path, query, nil, opts...)
+}

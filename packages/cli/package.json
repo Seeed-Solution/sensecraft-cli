@@ -1,0 +1,51 @@
+{
+  "name": "@seeed-studio/sensecraft-cli",
+  "version": "0.1.4",
+  "description": "SenseCAP / SenseCraft AI cloud CLI (devices, apps, models, files, cloud deploy)",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Seeed-Solution/sensecraft-cloud-terminal.git",
+    "directory": "packages/cli"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "bin": {
+    "sensecraft-cli": "bin/sensecraft-cli.js"
+  },
+  "scripts": {
+    "prepack": "bash ../../script/sync-skills-to-npm.sh",
+    "postinstall": "node scripts/postinstall.js",
+    "test": "node scripts/paths.test.js && node scripts/download.test.js",
+    "test:install": "node scripts/test-install.js"
+  },
+  "files": [
+    "bin",
+    "scripts",
+    "skills",
+    "LICENSE",
+    "README.md",
+    "INSTALL.md"
+  ],
+  "os": [
+    "darwin",
+    "linux",
+    "win32"
+  ],
+  "cpu": [
+    "x64",
+    "arm64"
+  ],
+  "engines": {
+    "node": ">=16"
+  },
+  "keywords": [
+    "sensecap",
+    "sensecraft",
+    "seeed",
+    "cli",
+    "iot",
+    "ai"
+  ]
+}

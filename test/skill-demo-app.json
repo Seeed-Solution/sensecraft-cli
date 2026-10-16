@@ -1,0 +1,58 @@
+{
+  "app_name": "Skill体验测试应用",
+  "excerpt": "用 sensecraft-cli / sensecraft-apps skill 创建的测试应用，用于验证应用广场创建、文档块与 BOM 流程。",
+  "scene": "6",
+  "allow_clone": 1,
+  "allow_commerce": 0,
+  "license": "MIT",
+  "images": [
+    "https://files.seeedstudio.com/wiki/SeeedStudio-XIAO-ESP32S3/img/xiaoesp32s3sense.jpg"
+  ],
+  "deployment": {
+    "blocks": [
+      {
+        "id": "intro-1",
+        "type": "h2",
+        "content": "这是什么？"
+      },
+      {
+        "id": "intro-2",
+        "type": "paragraph",
+        "content": "本应用由 Cursor Agent 通过 sensecraft-apps skill 创建，演示应用广场的基本结构：简介、部署步骤与物料清单。"
+      },
+      {
+        "id": "step-1",
+        "type": "step",
+        "title": "准备硬件",
+        "expanded": true,
+        "content": "准备硬件"
+      },
+      {
+        "id": "step-1-p",
+        "type": "paragraph",
+        "content": "准备一块 Seeed Studio XIAO ESP32S3 Sense（或任意你常用的开发板），并确认已登录 SenseCraft Console 测试环境。"
+      },
+      {
+        "id": "step-2",
+        "type": "step",
+        "title": "打开应用并预览",
+        "expanded": true,
+        "content": "打开应用并预览"
+      },
+      {
+        "id": "step-2-p",
+        "type": "paragraph",
+        "content": "在 Console「我的应用」中打开本应用，检查封面、简介与部署步骤是否完整。真实烧录 / 部署属于 L3，需在浏览器内完成。"
+      }
+    ]
+  },
+  "materials": [
+    {
+      "id": "113991254",
+      "quantity": "1",
+      "name": "Seeed Studio XIAO ESP32S3 Sense",
+      "note": "示例主控",
+      "buy_url": "https://www.seeedstudio.com/"
+    }
+  ]
+}

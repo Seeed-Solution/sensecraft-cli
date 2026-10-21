@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 760">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#9fd4ee"/>
+      <stop offset="70%" stop-color="#e7f4fb"/>
+      <stop offset="100%" stop-color="#f7f4ee"/>
+    </linearGradient>
+    <linearGradient id="ground" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#d7e4c8"/>
+      <stop offset="100%" stop-color="#b7cba6"/>
+    </linearGradient>
+    <radialGradient id="body" cx="42%" cy="38%" r="62%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#d5e0ea"/>
+    </radialGradient>
+    <radialGradient id="belly" cx="50%" cy="40%" r="60%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#e7eef4"/>
+    </radialGradient>
+    <radialGradient id="head" cx="40%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#d7e2ec"/>
+    </radialGradient>
+    <radialGradient id="pouch" cx="40%" cy="30%" r="70%">
+      <stop offset="0%" stop-color="#ffe08a"/>
+      <stop offset="100%" stop-color="#e0a020"/>
+    </radialGradient>
+    <radialGradient id="beak" cx="20%" cy="40%" r="80%">
+      <stop offset="0%" stop-color="#ffd56a"/>
+      <stop offset="100%" stop-color="#e09a12"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="1100" height="760" fill="url(#sky)"/>
+  <ellipse cx="180" cy="120" rx="70" ry="22" fill="#ffffff" opacity="0.7"/>
+  <ellipse cx="230" cy="112" rx="46" ry="18" fill="#ffffff" opacity="0.7"/>
+  <rect x="0" y="560" width="1100" height="200" fill="url(#ground)"/>
+  <ellipse cx="540" cy="575" rx="420" ry="18" fill="#c9dcb8"/>
+
+  <g id="bike" fill="none" stroke="#2c3338" stroke-linecap="round" stroke-linejoin="round">
+    <g id="rear-wheel">
+      <circle cx="280" cy="520" r="112" stroke-width="14"/>
+      <circle cx="280" cy="520" r="18" fill="#2c3338" stroke="none"/>
+      <path d="M280 408 V632 M168 520 H392 M200 440 L360 600 M360 440 L200 600" stroke="#8b939c" stroke-width="3"/>
+    </g>
+    <g id="front-wheel">
+      <circle cx="780" cy="520" r="112" stroke-width="14"/>
+      <circle cx="780" cy="520" r="18" fill="#2c3338" stroke="none"/>
+      <path d="M780 408 V632 M668 520 H892 M700 440 L860 600 M860 440 L700 600" stroke="#8b939c" stroke-width="3"/>
+    </g>
+    <path d="M280 520 H500 L440 310 L660 345 L780 520" stroke-width="12"/>
+    <path d="M440 310 L500 520" stroke-width="12"/>
+    <path d="M660 345 L720 255" stroke-width="10"/>
+    <path d="M690 238 H800" stroke-width="10"/>
+    <path d="M400 300 H500" stroke-width="10"/>
+    <path d="M500 520 L460 590" stroke-width="8"/>
+    <path d="M500 520 L548 590" stroke-width="8"/>
+    <circle cx="460" cy="594" r="12" fill="#2c3338" stroke="none"/>
+    <circle cx="548" cy="594" r="12" fill="#2c3338" stroke="none"/>
+  </g>
+
+  <g id="pelican">
+    <ellipse cx="250" cy="250" rx="70" ry="28" fill="url(#body)" stroke="#243042" stroke-width="4" transform="rotate(-28 250 250)"/>
+    <ellipse cx="210" cy="230" rx="36" ry="16" fill="url(#body)" stroke="#243042" stroke-width="4" transform="rotate(-40 210 230)"/>
+    <ellipse cx="430" cy="268" rx="100" ry="62" fill="url(#body)" stroke="#243042" stroke-width="5"/>
+    <ellipse cx="455" cy="286" rx="58" ry="34" fill="url(#belly)"/>
+    <ellipse cx="470" cy="300" rx="48" ry="22" fill="#c5d2de" stroke="#243042" stroke-width="4" transform="rotate(-8 470 300)"/>
+    <ellipse cx="500" cy="210" rx="22" ry="18" fill="url(#body)" stroke="#243042" stroke-width="4"/>
+    <ellipse cx="545" cy="168" rx="20" ry="17" fill="url(#body)" stroke="#243042" stroke-width="4"/>
+    <ellipse cx="600" cy="138" rx="20" ry="17" fill="url(#body)" stroke="#243042" stroke-width="4"/>
+    <ellipse cx="655" cy="122" rx="22" ry="18" fill="url(#body)" stroke="#243042" stroke-width="4"/>
+    <ellipse cx="708" cy="118" rx="34" ry="30" fill="url(#head)" stroke="#243042" stroke-width="5"/>
+    <circle cx="722" cy="110" r="5.5" fill="#243042"/>
+    <circle cx="724" cy="108" r="2" fill="#ffffff"/>
+    <polygon points="734,126 960,142 738,156" fill="url(#beak)" stroke="#243042" stroke-width="4" stroke-linejoin="round"/>
+    <ellipse cx="820" cy="188" rx="78" ry="48" fill="url(#pouch)" stroke="#243042" stroke-width="4" transform="rotate(18 820 188)"/>
+    <path d="M410 320 C430 420 455 500 452 575" fill="none" stroke="#f28c28" stroke-width="10" stroke-linecap="round"/>
+    <path d="M470 325 C500 430 530 510 540 572" fill="none" stroke="#f28c28" stroke-width="10" stroke-linecap="round"/>
+    <ellipse cx="448" cy="586" rx="22" ry="10" fill="#f28c28" stroke="#243042" stroke-width="3"/>
+    <ellipse cx="546" cy="582" rx="22" ry="10" fill="#f28c28" stroke="#243042" stroke-width="3"/>
+  </g>
+</svg>

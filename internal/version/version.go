@@ -1,6 +1,8 @@
 // Package version exposes build metadata injected at link time.
 //
-// Release builds set these via -ldflags, e.g.
+// Release builds set these via -ldflags. script/build.sh reads
+// packages/cli/package.json "version" unless VERSION is already set.
+// A plain go build leaves Version as "dev" and does not check for updates.
 //
 //	go build -ldflags "-X sensecraft-cloud-terminal/internal/version.Version=1.2.3 \
 //	  -X sensecraft-cloud-terminal/internal/version.Commit=$(git rev-parse --short HEAD) \

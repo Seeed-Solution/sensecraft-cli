@@ -157,23 +157,32 @@ Copy-Item .\sensecraft.json "$env:APPDATA\sensecraft-cli\sensecraft.json"
 
 ## 5. 升级
 
+已通过 npm 安装时，直接运行：
+
 ```bash
-# 升级到最新
-npm install -g @seeed-studio/sensecraft-cli@latest
-# 或
-npx @seeed-studio/sensecraft-cli@latest install
+sensecraft-cli update
 ```
 
-安装器会比较 `vendor/.version` 与当前 npm 包版本：
+命令会查询 npm 上的最新版本，并执行 `npm install -g @seeed-studio/sensecraft-cli@<版本>`。安装器接着比较 `vendor/.version` 与新包版本，不一致就重新下载二进制。配置目录里的 Access Key 会保留。
 
-- **版本一致** → 复用已下载二进制  
-- **版本不同或缺少戳记** → 重新下载对应版本的二进制  
+其它用法：
+
+```bash
+sensecraft-cli update --check   # 只查询，不安装
+npm install -g @seeed-studio/sensecraft-cli@latest
+```
+
+平时使用其它命令时，如果缓存里发现了更新，结束时会在 stderr 提示运行 `sensecraft-cli update`。同一版本 24 小时内只提示一次，出现更新的版本会再提示。24 小时内不会重复访问 npm。本地 `dev` 构建、CI、以及设置了 `SENSECRAFT_CLI_NO_UPDATE_NOTIFIER` 时不提示。
+
+进行中的活动也在 stderr 以 `Notice:` 提醒，名称、日期和详情链接来自 `https://api-gateway.seeed.cc/openapi/activity/list`（不带参数，即尚未结束的活动）。24 小时内只提醒一次。交互终端会问 `Ignore this activity? [y/N]`，回答 `y` 之后按 `activity_id` 不再提醒；回答 `n` 时 24 小时后还会再出现。非交互只打印，不提问，也不记成忽略。CI 以及 `SENSECRAFT_CLI_NO_ACTIVITY_NOTIFIER` 时不提醒。
+
+当前程序如果不是 npm 安装的（例如直接运行编译出的二进制），`update` 只打印上面的手动安装命令，不会覆盖正在运行的文件。
 
 验证：
 
 ```bash
 sensecraft-cli --version
-# 应与 npm 包版本一致，例如 0.1.3
+# 应与 npm 包版本一致
 ```
 
 ---

@@ -5,7 +5,7 @@ description: >-
   view tech metadata (task, format, classes, devices), download, upload, publish/
   unpublish, delete. Use when the user mentions 模型库, Model Library, upload model,
   download model, model classes/labels, or CodeCraft model invoke links.
-  Requires Access Key (`auth init --kind sensecap`). Not for SenseCAP telemetry or App Plaza clone.
+  Requires Access Key (`auth init --kind sensecap`). Not for SenseCAP telemetry or SenseCraft apps.
 ---
 
 # SenseCraft Models (Model Library)
@@ -35,7 +35,7 @@ Library `model download` is the published model file, not a training-job export.
    - **Delete** only when `be_public=0` (Console hides delete for published/under-review). Unpublish first.
 4. Model **publish** API uses `status: 1` (to public library) / `status: 0` (privatize) — **different from apps** (`privacy` 2/0). Do not mix.
 5. **Public models are deploy-only.** For public / under-review models (`be_public≠0`):
-   - **Do not clone** — the platform has no model clone (unlike `app clone`). Do not copy `model view` JSON into `model create` (including `id` / `model_id` / `from_id` / `file_url` / checksum). CLI `model create` refuses public-library sources. Tell the user to **deploy** instead.
+   - **Do not copy a public model into My Models.** Do not copy `model view` JSON into `model create` (including `id` / `model_id` / `from_id` / `file_url` / checksum). CLI `model create` refuses public-library sources. Tell the user to **deploy** instead.
    - **Do not download.** Phrases like 下载地址 / 下载链接 / `file_url` / download URL / 怎么下载 / 给我链接 are the **same leak** as `model download --url-only`. Do **not** run `model download` (`--apply` / `--url-only` included).
    - Do **not** print, quote, or reconstruct `file_url`, `apply_model` URLs, CDN/OSS paths, or signed query strings — even if they appear in a tool error, browser, or prior message.
    - Answer the **method**, not an address: browse metadata, then deploy so the device pulls firmware at apply time (`cloud deploy` for Jetson/`26`, or classic reCamera `40` via [`sensecraft-recamera`](../sensecraft-recamera/SKILL.md)).

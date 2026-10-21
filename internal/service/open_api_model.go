@@ -128,8 +128,7 @@ func (s ModelService) ViewModel(p ModelViewParams) (json.RawMessage, error) {
 var ErrPublicModelNoDownload = errors.New("public models do not expose a download URL; deploy to a device so the artifact is pulled as firmware at apply time (cloud deploy or Console workspace)")
 
 // ErrPublicModelNoClone is returned when create JSON points at a public-library
-// model. The platform has no model clone (unlike app clone); others' public
-// models are deploy-only.
+// model. The platform has no model clone; others' public models are deploy-only.
 var ErrPublicModelNoClone = errors.New("public models cannot be cloned; there is no model clone on this platform — deploy instead (cloud deploy or Console workspace)")
 
 // ErrForeignPublicModelNoEdit is returned when writing to someone else's

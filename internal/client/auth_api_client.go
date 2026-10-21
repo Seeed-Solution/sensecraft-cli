@@ -77,6 +77,7 @@ func (c *AuthAPIClient) doAbsolute(method, urlStr string, body any, bearerToken 
 	if err != nil {
 		return 0, err
 	}
+	req.Header.Set("sensecraft-cli-version", cliVersion())
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json; charset=utf-8")
 	}

@@ -10,7 +10,6 @@ import (
 
 	"sensecraft-cloud-terminal/internal/config"
 	"sensecraft-cloud-terminal/internal/enum"
-	"sensecraft-cloud-terminal/internal/uploadguard"
 )
 
 // AIAPIError is a SenseCraft AI (/openapi) business error.
@@ -36,6 +35,7 @@ type AIApiClient struct {
 	basicAuth   bool
 	accessKeyOK bool
 	sandbox     bool
+	hostErr     error
 }
 
 // NewAIApiClientAt points AI calls at an explicit base URL (no /openapi suffix added).
@@ -45,9 +45,12 @@ func NewAIApiClientAt(baseURL string, httpClient *http.Client) *AIApiClient {
 }
 
 // NewAIApiClientAccessKey calls AI routes under /openapi with SenseCAP Access Key Basic auth.
-// Host follows the SenseCraft AI site for the selected remote type, not the SenseCAP OpenAPI host.
+// Host is SENSECRAFT_AI_HOST when set, otherwise the SenseCraft AI site for the remote type.
 func NewAIApiClientAccessKey(cfg config.AccessApiConfig, sandbox bool) *AIApiClient {
-	host := enum.ResolveAIServerHost(cfg.RemoteType)
+	host, hostErr := enum.EffectiveAIHost(cfg.RemoteType)
+	if hostErr != nil {
+		host = enum.ResolveAIServerHost(cfg.RemoteType)
+	}
 	keyID := strings.TrimSpace(cfg.KeyId)
 	accessKey := strings.TrimSpace(cfg.AccessKey)
 	base := NewBaseClient(
@@ -60,10 +63,14 @@ func NewAIApiClientAccessKey(cfg config.AccessApiConfig, sandbox bool) *AIApiCli
 		basicAuth:   true,
 		accessKeyOK: keyID != "" && accessKey != "",
 		sandbox:     sandbox,
+		hostErr:     hostErr,
 	}
 }
 
 func (c *AIApiClient) ensureAccessKey() error {
+	if c.hostErr != nil {
+		return c.hostErr
+	}
 	if !c.basicAuth {
 		return nil
 	}
@@ -83,12 +90,6 @@ func (c *AIApiClient) Base() *BaseClient {
 func (c *AIApiClient) Get(path string, query url.Values) (json.RawMessage, error) {
 	if err := c.ensureAccessKey(); err != nil {
 		return nil, err
-	}
-	// Interface-layer rate limit for OSS pre-sign (acquire_file_url).
-	if !c.sandbox && strings.Contains(path, "acquire_file_url") {
-		if err := uploadguard.AllowUpload("oss"); err != nil {
-			return nil, err
-		}
 	}
 	raw, err := c.base.Get(path, query)
 	if err != nil {

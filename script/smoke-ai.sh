@@ -67,7 +67,6 @@ echo '{"materials":[{"id":"113991254","name":"XIAO ESP32S3 Sense","quantity":"1"
 run app bom set --id a1 --from-json "$BOMJSON" --yes --sandbox
 rm -f "$BOMJSON"
 
-run app clone --id a1 --name SmokeClone --agree-disclaimer --yes --sandbox
 run app publish --id a1 --agree-declaration --yes --sandbox
 run app unpublish --id a1 --yes --sandbox
 run app delete --id a1 --yes --sandbox
@@ -104,9 +103,6 @@ must_fail app publish --id sandbox-review-1 --agree-declaration --yes --sandbox
 must_fail app update --id public-1 --from-json "$PUBJSON" --yes --sandbox
 # Console warrantyAccepted: --yes alone is not enough for publish
 must_fail app publish --id a1 --yes --sandbox
-# Console CloneAppConfirmDialog: --yes alone is not enough for clone
-must_fail app clone --id public-1 --name SmokePlazaClone --yes --sandbox
-run app clone --id public-1 --name SmokePlazaClone --agree-disclaimer --yes --sandbox
 rm -f "$PUBJSON"
 
 run model list --public --sandbox
@@ -262,7 +258,6 @@ GATEJSON="$(mktemp)"
 echo '{"app_name":"SmokeApp"}' >"$GATEJSON"
 needs_yes app delete --id a1 --sandbox
 needs_yes app update --id a1 --from-json "$GATEJSON" --sandbox
-needs_yes app clone --id a1 --sandbox
 needs_yes app publish --id a1 --agree-declaration --sandbox
 needs_yes app unpublish --id a1 --sandbox
 needs_yes app bom set --id a1 --from-json "$GATEJSON" --sandbox

@@ -11,6 +11,8 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"sensecraft-cloud-terminal/internal/version"
 )
 
 var ErrSandboxMode = errors.New("sandbox mode: no real request sent")
@@ -32,6 +34,9 @@ type RequestOption func(*http.Request)
 func WithBasicAuth(username, password string) RequestOption {
 	return func(req *http.Request) {
 		req.SetBasicAuth(username, password)
+		if id := strings.TrimSpace(username); id != "" {
+			req.Header.Set("sensecraft-cli-accessid", id)
+		}
 	}
 }
 
@@ -115,6 +120,7 @@ func (c *BaseClient) Do(method, path string, query url.Values, body any, opts ..
 	if err != nil {
 		return nil, err
 	}
+	req.Header.Set("sensecraft-cli-version", cliVersion())
 
 	for _, opt := range c.defaultOpts {
 		opt(req)
@@ -153,4 +159,12 @@ func (c *BaseClient) Post(path string, body any, opts ...RequestOption) ([]byte,
 
 func (c *BaseClient) PostQuery(path string, query url.Values, opts ...RequestOption) ([]byte, error) {
 	return c.Do(http.MethodPost, path, query, nil, opts...)
+}
+
+func cliVersion() string {
+	v := strings.TrimSpace(version.Version)
+	if v == "" {
+		v = "dev"
+	}
+	return v
 }

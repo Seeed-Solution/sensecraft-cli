@@ -1,6 +1,6 @@
 # L2 confirmation protocol (mandatory)
 
-`--yes` / `--agree-declaration` / `--agree-disclaimer` mean **the user already answered a confirmation question in this conversation**. They are not shortcuts.
+`--yes` / `--agree-declaration` mean **the user already answered a confirmation question in this conversation**. They are not shortcuts.
 
 ## First user request is INTENT, not confirmation
 
@@ -8,13 +8,13 @@ These are **not** confirmation. Do **not** pass `--yes` on the same turn:
 
 - 「删这个63760」「删除应用 demo」「把模型下架」「发布这个模型」
 - 「delete this」「unpublish」「deploy to the device」
-- Any first mention of create / modify / clone / publish / unpublish / delete / deploy / stop / bind / unbind
+- Any first mention of create / modify / publish / unpublish / delete / deploy / stop / bind / unbind
 
 ## Required chat question (before any L2 CLI)
 
 Ask in chat. **Do not run** the write command yet. The question MUST include at least:
 
-1. **操作类型** — 删除 / 发布 / 私有化 / 部署 / 停止 / 克隆 / 修改 / 绑定 / …
+1. **操作类型** — 删除 / 发布 / 私有化 / 部署 / 停止 / 修改 / 绑定 / …
 2. **环境** — `auth info` 的 Global / China（生产环境须点明）
 3. **对象** — 名称 + ID（没有名称就先 `view` / `list` 再问）
 
@@ -53,4 +53,4 @@ sensecraft-cli model delete --id 63760 --yes
 
 ## After the user confirms
 
-Then pass `--yes` (and `--agree-declaration` / `--agree-disclaimer` only if they also agreed to that legal text).
+Then pass `--yes` (and `--agree-declaration` only if they also agreed to that legal text).

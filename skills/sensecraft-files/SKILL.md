@@ -30,7 +30,7 @@ Auth: **Access Key** → `{ai-host}/openapi`. Parent: [`../sensecraft-ai/SKILL.m
 6. Upload alone is not L2; attaching to a model/app (`--id` / `--model-id` / `--app-id`) **is L2**. Follow [`../confirmation.md`](../confirmation.md): ask first, wait for `确认`, then `--yes`. Never pass `--yes` on the same turn as the first request. `--unlinked` is an explicit orphan opt-in (not L2).
 7. Do not pass oversized files or more than 16 app image URLs; CLI rejects them before upload/update.
 8. Types `3`–`6` have no model/app attach path and upload directly (no `--unlinked` needed).
-9. **Security gates**: empty (0 B) files rejected; type 2–6 ≤ **100 MB**; images 2 MB (model) / 5 MB (app). Upload rate limited to **8 / 10s** and **30 / minute** (client `acquire_file_url`).
+9. **Security gates**: empty (0 B) files rejected; type 2–6 ≤ **100 MB**; images 2 MB (model) / 5 MB (app). Upload frequency is enforced by the server, not this CLI.
 
 ## Examples
 

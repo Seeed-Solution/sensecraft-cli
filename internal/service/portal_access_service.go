@@ -34,7 +34,10 @@ func GetUserOrgInfo(ctx context.Context, remoteType, accessToken string, sandbox
 		}, nil
 	}
 
-	api := newPortalAPIClient(remoteType)
+	api, err := newPortalAPIClient(remoteType)
+	if err != nil {
+		return nil, err
+	}
 	var info UserOrgInfo
 	if _, err := api.GetJSON("/api/v1/user/getUserOrgInfo", nil, accessToken, &info); err != nil {
 		return nil, err
@@ -47,7 +50,10 @@ func ListAccessKeys(ctx context.Context, remoteType, accessToken string, sandbox
 		return []AccessKeyItem{}, nil
 	}
 
-	api := newPortalAPIClient(remoteType)
+	api, err := newPortalAPIClient(remoteType)
+	if err != nil {
+		return nil, err
+	}
 	var list []AccessKeyItem
 	if _, err := api.GetJSON("/api/v1/user/access/getAccessList", nil, accessToken, &list); err != nil {
 		return nil, err
@@ -66,7 +72,10 @@ func CreateAccessKey(ctx context.Context, remoteType, accessToken, label, access
 		}, nil
 	}
 
-	api := newPortalAPIClient(remoteType)
+	api, err := newPortalAPIClient(remoteType)
+	if err != nil {
+		return nil, err
+	}
 	body := map[string]string{
 		"label":       label,
 		"accessLevel": accessLevel,
@@ -90,6 +99,10 @@ func CreateAccessKey(ctx context.Context, remoteType, accessToken, label, access
 	return nil, errors.New("Access Key was created but not found in the list; please try again later")
 }
 
-func newPortalAPIClient(remoteType string) *client.AuthAPIClient {
-	return client.NewAuthAPIClient(portalAPIBase(remoteType))
+func newPortalAPIClient(remoteType string) (*client.AuthAPIClient, error) {
+	base, err := portalAPIBase(remoteType)
+	if err != nil {
+		return nil, err
+	}
+	return client.NewAuthAPIClient(base), nil
 }

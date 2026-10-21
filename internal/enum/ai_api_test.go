@@ -12,4 +12,10 @@ func TestResolveAIServerHost(t *testing.T) {
 	if got := ResolveAIServerHost(""); got != DomainNameAIServerGlobal {
 		t.Fatalf("default=%s", got)
 	}
+	if DomainNameAIServerGlobal != "https://api-gateway.seeed.cc" || DomainNameAIServerChina != "https://api-gateway.seeed.cc" {
+		t.Fatalf("AI API host global=%s china=%s", DomainNameAIServerGlobal, DomainNameAIServerChina)
+	}
+	if DomainNameAIConsole != "https://sensecraft.seeed.cc" {
+		t.Fatalf("console host=%s", DomainNameAIConsole)
+	}
 }

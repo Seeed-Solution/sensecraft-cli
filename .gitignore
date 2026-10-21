@@ -5,9 +5,15 @@ sensecraft.json
 
 # Build output
 /dist/
+/sensecraft-image/
 /sensecraft-cli
 /sensecraft-cli.exe
 *.test
+
+# Local OSS upload helper (not part of the public repo)
+script/upload-oss.py
+script/release-local.sh
+/develop_doc.md
 
 # Local credential / config files — never commit real keys or tokens
 config.local.json
@@ -15,6 +21,9 @@ config.local.json
 .env
 .env.*
 !.env.example
+
+# IDE
+.idea/
 
 # macOS
 .DS_Store
@@ -27,6 +36,3 @@ packages/cli/LICENSE
 packages/cli/README.md
 packages/cli/INSTALL.md
 packages/cli/node_modules/
-
-# Local upload rate-limit ledger (CLI security gate)
-sensecraft-upload-rate.json

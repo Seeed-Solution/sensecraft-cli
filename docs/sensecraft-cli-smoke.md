@@ -36,8 +36,7 @@ export SENSECRAFT_CONFIG_FILE=/tmp/sensecraft-smoke.json
 |------|------|-------------|----------|
 | S4 | `auth info` | `sensecraft-cli auth info` | 展示 Site / Org / Key ID，不打印密钥 |
 | S5 | sandbox 只读 | `device list --sandbox`<br>`app list --sandbox`<br>`model list --sandbox` | 均为合法缩进 JSON，退出 0 |
-| S6 | L2 门禁 | 下列命令**不传** `--yes`：<br>`app clone --id 1`<br>`model publish --id 1`<br>`cloud deploy --eui x --model-id 1` | 均非 0，提示需确认（sandbox 配置亦可） |
-| S6b | clone 免责声明 | `app clone --id 1 --yes`（无 `--agree-disclaimer`） | 非 0；提示 Disclaimer URL |
+| S6 | L2 门禁 | 下列命令**不传** `--yes`：<br>`app delete --id 1`<br>`model publish --id 1`<br>`cloud deploy --eui x --model-id 1` | 均非 0，提示需确认（sandbox 配置亦可） |
 | S9 | 未登录 | 空配置时 `app list` | 非 0，提示 `auth init` |
 
 ---
@@ -66,7 +65,8 @@ sensecraft-cli cloud device list --uniform-type 26
 - [ ] S1–S3（+ S3b）通过  
 - [ ] S4–S6、S9 抽查通过  
 - [ ] （若发 AI 相关版本）S7–S8、S10 + 清理  
-- [ ] `packages/cli/package.json` version 与即将打的 tag 一致  
+- [ ] `packages/cli/package.json` version 与即将打的 tag 一致
+- [ ] `sensecraft-cli update --check` 能查到 npm 上的版本（不要求当场升级）  
 - [ ] Skills 已 `script/sync-skills-to-npm.sh`（若改了 skills）  
 - [ ] CHANGELOG / PR 描述已写清行为变更  
 

@@ -12,8 +12,8 @@ import (
 // Console AI SPA is served under /ai/ in production (routerBase).
 const consoleAIPathPrefix = "/ai"
 
-func consoleAIOrigin(remoteType string) string {
-	return strings.TrimSuffix(enum.ResolveAIServerHost(remoteType), "/")
+func consoleAIOrigin(string) string {
+	return strings.TrimSuffix(enum.DomainNameAIConsole, "/")
 }
 
 // ModelDetailConsoleURL matches Console post-create navigation:
@@ -95,7 +95,7 @@ func extractModelID(raw json.RawMessage) string {
 	return ""
 }
 
-// attachConsoleURL merges console_url (and normalized id) into an API create/clone payload.
+// attachConsoleURL merges console_url (and normalized id) into an API create payload.
 // Bare string ids become {"model_id"|"app_id": id, "console_url": …, "data": id}.
 func attachConsoleURL(raw json.RawMessage, idKey, id, consoleURL string) json.RawMessage {
 	if id == "" || consoleURL == "" {

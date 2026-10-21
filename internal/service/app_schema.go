@@ -15,6 +15,7 @@ func AppFieldsSchema() json.RawMessage {
 			{"field": "license", "type": "text", "required": false},
 			{"field": "be_public", "type": "lifecycle", "values": map[string]string{"0": "private", "1": "public(ops)", "2": "pending_review"}, "notes": "Agent submit review uses privacy=2; never send 1"},
 			{"field": "app_id", "type": "id", "required_on_update": true},
+			{"field": "activity_id", "type": "id", "required": false, "notes": "positive integer; omit or blank leaves existing activity tags unchanged. tags is ignored and is not sent"},
 			{"field": "author", "type": "text", "required": false, "notes": "recommended on save"},
 		},
 		"materials": map[string]any{
@@ -56,11 +57,18 @@ func AppBlocksCatalog() json.RawMessage {
 		},
 		"tool_blocks": []map[string]any{
 			{
-				"type":        "flash-firmware",
-				"priority":    "high",
-				"when":        "Burn firmware image to a supported board",
-				"execute":     "L3",
-				"config_keys": []string{"device_id", "device_type", "firmware_url", "firmware_size"},
+				"type":     "flash-firmware",
+				"priority": "high",
+				"when":     "Burn firmware image to a supported board",
+				"execute":  "L3",
+				"config_keys": []string{
+					"device_id", "device_type", "flash_mode",
+					"firmware_url", "firmware_name", "firmware_size",
+					"flash_address",
+					"project_zip_url", "project_zip_name", "project_zip_size", "precheck_fields",
+					"muse_gadget",
+				},
+				"notes": "Flat fields on the block, not nested in config. device_id is a material SKU string, not a production type id. device_type is uniform_type or empty. flash_mode is bin or zip. firmware_size and project_zip_size are strings. flash_address is 0x0, 0x4000, 0x10000, or 0x90000; write the device default. zip fields only when flash_mode is zip. muse_gadget is boolean, default false; a missing field is false; \"true\" and 1 are read as true. true is kept only for Indicator 114993068 (D1S/D1L/D1Pro aliases on the same row), Watcher 113991315/113991275, E1001 100073581, E1002 100017057, 1.47-inch touch 100069905, and Sticky 100056818. When true, firmware_url must be muse-gadget.bin linked at 0x20000, and flash_address stays the device default (do not write 0x20000). Do not write an SDK token, flash_target, flash_address_adapted, or bootloader/partition/OTA/PHY files. Segment layout is documentation only. Running the flash stays L3.",
 			},
 			{
 				"type":     "deploy-ai-model",
@@ -81,10 +89,10 @@ func AppBlocksCatalog() json.RawMessage {
 			{
 				"type":        "deploy-container-app",
 				"priority":    "high",
-				"when":        "Edge container app deploy UX in docs (not App Plaza clone)",
+				"when":        "Edge container app deploy UX in docs",
 				"execute":     "L3",
 				"config_keys": []string{},
-				"notes":       "Container install is not App Plaza clone; use Console when the CLI has no container control",
+				"notes":       "Container install is not a CLI command; use Console when the CLI has no container control",
 			},
 			{
 				"type":        "node-red",

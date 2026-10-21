@@ -32,7 +32,7 @@
 
 | `remote_type` | SenseCAP OpenAPI            | AI `/openapi`                 |
 | ------------- | --------------------------- | ----------------------------- |
-| Global        | `sensecap.seeed.cc/openapi` | `sensecraft.seeed.cc/openapi` |
+| Global        | `sensecap.seeed.cc/openapi` | `api-gateway.seeed.cc/openapi` |
 | China         | `sensecap.seeed.cn/openapi` | 同 Global AI host             |
 
 同一把 Access Key 打 SenseCAP OpenAPI 和 SenseCraft AI `/openapi`（HTTP Basic）。China 与 Global 的 AI host 相同，账号 AuthAPI 走 `.cn`。
@@ -81,7 +81,7 @@
 | S3   | `script/smoke-ai.sh`                                                                  | 退出 0                                              |
 | S4   | `auth info`                                                                           | 展示 Access Key 的 Site / Org / Key ID，不打印密钥 |
 | S5   | `device list --sandbox` + `app list --sandbox` + `model list --sandbox`               | 均为合法 JSON                                       |
-| S6   | L2 缺 `--yes`：`app clone` / `model publish` / `cloud deploy` / `device unbind` / `group delete` | 均非 0，提示需确认                                  |
+| S6   | L2 缺 `--yes`：`app delete` / `model publish` / `cloud deploy` / `device unbind` / `group delete` | 均非 0，提示需确认                                  |
 | S7   | `app create --name …`（真实或 sandbox）                                               | stdout 含可用 `app_id`（即使后端 update 返回 `{}`） |
 | S8   | 稀疏 `app update` 仅改名                                                              | `view --sketch` 新名称生效，其它 info 字段未丢      |
 
@@ -227,9 +227,6 @@
 | APP-W02  | create from-json 全量            | 准备 JSON                        | `app create --from-json …`                                           | 非 L2；一次创建成功                                                     |
 | APP-W03  | create 后端 update 返回 `{}`     | 可复现环境                       | create 后内部 follow-up update                                       | CLI **仍保留** app_id，不丢身份                                         |
 | APP-W04  | 禁止 blind-retry                 | create 输出异常                  | **先** `app list --mine --name …`                                    | 不二次盲目 create；避免重复应用                                         |
-| APP-W05  | clone 需 --yes                   | 公开可 clone                     | 无 `--yes`                                                           | 非 0 confirmation required                                              |
-| APP-W05b | clone 需免责声明                 | 公开可 clone                     | 仅 `--yes`、无 `--agree-disclaimer`                                  | 非 0；提示 Disclaimer URL（同 Console disclaimerAccepted）              |
-| APP-W06  | clone 成功                       | 用户已确认声明                   | `app clone --id … [--name] --agree-disclaimer --yes`                 | 我的应用出现副本                                                        |
 | APP-W07  | update 需 --yes                  | 已有 app                         | 无 `--yes`                                                           | 非 0                                                                    |
 | APP-W08  | 稀疏改名 merge                   | 已有完整 info                    | `echo '{"app_name":"New"}' \| app update --id … --from-json - --yes` | 新名称生效；excerpt/scene/images 等未清空                               |
 | APP-W08b | 空 app_name                      | —                                | update/create JSON `app_name:""`                                     | 非 0；`app_name is required`                                            |
@@ -246,7 +243,7 @@
 | APP-W16  | 已发布可编辑                     | `be_public=1` 自己的应用         | `app update --yes`                                                   | 成功；stdout `sketch_saved`；CLI 发 `be_public=1`；广场未改直到 publish |
 | APP-W17  | 审核中锁定                       | `be_public=2`                    | update / bom set / cover                                             | 拒绝（同 Console `isAppLockedForEditing`）                              |
 | APP-W18  | 发布草稿                         | 已发布 + 草稿                    | `app publish --agree-declaration --yes`                              | 同 Console publishDraft（`privacy=2`）；`draft_publish`                 |
-| APP-W19  | 他人应用不可编辑                 | 广场别人的 app                   | update / publish / delete / bom                                      | 拒绝；clone 仍允许                                                      |
+| APP-W19  | 他人应用不可编辑                 | 广场别人的 app                   | update / publish / delete / bom                                      | 拒绝                                                                    |
 | APP-W14  | update 成功体可能 `{}`           | —                                | update 后                                                            | **必须** `app view --id --sketch` 复核                                  |
 | APP-W15  | name 非唯一                      | 同名已存在                       | 再 create 同名                                                       | 允许成功（新 id）；Agent 不得当失败重试                                 |
 
@@ -317,7 +314,6 @@
 | FIL-01e2 | 图片 >2MB（模型示例）  | 本地 >2MB 图         | `file upload --type 1 --unlinked`                             | 非 0；对齐 Console model pic_url max-size=2  |
 | FIL-01f  | 非图 >100MB            | 本地大文件           | `file upload --type 2 --unlinked`                             | 非 0；对齐 Console 100MB                     |
 | FIL-01f2 | 空文件 0B              | 本地 0 字节          | `file upload --unlinked` / `model upload --unlinked`          | 非 0；拒绝空文件                             |
-| FIL-01f3 | 上传频率限制           | 短时大量 acquire     | 连续 >8 次 / 10s                                              | 非 0；`ErrRateLimited`                       |
 | FIL-01g  | 应用图 >16 张          | from-json 含 17+ URL | `app update --from-json` / attach                             | 非 0；对齐 Console maxImageCount=16          |
 | FIL-02   | type 1 图片            | —                    | `--type 1`                                                    | 可供 app images[]；扩展名限 JPG/PNG/GIF/WebP |
 | FIL-03   | type 3–6               | —                    | 分别上传                                                      | 类型与用途匹配                               |
@@ -361,7 +357,7 @@
 | REC-06  | open 打开部署页    | check 通过   | `recamera open --model-id …`                                 | 打开模型详情；用户点部署；IP/USB；**不** `cloud deploy`          |
 | REC-07  | open --print-only  | —            | `--print-only`                                               | 只打印 URL，不打开浏览器                                         |
 | REC-08  | 公开模型不下载     | 公开 40 模型 | `model download` / 索要 file_url                             | 拒绝；引导 `recamera open`                                       |
-| REC-09  | 公开模型不克隆     | 公开 40 模型 | `model create` 抄 view                                       | 拒绝；应用可 `app clone`（L2）                                   |
+| REC-09  | 公开模型不克隆     | 公开 40 模型 | `model create` 抄 view                                       | 拒绝；公开模型只部署                                             |
 | REC-10  | 无设备/IP          | 无板子       | 用户要烧录                                                   | 仍给 Console 链接并停止；不编造设备协议                          |
 | REC-11  | 与 Pro/Grove 隔离  | —            | `/ai/recamera` 或 `uniform_type 53`                          | 不把 40 与 53/36 当成同一设备                                    |
 | REC-12  | sandbox            | —            | `recamera check/open --sandbox`                              | 样例 JSON；open 不打开浏览器                                     |
@@ -375,7 +371,7 @@
 | ---- | --------------------------- | ------------ | ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
 | X-01 | 先 auth info                | Agent        | 任何云调用前                                                                              | 必须先检查 auth                                                                     |
 | X-02 | 不代跑 auth init            | Agent        | 缺凭证                                                                                    | 只指导用户本地执行                                                                  |
-| X-03 | L2 不擅自 --yes / 协议 flag | Agent        | 用户第一句「删这个63760」/ clone/publish/delete/deploy                                    | **先问**（操作类型+环境+ID），等「确认」再 `--yes`；同轮不带 yes；clone 不传 `--agree-disclaimer`；publish 不传 `--agree-declaration` |
+| X-03 | L2 不擅自 --yes / 协议 flag | Agent        | 用户第一句「删这个63760」/ publish/delete/deploy                                          | **先问**（操作类型+环境+ID），等「确认」再 `--yes`；同轮不带 yes；publish 不传 `--agree-declaration` |
 | X-04 | 密钥不回显                  | 全程         | 日志/回复                                                                                 | 无完整 access_token / access_key                                                    |
 | X-05 | 成功只解析 stdout JSON      | —            | 混合 stderr 进度                                                                          | 仅成功时 parse stdout                                                               |
 | X-06 | 术语：应用                  | —            | 「应用」无额外上下文                                                                      | 默认应用广场                                                                        |
@@ -424,7 +420,7 @@
 2. **鉴权**：AUTH-I\* → AUTH-A\*；（有条件再 AUTH-N\*）
 3. **SenseCAP 只读** → 可控写（测试组/测试设备）
 4. **AI 只读** app/model/constants
-5. **AI 写**：create 保 id → 稀疏 update → clone/publish/unpublish → delete 清理
+5. **AI 写**：create 保 id → 稀疏 update → publish/unpublish → delete 清理
 6. **file/model upload 关联**（`--id`/`--model-id`/`--app-id --yes`）→ 新建才走 `--unlinked` + `model create`；裸 upload 必须失败
 7. **cloud**（有设备再跑 L2）
 8. **跨域 X-08 + 消歧抽查**

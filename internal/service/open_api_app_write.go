@@ -17,9 +17,6 @@ import (
 // AppPublishDeclarationURL is the English Publish Declaration (Console warranty link).
 const AppPublishDeclarationURL = "https://sensecraft.seeed.cc/legal/en/declaration"
 
-// AppCloneDisclaimerURL is the English Disclaimer for Use (Console CloneAppConfirmDialog).
-const AppCloneDisclaimerURL = "https://sensecraft.seeed.cc/legal/en/disclaimer"
-
 // ErrConfirmRequired is returned for L2 write ops when --yes is missing
 // and there was no interactive TTY confirm. Agents must ask in chat first
 // (操作类型 + 环境 + 对象 ID); the user's first request is not confirmation.
@@ -33,14 +30,6 @@ var ErrDeclarationRequired = errors.New(
 		" (submitting for review locks editing until review finishes)",
 )
 
-// ErrCloneDisclaimerRequired matches Console CloneAppConfirmDialog disclaimerAccepted.
-// Agreement is client-side only (API body stays app_id + app_name); see legal URL in the error.
-var ErrCloneDisclaimerRequired = errors.New(
-	"clone disclaimer agreement required: re-run with --agree-disclaimer after the user has read and agreed to " +
-		AppCloneDisclaimerURL +
-		" (Console: 我已阅读并同意 使用免责声明)",
-)
-
 // ErrAppLockedUnderReview matches Console isAppLockedForEditing (be_public=2).
 var ErrAppLockedUnderReview = errors.New("app is under review (be_public=2); Console locks editing — wait for review or unpublish first")
 
@@ -48,8 +37,7 @@ var ErrAppLockedUnderReview = errors.New("app is under review (be_public=2); Con
 var ErrPublishedAppNoDelete = errors.New("published or under-review apps cannot be deleted; unpublish first")
 
 // ErrForeignAppNoEdit matches Console isMyApp / list.vue user_id == user_id.
-// Clone remains allowed for others (if the platform allows clone).
-var ErrForeignAppNoEdit = errors.New("cannot edit another user's app; clone to My Apps first (if allow_clone), then edit the clone")
+var ErrForeignAppNoEdit = errors.New("cannot edit another user's app")
 
 // AppSketchSaveHint is returned when updating a published app (plaza copy unchanged).
 const AppSketchSaveHint = "published app was saved as a draft (sketch); plaza listing is unchanged until: sensecraft-cli app publish --id <app_id> --agree-declaration --yes"
@@ -93,60 +81,6 @@ func requireAgreeDeclaration(agree bool) error {
 		return ErrDeclarationRequired
 	}
 	return nil
-}
-
-func requireAgreeDisclaimer(agree bool) error {
-	if !agree {
-		return ErrCloneDisclaimerRequired
-	}
-	return nil
-}
-
-type AppCloneParams struct {
-	AppID           string
-	Name            string // optional; default Clone_<source app_name>
-	Yes             bool
-	AgreeDisclaimer bool // required (Console CloneAppConfirmDialog disclaimerAccepted)
-}
-
-func (s AppService) CloneApp(p AppCloneParams) (json.RawMessage, error) {
-	if err := requireYes(p.Yes); err != nil {
-		return nil, err
-	}
-	if err := requireAgreeDisclaimer(p.AgreeDisclaimer); err != nil {
-		return nil, err
-	}
-	if strings.TrimSpace(p.AppID) == "" {
-		return nil, fmt.Errorf("--id is required")
-	}
-
-	name := strings.TrimSpace(p.Name)
-	body := map[string]any{
-		"app_id": p.AppID,
-	}
-
-	if name == "" {
-		view, err := s.ViewApp(AppViewParams{AppID: p.AppID, ViewSketch: false})
-		if err != nil {
-			return nil, err
-		}
-		srcName := extractAppString(view, "app_name")
-		name = "Clone_" + truncateRunes(srcName, 54)
-		if excerpt := extractAppString(view, "excerpt"); excerpt != "" {
-			body["excerpt"] = excerpt
-		}
-	}
-	body["app_name"] = name
-
-	data, err := s.client.Post(enum.AIApiPathAppClone, body)
-	if err != nil {
-		if errors.Is(err, client.ErrSandboxMode) {
-			data = sandboxAppClone(p.AppID, name)
-		} else {
-			return nil, err
-		}
-	}
-	return s.withAppConsoleURL(data), nil
 }
 
 type AppPrivacyParams struct {
@@ -374,6 +308,10 @@ type AppUpdateParams struct {
 	AppID    string
 	FromJSON string
 	Yes      bool
+	// ActivitySet is true when --activity-id was passed. An empty ActivityID
+	// omits the field so the server leaves existing activity tags unchanged.
+	ActivitySet bool
+	ActivityID  string
 }
 
 // appInfoMergeKeys are Console infoForm fields. aiserver often no-ops sparse
@@ -392,9 +330,20 @@ func (s AppService) UpdateApp(p AppUpdateParams) (json.RawMessage, error) {
 	if strings.TrimSpace(p.AppID) == "" {
 		return nil, fmt.Errorf("--id is required")
 	}
-	body, err := LoadJSONObject(p.FromJSON)
-	if err != nil {
-		return nil, err
+	fromJSON := strings.TrimSpace(p.FromJSON)
+	if fromJSON == "" && !p.ActivitySet {
+		return nil, fmt.Errorf("provide --from-json and/or --activity-id")
+	}
+	body := map[string]any{}
+	if fromJSON != "" {
+		loaded, err := LoadJSONObject(fromJSON)
+		if err != nil {
+			return nil, err
+		}
+		body = loaded
+	}
+	if p.ActivitySet {
+		body["activity_id"] = strings.TrimSpace(p.ActivityID)
 	}
 	return s.applyAppPatch(p.AppID, body, false)
 }
@@ -462,6 +411,10 @@ func (s AppService) applyAppPatch(appID string, body map[string]any, allowMissin
 	if err := validateAppInfoPatch(body); err != nil {
 		return nil, err
 	}
+	tagsDropped, err := normalizeAppActivityID(body)
+	if err != nil {
+		return nil, err
+	}
 	if scene := stringFromMap(body, "scene"); scene != "" {
 		if err := s.validateAppSceneID(scene); err != nil {
 			return nil, err
@@ -505,14 +458,80 @@ func (s AppService) applyAppPatch(appID string, body map[string]any, allowMissin
 			return nil, err
 		}
 	}
+	meta := map[string]any{}
 	if currentPublic == 1 {
-		data = attachAppJSONMeta(data, map[string]any{
-			"be_public":    1,
-			"sketch_saved": true,
-			"hint":         AppSketchSaveHint,
-		})
+		meta["be_public"] = 1
+		meta["sketch_saved"] = true
+		meta["hint"] = AppSketchSaveHint
+	}
+	if tagsDropped {
+		meta["tags_ignored"] = true
+		tagHint := "tags is ignored; pass activity_id to join an activity"
+		if hint, _ := meta["hint"].(string); hint != "" {
+			meta["hint"] = hint + " " + tagHint
+		} else {
+			meta["hint"] = tagHint
+		}
+	}
+	if len(meta) > 0 {
+		data = attachAppJSONMeta(data, meta)
 	}
 	return data, nil
+}
+
+// normalizeAppActivityID prepares update_app activity participation.
+// activity_id is optional. Missing, null, or blank leaves the key unset so the
+// server keeps existing activity tags. A present value must be a positive
+// integer and is sent as a JSON number. tags is never sent.
+func normalizeAppActivityID(body map[string]any) (tagsDropped bool, err error) {
+	if body == nil {
+		return false, nil
+	}
+	_, tagsDropped = body["tags"]
+	delete(body, "tags")
+	raw, ok := body["activity_id"]
+	if !ok || raw == nil {
+		delete(body, "activity_id")
+		return tagsDropped, nil
+	}
+	if s, isString := raw.(string); isString && strings.TrimSpace(s) == "" {
+		delete(body, "activity_id")
+		return tagsDropped, nil
+	}
+	n, ok := positiveInt64(raw)
+	if !ok {
+		return tagsDropped, fmt.Errorf("activity_id must be a positive integer")
+	}
+	body["activity_id"] = n
+	return tagsDropped, nil
+}
+
+func positiveInt64(v any) (int64, bool) {
+	switch t := v.(type) {
+	case int:
+		if t > 0 {
+			return int64(t), true
+		}
+	case int64:
+		if t > 0 {
+			return t, true
+		}
+	case float64:
+		if t > 0 && t == float64(int64(t)) {
+			return int64(t), true
+		}
+	case json.Number:
+		n, err := t.Int64()
+		if err == nil && n > 0 {
+			return n, true
+		}
+	case string:
+		n, err := strconv.ParseInt(strings.TrimSpace(t), 10, 64)
+		if err == nil && n > 0 {
+			return n, true
+		}
+	}
+	return 0, false
 }
 
 func appMapBePublic(m map[string]any) int {
@@ -747,26 +766,6 @@ func extractAppString(raw json.RawMessage, key string) string {
 		return ""
 	}
 	return stringFromMap(m, key)
-}
-
-func truncateRunes(s string, max int) string {
-	if max <= 0 {
-		return ""
-	}
-	r := []rune(s)
-	if len(r) <= max {
-		return s
-	}
-	return string(r[:max])
-}
-
-func sandboxAppClone(appID, name string) json.RawMessage {
-	raw, _ := json.Marshal(map[string]any{
-		"app_id":        "sandbox-cloned-" + appID,
-		"app_name":      name,
-		"source_app_id": appID,
-	})
-	return raw
 }
 
 func sandboxAppPrivacy(appID string, privacy int) json.RawMessage {

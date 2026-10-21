@@ -77,11 +77,3 @@ sensecraft-cli recamera open --app-id <app_id> --print-only
 | `flash-firmware` block | Later |
 | reCamera Pro `53` | `sensecraft-models` + `model recamera-pro resolve` |
 | CodeCraft App Square | Unrelated |
-
-## Optional: clone an app first (L2)
-
-```bash
-sensecraft-cli app clone --id <app_id> --agree-disclaimer --yes
-```
-
-Follow [`../confirmation.md`](../confirmation.md). Clone is not required to open the plaza app and click Deploy.

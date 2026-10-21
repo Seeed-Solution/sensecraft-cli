@@ -41,28 +41,6 @@ func TestRequireAgreeDeclaration(t *testing.T) {
 	}
 }
 
-func TestRequireAgreeDisclaimer(t *testing.T) {
-	if err := requireAgreeDisclaimer(false); !errors.Is(err, ErrCloneDisclaimerRequired) {
-		t.Fatalf("want ErrCloneDisclaimerRequired, got %v", err)
-	}
-	if err := requireAgreeDisclaimer(true); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func TestCloneRequiresAgreeDisclaimer(t *testing.T) {
-	s := sandboxAppSvc()
-	_, err := s.CloneApp(AppCloneParams{AppID: "public-1", Name: "Clone_X", Yes: true})
-	if !errors.Is(err, ErrCloneDisclaimerRequired) {
-		t.Fatalf("want ErrCloneDisclaimerRequired, got %v", err)
-	}
-	if _, err := s.CloneApp(AppCloneParams{
-		AppID: "public-1", Name: "Clone_X", Yes: true, AgreeDisclaimer: true,
-	}); err != nil {
-		t.Fatalf("clone with disclaimer must work: %v", err)
-	}
-}
-
 func TestPublishRequiresAgreeDeclaration(t *testing.T) {
 	s := sandboxAppSvc()
 	_, err := s.SetAppPrivacy(AppPrivacyParams{AppID: "sandbox-app-1", Privacy: 2, Yes: true})
@@ -79,15 +57,6 @@ func TestPublishRequiresAgreeDeclaration(t *testing.T) {
 	_, err = s.SetAppPrivacy(AppPrivacyParams{AppID: "sandbox-app-1", Privacy: 0, Yes: true})
 	if err != nil {
 		t.Fatal(err)
-	}
-}
-
-func TestTruncateRunes(t *testing.T) {
-	if got := truncateRunes("abcdef", 3); got != "abc" {
-		t.Fatalf("got %q", got)
-	}
-	if got := truncateRunes("你好世界", 2); got != "你好" {
-		t.Fatalf("got %q", got)
 	}
 }
 
@@ -479,11 +448,6 @@ func TestRejectForeignAppWrite(t *testing.T) {
 	if !errors.Is(err, ErrForeignAppNoEdit) {
 		t.Fatalf("want foreign refuse on publish, got %v", err)
 	}
-	if _, err := s.CloneApp(AppCloneParams{
-		AppID: "public-1", Name: "Clone_X", Yes: true, AgreeDisclaimer: true,
-	}); err != nil {
-		t.Fatalf("clone of plaza app must still work: %v", err)
-	}
 }
 
 func TestRejectUnownedAppWriteLiveAuthor(t *testing.T) {
@@ -583,6 +547,182 @@ func TestUpdateAppStillFailsWhenSnapshotMissing(t *testing.T) {
 	}
 	if updateCalls != 0 {
 		t.Fatalf("update must not run when the snapshot is missing, calls=%d", updateCalls)
+	}
+}
+
+func TestUpdateAppSendsNumericActivityIDAndDropsTags(t *testing.T) {
+	var rawBody []byte
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case enum.AIApiPathAppView:
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"code": 0,
+				"data": map[string]any{"app_id": "11619", "be_public": 0, "excerpt": "keep", "tags": []any{"old"}},
+			})
+		case enum.AIApiPathAppUpdate:
+			rawBody, _ = io.ReadAll(r.Body)
+			_ = json.NewEncoder(w).Encode(map[string]any{"code": 0, "data": map[string]any{}})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	s := appServiceForTest(t, srv)
+	path := filepath.Join(t.TempDir(), "patch.json")
+	payload := `{"excerpt":"new","activity_id":"1","tags":["ignored"]}`
+	if err := os.WriteFile(path, []byte(payload), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := s.UpdateApp(AppUpdateParams{AppID: "11619", FromJSON: path, Yes: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(rawBody), `"activity_id":1`) {
+		t.Fatalf("activity_id must be a JSON number, body=%s", rawBody)
+	}
+	var body map[string]any
+	if err := json.Unmarshal(rawBody, &body); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := body["tags"]; ok {
+		t.Fatalf("tags must not be sent: %#v", body)
+	}
+	if body["excerpt"] != "new" {
+		t.Fatalf("excerpt: %#v", body["excerpt"])
+	}
+	var out map[string]any
+	if err := json.Unmarshal(raw, &out); err != nil {
+		t.Fatal(err)
+	}
+	if out["tags_ignored"] != true {
+		t.Fatalf("stdout should say tags were ignored: %#v", out)
+	}
+}
+
+func TestUpdateAppOmitsBlankActivityID(t *testing.T) {
+	var body map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case enum.AIApiPathAppView:
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"code": 0,
+				"data": map[string]any{"app_id": "11619", "be_public": 0, "excerpt": "keep"},
+			})
+		case enum.AIApiPathAppUpdate:
+			raw, _ := io.ReadAll(r.Body)
+			_ = json.Unmarshal(raw, &body)
+			_ = json.NewEncoder(w).Encode(map[string]any{"code": 0, "data": map[string]any{}})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	s := appServiceForTest(t, srv)
+	path := filepath.Join(t.TempDir(), "patch.json")
+	if err := os.WriteFile(path, []byte(`{"excerpt":"new","activity_id":""}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.UpdateApp(AppUpdateParams{AppID: "11619", FromJSON: path, Yes: true}); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := body["activity_id"]; ok {
+		t.Fatalf("blank activity_id must be omitted: %#v", body)
+	}
+}
+
+func TestUpdateAppRejectsBadActivityIDBeforePost(t *testing.T) {
+	var updateCalls int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case enum.AIApiPathAppView:
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"code": 0,
+				"data": map[string]any{"app_id": "11619", "be_public": 0},
+			})
+		case enum.AIApiPathAppUpdate:
+			updateCalls++
+			_ = json.NewEncoder(w).Encode(map[string]any{"code": 0, "data": map[string]any{}})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	s := appServiceForTest(t, srv)
+	for _, payload := range []string{
+		`{"excerpt":"new","activity_id":0}`,
+		`{"excerpt":"new","activity_id":-1}`,
+		`{"excerpt":"new","activity_id":1.5}`,
+		`{"excerpt":"new","activity_id":"abc"}`,
+	} {
+		path := filepath.Join(t.TempDir(), "patch.json")
+		if err := os.WriteFile(path, []byte(payload), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		_, err := s.UpdateApp(AppUpdateParams{AppID: "11619", FromJSON: path, Yes: true})
+		if err == nil || !strings.Contains(err.Error(), "positive integer") {
+			t.Fatalf("payload %s: got %v", payload, err)
+		}
+	}
+	if updateCalls != 0 {
+		t.Fatalf("invalid activity_id must not POST, calls=%d", updateCalls)
+	}
+}
+
+func TestUpdateAppActivityFlagOnly(t *testing.T) {
+	var rawBody []byte
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case enum.AIApiPathAppView:
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"code": 0,
+				"data": map[string]any{"app_id": "11619", "be_public": 0, "excerpt": "keep"},
+			})
+		case enum.AIApiPathAppUpdate:
+			rawBody, _ = io.ReadAll(r.Body)
+			_ = json.NewEncoder(w).Encode(map[string]any{"code": 0, "data": map[string]any{}})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	s := appServiceForTest(t, srv)
+	if _, err := s.UpdateApp(AppUpdateParams{AppID: "11619", Yes: true, ActivitySet: true, ActivityID: "12"}); err != nil {
+		t.Fatal(err)
+	}
+	if string(rawBody) != `{"activity_id":12,"app_id":"11619"}` && !strings.Contains(string(rawBody), `"activity_id":12`) {
+		t.Fatalf("body=%s", rawBody)
+	}
+	var body map[string]any
+	if err := json.Unmarshal(rawBody, &body); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := body["excerpt"]; ok {
+		t.Fatalf("activity-only update must not merge info fields: %#v", body)
+	}
+}
+
+func TestUpdateAppSurfacesExpiredActivity(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case enum.AIApiPathAppView:
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"code": 0,
+				"data": map[string]any{"app_id": "11619", "be_public": 0},
+			})
+		case enum.AIApiPathAppUpdate:
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"code": 25000,
+				"msg":  "Activity does not exist or has expired",
+			})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	s := appServiceForTest(t, srv)
+	_, err := s.UpdateApp(AppUpdateParams{AppID: "11619", Yes: true, ActivitySet: true, ActivityID: "9"})
+	if err == nil || !strings.Contains(err.Error(), "25000") || !strings.Contains(err.Error(), "Activity does not exist or has expired") {
+		t.Fatalf("got %v", err)
 	}
 }
 

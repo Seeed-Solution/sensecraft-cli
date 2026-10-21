@@ -53,6 +53,9 @@ func accessConfigCheck(cfg AccessApiConfig) error {
 }
 
 func resolveAPIHost(cfg AccessApiConfig) (string, error) {
+	if origin, ok, err := enum.HostOverride(enum.EnvNameDataHost); ok || err != nil {
+		return origin, err
+	}
 	switch cfg.RemoteType {
 	case enum.RemoteTypeGlobal, "":
 		return enum.DomainNameOpenApiGlobal, nil

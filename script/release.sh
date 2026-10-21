@@ -11,6 +11,16 @@ if [[ -z "${VERSION}" ]]; then
   exit 1
 fi
 
+if ! command -v node >/dev/null 2>&1; then
+  echo "比对版本需要 node" >&2
+  exit 1
+fi
+PKG_VERSION="$(node -p "require('${ROOT_DIR}/packages/cli/package.json').version")"
+if [[ "${VERSION}" != "${PKG_VERSION}" ]]; then
+  echo "传入版本 ${VERSION} 与 packages/cli/package.json（${PKG_VERSION}）不一致"
+  exit 1
+fi
+
 TAG="v${VERSION}"
 
 if [[ ! -d "${DIST_DIR}" ]]; then

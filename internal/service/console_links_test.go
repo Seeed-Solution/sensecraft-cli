@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+
+	"sensecraft-cloud-terminal/internal/enum"
 )
 
 func TestModelDetailConsoleURL(t *testing.T) {
@@ -87,5 +89,13 @@ func TestAppCreateAttachesConsoleURLsInSandbox(t *testing.T) {
 	}
 	if detail != "https://sensecraft.seeed.cc/ai/application/detail/sandbox-created-app?from=my-apps&tab=custom" {
 		t.Fatalf("detail_url=%q", detail)
+	}
+}
+
+func TestConsoleURLIgnoresAIHostOverride(t *testing.T) {
+	t.Setenv(enum.EnvNameAIHost, "https://ai.test.example")
+	got := ModelDetailConsoleURL("Global", "abc")
+	if !strings.HasPrefix(got, "https://sensecraft.seeed.cc/ai/model/detail?") {
+		t.Fatalf("got %s", got)
 	}
 }

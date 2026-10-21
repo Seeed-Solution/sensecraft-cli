@@ -19,7 +19,6 @@ func NewAppCmd() *cobra.Command {
 	cmd.AddCommand(newAppViewCmd())
 	cmd.AddCommand(newAppFieldsCmd())
 	cmd.AddCommand(newAppBlocksCmd())
-	cmd.AddCommand(newAppCloneCmd())
 	cmd.AddCommand(newAppCreateCmd())
 	cmd.AddCommand(newAppUpdateCmd())
 	cmd.AddCommand(newAppPublishCmd())
@@ -158,50 +157,6 @@ func newAppBlocksCmd() *cobra.Command {
 	}
 }
 
-func newAppCloneCmd() *cobra.Command {
-	var (
-		id              string
-		name            string
-		yes             bool
-		agreeDisclaimer bool
-		sandbox         bool
-	)
-	cmd := &cobra.Command{
-		Use:   "clone",
-		Short: "Clone an app into My Apps (L2: --agree-disclaimer --yes)",
-		Long: `POST /flow/app/v3/clone_app
-
-Matches Console 「克隆应用」dialog: user must agree to the Disclaimer for Use
-(https://sensecraft.seeed.cc/legal/en/disclaimer) via --agree-disclaimer,
-then confirm with --yes. Agreement is client-side only (API body is app_id + app_name).
-Default name is Clone_<source app_name> (max 60 with prefix).`,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx, err := cmdctx.GetAICmdContext()
-			if err != nil {
-				return err
-			}
-			ctx.SandBox = sandbox
-			data, err := service.GetAppService(ctx).CloneApp(service.AppCloneParams{
-				AppID:           id,
-				Name:            name,
-				Yes:             yes,
-				AgreeDisclaimer: agreeDisclaimer,
-			})
-			if err != nil {
-				return err
-			}
-			return ctx.PrintRawData(data)
-		},
-	}
-	cmd.Flags().StringVar(&id, "id", "", "Source app_id (required)")
-	cmd.Flags().StringVar(&name, "name", "", "Cloned app_name (default Clone_<source>)")
-	cmd.Flags().BoolVar(&agreeDisclaimer, "agree-disclaimer", false, "Confirm user read and agreed to the Disclaimer for Use (Console disclaimerAccepted)")
-	cmd.Flags().BoolVar(&yes, "yes", false, "Confirm L2 clone after user approval")
-	cmd.Flags().BoolVar(&sandbox, "sandbox", false, "Sandbox mode: no real network; return sample JSON")
-	_ = cmd.MarkFlagRequired("id")
-	return cmd
-}
-
 func newAppCreateCmd() *cobra.Command {
 	var (
 		name     string
@@ -246,20 +201,26 @@ func newAppCreateCmd() *cobra.Command {
 
 func newAppUpdateCmd() *cobra.Command {
 	var (
-		id       string
-		fromJSON string
-		yes      bool
-		sandbox  bool
+		id         string
+		fromJSON   string
+		activityID string
+		yes        bool
+		sandbox    bool
 	)
 	cmd := &cobra.Command{
 		Use:   "update",
 		Short: "Update an app from JSON (L2: --yes)",
 		Long: `POST /flow/app/v3/update_app
 
-Requires --id and --from-json. Injects app_id. Rejects user JSON be_public=1 / privacy=1.
+Requires --id and at least one of --from-json / --activity-id. Injects app_id.
+Rejects user JSON be_public=1 / privacy=1.
+
+--activity-id joins an activity (positive integer, sent as a JSON number).
+Omit it, or pass an empty value, to leave existing activity tags unchanged.
+tags in JSON is ignored and is not sent.
 
 Lifecycle (matches Console edit.vue / list.vue):
-  owner only (user_id == profile) — others: clone first
+  owner only (user_id == profile) — another user's app cannot be edited
   be_public=0  private — edit/delete/publish allowed
   be_public=1  published — owner may edit (saved as sketch; CLI sends be_public=1). Plaza unchanged until app publish (draft).
   be_public=2  under review — locked; no update/cover/BOM. Unpublish to unlock.`,
@@ -269,10 +230,15 @@ Lifecycle (matches Console edit.vue / list.vue):
 				return err
 			}
 			ctx.SandBox = sandbox
+			if strings.TrimSpace(fromJSON) == "" && !cmd.Flags().Changed("activity-id") {
+				return fmt.Errorf("provide --from-json and/or --activity-id")
+			}
 			data, err := service.GetAppService(ctx).UpdateApp(service.AppUpdateParams{
-				AppID:    id,
-				FromJSON: fromJSON,
-				Yes:      yes,
+				AppID:       id,
+				FromJSON:    fromJSON,
+				Yes:         yes,
+				ActivitySet: cmd.Flags().Changed("activity-id"),
+				ActivityID:  activityID,
 			})
 			if err != nil {
 				return err
@@ -281,11 +247,11 @@ Lifecycle (matches Console edit.vue / list.vue):
 		},
 	}
 	cmd.Flags().StringVar(&id, "id", "", "app_id (required)")
-	cmd.Flags().StringVar(&fromJSON, "from-json", "", "JSON file path or - for stdin (required)")
+	cmd.Flags().StringVar(&fromJSON, "from-json", "", "JSON file path or - for stdin")
+	cmd.Flags().StringVar(&activityID, "activity-id", "", "Join this activity (positive integer). Empty leaves current activity tags unchanged")
 	cmd.Flags().BoolVar(&yes, "yes", false, "Confirm L2 update after user approval")
 	cmd.Flags().BoolVar(&sandbox, "sandbox", false, "Sandbox mode: no real network; return sample JSON")
 	_ = cmd.MarkFlagRequired("id")
-	_ = cmd.MarkFlagRequired("from-json")
 	return cmd
 }
 

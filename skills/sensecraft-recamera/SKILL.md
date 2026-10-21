@@ -13,7 +13,7 @@ description: >-
 Orchestration skill: **list → pick → check → open Console → user clicks Deploy**.
 
 Parent: [`../sensecraft-ai/SKILL.md`](../sensecraft-ai/SKILL.md).  
-List/view/clone: [`../sensecraft-apps/SKILL.md`](../sensecraft-apps/SKILL.md), [`../sensecraft-models/SKILL.md`](../sensecraft-models/SKILL.md).  
+List/view: [`../sensecraft-apps/SKILL.md`](../sensecraft-apps/SKILL.md), [`../sensecraft-models/SKILL.md`](../sensecraft-models/SKILL.md).  
 Commands: [`commands.md`](commands.md).
 
 **This skill does not flash.** Flash is L3 in the browser (IP or USB). There is no `recamera deploy` and no device HTTP in this CLI.
@@ -39,7 +39,7 @@ Commands: [`commands.md`](commands.md).
 7. Both allowed:
    - Flash the model already on the app `deploy-ai-model` block
    - Flash a **separately picked** model from the 40 list
-8. **Public models are deploy-only.** Never `model download`, never print `file_url`, never clone a public model into My Models. Private My Models may be used as-is. **Apps may be cloned** (`app clone`, L2) if the user wants their own copy — clone is optional, not required to flash.
+8. **Public models are deploy-only.** Never `model download`, never print `file_url`, never copy a public model into My Models. Private My Models may be used as-is. Flashing does not require copying the app.
 9. **Do not `cloud deploy`.** That path is Jetson / cloud kit (`26`), not reCamera.
 10. **`flash-firmware` blocks are out of scope** this pass. Do not invent a firmware-flash CLI.
 11. After a successful check, if the user wants to flash, run `recamera open` (or `--print-only` if they will paste the URL). Success = they say the Console page worked and they clicked Deploy. Opening a page is **not** an L2 `--yes` write.
@@ -74,6 +74,5 @@ Then tell the user: on the opened **model/app detail** page, click **Deploy**, c
 |------|--------|
 | `app/model list --uniform-type 40` | **Implemented** |
 | `recamera check` / `recamera open` | **Implemented** (P2) |
-| `app clone` | Use apps skill (L2) |
 | Device flash / `recamera deploy` | **Not implemented** (L3 Console) |
 | `model recamera-pro resolve` | Pro `53` only — not this skill |

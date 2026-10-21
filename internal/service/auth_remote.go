@@ -18,32 +18,29 @@ func normalizeRemoteType(v string) string {
 // Used by tests (httptest) only; production code must leave it empty.
 var portalAPIBaseOverride string
 
-func portalAPIBase(remoteType string) string {
+func portalAPIBase(remoteType string) (string, error) {
 	if portalAPIBaseOverride != "" {
-		return portalAPIBaseOverride
+		return portalAPIBaseOverride, nil
 	}
-	switch normalizeRemoteType(remoteType) {
-	case enum.RemoteTypeChina:
-		return enum.AuthAPIBaseChina
-	default:
-		return enum.AuthAPIBaseGlobal
+	origin, err := enum.EffectiveAuthOrigin(normalizeRemoteType(remoteType))
+	if err != nil {
+		return "", err
 	}
+	return origin + "/authapi", nil
 }
 
-func getDeviceAuthURL(remoteType string) string {
-	switch normalizeRemoteType(remoteType) {
-	case enum.RemoteTypeChina:
-		return enum.DeviceFlowOauth2China
-	default:
-		return enum.DeviceFlowOauth2Global
+func getDeviceAuthURL(remoteType string) (string, error) {
+	origin, err := enum.EffectiveAuthOrigin(normalizeRemoteType(remoteType))
+	if err != nil {
+		return "", err
 	}
+	return origin + "/authapi/api/v1/auth/oauth/device", nil
 }
 
-func getDeviceTokenURL(remoteType string) string {
-	switch normalizeRemoteType(remoteType) {
-	case enum.RemoteTypeChina:
-		return enum.DeviceFlowOauthTokenChina
-	default:
-		return enum.DeviceFlowOauthTokenGlobal
+func getDeviceTokenURL(remoteType string) (string, error) {
+	origin, err := enum.EffectiveAuthOrigin(normalizeRemoteType(remoteType))
+	if err != nil {
+		return "", err
 	}
+	return origin + "/authapi/api/v1/auth/oauth/device/token", nil
 }

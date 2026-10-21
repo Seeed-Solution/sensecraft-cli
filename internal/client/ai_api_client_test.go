@@ -8,14 +8,20 @@ import (
 	"testing"
 
 	"sensecraft-cloud-terminal/internal/config"
+	"sensecraft-cloud-terminal/internal/enum"
+	"sensecraft-cloud-terminal/internal/version"
 )
 
 func TestAIApiClientAccessKeyUsesBasicWithoutAppID(t *testing.T) {
 	var sawAuth string
 	var sawAppID string
+	var sawVersion string
+	var sawAccessID string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		sawAuth = r.Header.Get("Authorization")
 		sawAppID = r.URL.Query().Get("appid")
+		sawVersion = r.Header.Get("sensecraft-cli-version")
+		sawAccessID = r.Header.Get("sensecraft-cli-accessid")
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"code": 0,
 			"data": map[string]any{"ok": true},
@@ -43,6 +49,12 @@ func TestAIApiClientAccessKeyUsesBasicWithoutAppID(t *testing.T) {
 	if sawAppID != "" {
 		t.Fatalf("appid should be empty, got %q", sawAppID)
 	}
+	if sawVersion != version.Version {
+		t.Fatalf("sensecraft-cli-version=%q", sawVersion)
+	}
+	if sawAccessID != "kid" {
+		t.Fatalf("sensecraft-cli-accessid=%q", sawAccessID)
+	}
 }
 
 func TestAIApiClientAccessKeyRejectsMissingCredentials(t *testing.T) {
@@ -50,5 +62,20 @@ func TestAIApiClientAccessKeyRejectsMissingCredentials(t *testing.T) {
 	_, err := c.Get("/model/list_model", nil)
 	if err == nil || !strings.Contains(err.Error(), "Access Key") {
 		t.Fatalf("want access key error, got %v", err)
+	}
+}
+
+func TestAIApiClientAccessKeyUsesHostOverride(t *testing.T) {
+	t.Setenv(enum.EnvNameAIHost, "https://ai.test.example")
+	c := NewAIApiClientAccessKey(config.AccessApiConfig{
+		RemoteType: "Global",
+		KeyId:      "kid",
+		AccessKey:  "secret",
+	}, false)
+	if c.base.baseURL != "https://ai.test.example/openapi" {
+		t.Fatalf("base=%s", c.base.baseURL)
+	}
+	if c.hostErr != nil {
+		t.Fatal(c.hostErr)
 	}
 }

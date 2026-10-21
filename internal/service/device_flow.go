@@ -27,15 +27,23 @@ type DeviceTokenResult struct {
 	Expiry       string
 }
 
-func oauth2Config(remoteType string) *oauth2.Config {
+func oauth2Config(remoteType string) (*oauth2.Config, error) {
+	deviceAuthURL, err := getDeviceAuthURL(remoteType)
+	if err != nil {
+		return nil, err
+	}
+	tokenURL, err := getDeviceTokenURL(remoteType)
+	if err != nil {
+		return nil, err
+	}
 	return &oauth2.Config{
 		ClientID: enum.OAuthClientID,
 		Endpoint: oauth2.Endpoint{
-			DeviceAuthURL: getDeviceAuthURL(remoteType),
-			TokenURL:      getDeviceTokenURL(remoteType),
+			DeviceAuthURL: deviceAuthURL,
+			TokenURL:      tokenURL,
 			AuthStyle:     oauth2.AuthStyleInParams,
 		},
-	}
+	}, nil
 }
 
 func StartDeviceFlow(ctx context.Context, remoteType string, sandbox bool) (*DeviceAuthSession, error) {
@@ -50,7 +58,11 @@ func StartDeviceFlow(ctx context.Context, remoteType string, sandbox bool) (*Dev
 		}, nil
 	}
 
-	resp, err := oauth2Config(remoteType).DeviceAuth(ctx)
+	cfg, err := oauth2Config(remoteType)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := cfg.DeviceAuth(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("request device authorization code: %w", mapDeviceFlowError(err))
 	}
@@ -103,7 +115,11 @@ func PollDeviceToken(ctx context.Context, remoteType string, session *DeviceAuth
 		da.Expiry = time.Now().Add(time.Duration(session.ExpiresIn) * time.Second)
 	}
 
-	token, err := oauth2Config(remoteType).DeviceAccessToken(ctx, da)
+	cfg, err := oauth2Config(remoteType)
+	if err != nil {
+		return nil, err
+	}
+	token, err := cfg.DeviceAccessToken(ctx, da)
 	if err != nil {
 		return nil, mapDeviceFlowError(err)
 	}

@@ -63,14 +63,15 @@ sensecraft-cli
 │                 └── devkit create | key
 ├── group         list | create | update | delete | move-devices
 ├── data          latest | list | chart
-├── app           list | view | fields | blocks | clone | create | update
+├── app           list | view | fields | blocks | create | update
 │                 publish | unpublish | delete
 │                 └── bom search | list | set
 ├── model         list | view | download | upload | constants
 │                 create | update | publish | unpublish | delete
 │                 └── recamera-pro resolve
 ├── file          upload
-└── cloud         device list | view · deploy · order
+├── cloud         device list | view · deploy · order
+└── update        检查 npm 最新版并升级 CLI
 ```
 
 注册入口：`cmd/root.go`。
@@ -141,6 +142,8 @@ npm 壳会注入 `SENSECRAFT_CLI_PATH` → macOS/Linux：`~/.config/sensecraft-c
 
 这把 Access Key 同时用于 SenseCAP OpenAPI 和 SenseCraft AI `/openapi`。
 
+账号中心默认按站点走 `account.seeed.cc`（Global）或 `account.seeed.cn`（China）。设置 `SENSECRAFT_AUTH_HOST` 后，设备码、换 token、以及用 token 换 Access Key 的用户接口都打到该站点根（末尾 `/` 或 `/authapi` 会去掉）。浏览器打开的是该服务返回的 `verification_uri`。
+
 约束：非 sandbox 时必须 TTY（`IsInteractive()`）。**L3：Agent 不得代跑 `auth init`。**
 
 Device Flow 过程中的 `access_token` 只用来查询组织和创建 Access Key，不会写入配置文件。
@@ -172,9 +175,10 @@ Device Flow 过程中的 `access_token` 只用来查询组织和创建 Access Ke
 |--------|--------|-------|
 | SenseCAP OpenAPI | `https://sensecap.seeed.cc` | `https://www.sensecap.seeed.cn` |
 | AuthAPI | `https://account.seeed.cc/authapi` | `https://account.seeed.cn/authapi` |
-| SenseCraft AI | `https://sensecraft.seeed.cc` | **同 Global** |
+| SenseCraft AI API | `https://api-gateway.seeed.cc` | **同 Global** |
+| SenseCraft AI Console | `https://sensecraft.seeed.cc` | **同 Global** |
 
-China 与 Global 的 AI host 相同；差异在账号 AuthAPI（`.cn` vs `.cc`）。OpenAPI 另支持 `Private` + 配置内自定义 `host`。
+China 与 Global 的 AI host 相同；差异在账号 AuthAPI（`.cn` vs `.cc`）。`SENSECRAFT_DATA_HOST`、`SENSECRAFT_AI_HOST`、`SENSECRAFT_AUTH_HOST` 分别盖住 OpenAPI、AI 网关和账号中心；变量一旦设置，Global / China 都打到变量里的地址。OpenAPI 另支持 `Private` + 配置内自定义 `host`。
 
 Endpoint 常量集中在 `internal/enum/`：`open_url.go`、`ai_api.go`、`auth.go`、`auth_biz.go`、`config.go`。
 
@@ -223,9 +227,11 @@ precision：音频 `"3"`，视觉 `"1"`。非 Pro 强制删除 `ai_framework`。
 
 `app create`（含完整 from-json）**不是 L2**，不需 `--yes`。
 
-应用编辑对齐 Console `edit.vue` / `list.vue` / `detail.vue`：仅 **作者**（`user_id`）可 update/封面/BOM/publish/delete；他人广场应用请 `app clone`。`be_public=2` 锁定编辑；已发布（`1`）可改并写入 sketch（info 补 `be_public=1`）；删除仅 `0`。`app publish` 一律 `privacy=2`（含已上架后的「发布草稿」），并额外要求 `--agree-declaration`（对齐 Console 发布确认弹窗 `warrantyAccepted`；同意状态不进 API）。`app clone` 额外要求 `--agree-disclaimer`（对齐 Console 克隆弹窗 `disclaimerAccepted` → https://sensecraft.seeed.cc/legal/en/disclaimer；同意状态不进 API）。
+应用编辑对齐 Console `edit.vue` / `list.vue` / `detail.vue`：仅 **作者**（`user_id`）可 update/封面/BOM/publish/delete；他人广场应用不能改。`be_public=2` 锁定编辑；已发布（`1`）可改并写入 sketch（info 补 `be_public=1`）；删除仅 `0`。`app publish` 一律 `privacy=2`（含已上架后的「发布草稿」），并额外要求 `--agree-declaration`（对齐 Console 发布确认弹窗 `warrantyAccepted`；同意状态不进 API）。
 
 **Info 字段闸门**（`validateAppInfoPatch`，create `--from-json` 额外字段与 update 补丁在发请求前校验）：`app_name` 非空 ≤60；`excerpt` 非空 ≤300；`scene` 非空且须为 `app_scenarios_array` id；`allow_clone`/`allow_commerce` 为 0|1（拒 null/-1/2）；`images` 至少 1 个 http(s) URL、最多 16。仅校验补丁中**出现的**键（稀疏改名仍可只传 `app_name`）。
+
+`update_app` 可选 `activity_id`（正整数，JSON number）。不传或空字符串表示不改活动标签。非法值在发请求前拒绝。活动不存在、未发布、已删除或不在有效期内时，服务端整次编辑失败（`25000` `Activity does not exist or has expired`），同一次请求里的其它修改也不会写入。`tags` 不再被服务端读取，CLI 会从请求体里去掉。
 
 ### 6.4 可见性闸门
 
@@ -240,12 +246,11 @@ precision：音频 `"3"`，视觉 `"1"`。非 Pro 强制删除 `ai_framework`。
    - 扩展名 JPG/JPEG/PNG/GIF/WebP（拒 SVG）  
    - type `2`–`6` ≤ **100 MB**  
    - **拒绝 0 字节**空文件  
-3. **频率闸门**（HTTP 接口层 `AIApiClient.Get(acquire_file_url)`）：本机滑动窗口 **8 次 / 10s**、**30 次 / 分钟**（状态文件 `sensecraft-upload-rate.json`）。  
-4. 可选 MD5（`--checksum`）  
-5. `GET /user/acquire_file_url` → `upload_url` + `file_url`  
-6. 独立 `http.Client` PUT（无 SenseCraft 鉴权头），30 分钟超时  
+3. 可选 MD5（`--checksum`）  
+4. `GET /user/acquire_file_url` → `upload_url` + `file_url`  
+5. 独立 `http.Client` PUT（无 SenseCraft 鉴权头），30 分钟超时  
 
-> 服务端仍应独立做同级大小与限流；本仓库仅覆盖 CLI client。
+> CLI 不做上传频率限制。限流在服务端按 Access Key 执行。本仓库只在发出请求前检查体积和格式。
 
 `file_type`：1 图 / 2 文件·模型 / 3 app / 4 固件 / 5 文档 / 6 归档。`model upload` = type=2 + checksum。
 
@@ -262,7 +267,7 @@ precision：音频 `"3"`，视觉 `"1"`。非 Pro 强制删除 `ai_framework`。
 - Access Key 创建后**不返回密钥本体**，须回查列表（按 label 倒序匹配）
 - `edit_model` 须同时带 `id` 与 `model_id`（缺 `id` → 11202）
 - `publish_model` / `delete_model` 的 `model_id` 须为 **JSON number**（CLI `--id` 为纯数字时发 `63758` 而非 `"63758"`；字符串会 11202）
-- Console 深链：`/ai/model/detail?...`、`/ai/application/edit?...`；create/clone 注入，update 不注入
+- Console 深链：`/ai/model/detail?...`、`/ai/application/edit?...`；create 注入，update 不注入
 
 ---
 
@@ -284,7 +289,7 @@ func requireYes(yes bool) error
 
 **L2 命令清单：**
 
-`app clone|update|publish|unpublish|delete|bom set`  
+`app update|publish|unpublish|delete|bom set`  
 `model create|update|publish|unpublish|delete`  
 `cloud deploy`  
 `device unbind`  
@@ -340,6 +345,7 @@ Agent 规则摘要：
 - 默认 base：`https://sensecraft-statics.seeed.cc/static/bin/sensecraft-cli`
 - URL：`{RELEASE_BASE}/v{version}/sensecraft-cli-{os}-{arch}[.exe]`
 - `vendor/.version`：版本戳；不一致则强制重下
+- `sensecraft-cli update`：查询 `https://registry.npmjs.org/@seeed-studio/sensecraft-cli/latest`，npm 安装时执行 `npm install -g`。版本检查缓存在配置目录的 `update-state.json`，24 小时刷新一次；同一新版本的 stderr 警告也是 24 小时一次。活动列表缓存在 `activity-state.json`，同样 24 小时内只提醒一次。交互终端会问 `Ignore this activity? [y/N]`，回答 `y` 后按 `activity_id` 不再提醒；回答 `n` 时 24 小时后还会再出现。`SENSECRAFT_CLI_NO_ACTIVITY_NOTIFIER` 关闭活动提醒
 - `prepack`：`script/sync-skills-to-npm.sh` 把 Skills 拷进包目录
 
 | 环境变量 | 作用 |
@@ -358,7 +364,7 @@ Agent 规则摘要：
 
 ### 10.1 `script/build.sh`
 
-- 版本：`$VERSION` > exact tag > `git describe` > `dev`
+- 版本：`$VERSION` 环境变量，否则读取 `packages/cli/package.json`。本地 `go build` 不注入时为 `dev`
 - ldflags：`Version` / `Commit` / `Date` → `internal/version`
 - `CGO_ENABLED=0` 交叉编译 6 平台 → `dist/`
 

@@ -24,6 +24,7 @@ SenseCraft CLI（`sensecraft-cli`）是 [SenseCAP](https://sensecap.seeed.cc) �
 ```bash
 npx @seeed-studio/sensecraft-cli install
 sensecraft-cli --version
+sensecraft-cli update
 ```
 
 完整步骤、Windows PATH、离线安装与 Skills 接入见 [`INSTALL.md`](INSTALL.md)。
@@ -48,8 +49,10 @@ Access Key 用于 SenseCAP `/openapi` 与 SenseCraft `{ai-host}/openapi`（HTTP 
 
 | `remote_type` | SenseCraft AI `/openapi` | 用途 |
 |---------------|--------------------------|------|
-| `Global` | `sensecraft.seeed.cc/openapi` | 国际生产 |
-| `China` | `sensecraft.seeed.cc/openapi`（与 Global 同 AI host；账号走 CN） | 国内生产 |
+| `Global` | `api-gateway.seeed.cc/openapi` | 国际生产 |
+| `China` | `api-gateway.seeed.cc/openapi`（与 Global 同 AI host；账号走 CN） | 国内生产 |
+
+网页控制台仍是 `https://sensecraft.seeed.cc`。命令成功后，stderr 上可能各出现一条英文提示，同一条 24 小时内只出现一次：`Warning:` 提示新版本并建议运行 `sensecraft-cli update`；`Notice:` 写出活动名称、日期和详情链接。交互终端里会再问 `Ignore this activity? [y/N]`，回答 `y` 之后这条活动不再提醒。`SENSECRAFT_CLI_NO_UPDATE_NOTIFIER` 和 `SENSECRAFT_CLI_NO_ACTIVITY_NOTIFIER` 分别关掉这两条。
 
 ### 2. 查看配置
 
@@ -74,7 +77,7 @@ sensecraft-cli recamera open --model-id <id> --print-only
 sensecraft-cli cloud device list --uniform-type 26
 ```
 
-L2 写操作（clone / publish / delete / deploy 等）须**另开一轮**向用户确认后再加 `--yes`。用户第一句（如「删这个63760」）不是确认。协议见 [`skills/confirmation.md`](skills/confirmation.md)。
+L2 写操作（publish / delete / deploy 等）须**另开一轮**向用户确认后再加 `--yes`。用户第一句（如「删这个63760」）不是确认。协议见 [`skills/confirmation.md`](skills/confirmation.md)。
 
 ## 配置
 
@@ -84,6 +87,9 @@ L2 写操作（clone / publish / delete / deploy 等）须**另开一轮**向用
 | 源码直接运行默认 | 当前工作目录下的 `sensecraft.json` |
 | `SENSECRAFT_CLI_PATH` | 配置目录（文件名为 `sensecraft.json`） |
 | `SENSECRAFT_CONFIG_FILE` | 配置文件完整路径（优先于上面两项） |
+| `SENSECRAFT_DATA_HOST` | SenseCAP OpenAPI 站点根。空则按 Global / China 走生产 |
+| `SENSECRAFT_AI_HOST` | SenseCraft AI 站点根。空则为 `https://api-gateway.seeed.cc`。控制台页面不跟着改 |
+| `SENSECRAFT_AUTH_HOST` | `auth init` 的账号中心站点根。空则 Global 为 `account.seeed.cc`、China 为 `account.seeed.cn`。末尾 `/authapi` 会去掉 |
 
 ## 输出格式
 

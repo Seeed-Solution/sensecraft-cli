@@ -47,7 +47,6 @@ Size limits (same as Console + CLI security gates):
   type 2–6:                       ≤100 MB
   empty (0 B) files are rejected
   Formats for type 1: JPG/PNG/GIF/WebP (no SVG)
-  Rate limit (client): max 8 uploads / 10s and 30 / minute (acquire_file_url)
 
 Association (types 1–2) is required before any OSS PUT:
   --model-id <id> --yes   type=2 + checksum; writes file onto the model and bumps version

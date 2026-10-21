@@ -8,12 +8,11 @@ cd "$ROOT"
 
 VERSION="${VERSION:-}"
 if [[ -z "$VERSION" ]]; then
-  if git describe --tags --exact-match HEAD >/dev/null 2>&1; then
-    VERSION="$(git describe --tags --exact-match HEAD)"
-    VERSION="${VERSION#v}"
-  else
-    VERSION="$(git describe --tags --always --dirty 2>/dev/null || echo dev)"
+  if ! command -v node >/dev/null 2>&1; then
+    echo "读取版本需要 node，或显式设置 VERSION" >&2
+    exit 1
   fi
+  VERSION="$(node -p "require('./packages/cli/package.json').version")"
 fi
 COMMIT="$(git rev-parse --short HEAD 2>/dev/null || echo none)"
 DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)"

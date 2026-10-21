@@ -72,28 +72,6 @@ sensecraft-cli app fields
 sensecraft-cli app blocks
 ```
 
-### `app clone` (L2)
-
-**Status: implemented.**
-
-| Flag                 | Required                                    |
-| -------------------- | ------------------------------------------- |
-| `--id`               | yes                                         |
-| `--name`             | no (default `Clone_<source app_name>`)      |
-| `--agree-disclaimer` | **after** user agrees to Disclaimer for Use |
-| `--yes`              | **after** user confirmation                 |
-| `--sandbox`          | sample JSON                                 |
-
-Matches Console 「克隆应用」`disclaimerAccepted`. Before passing `--agree-disclaimer`, show the user:
-
-- https://sensecraft.seeed.cc/legal/en/disclaimer
-- Do **not** pass `--agree-disclaimer` unless the user explicitly agreed (checkbox equivalent)
-
-```bash
-# Ask the user to agree to the disclaimer, then confirm:
-sensecraft-cli app clone --id <source_app_id> --name "My Clone" --agree-disclaimer --yes
-```
-
 ### `app create` / `app update`
 
 **Status: implemented.**
@@ -130,14 +108,15 @@ sensecraft-cli app create --name "My App"
 
 #### `app update` (L2)
 
-| Flag          | Notes                   |
-| ------------- | ----------------------- |
-| `--id`        | required                |
-| `--from-json` | required (path or `-`)  |
-| `--yes`       | after user confirmation |
-| `--sandbox`   | sample JSON             |
+| Flag            | Notes                                                                                                      |
+| --------------- | ---------------------------------------------------------------------------------------------------------- |
+| `--id`          | required                                                                                                   |
+| `--from-json`   | path or `-`; required unless `--activity-id` is set                                                       |
+| `--activity-id` | optional positive integer. Joins that activity. Omit or pass empty to leave existing activity tags as-is |
+| `--yes`         | after user confirmation                                                                                    |
+| `--sandbox`     | sample JSON                                                                                                |
 
-Rejects `be_public=1` / `privacy=1` in **user** payload. If the app is already public (`be_public=1`), CLI injects `be_public=1` on info saves (Console) and JSON includes `sketch_saved`. Under review (`be_public=2`): **refused**. Others' apps (`user_id` ≠ profile): **refused** (clone first).
+Rejects `be_public=1` / `privacy=1` in **user** payload. If the app is already public (`be_public=1`), CLI injects `be_public=1` on info saves (Console) and JSON includes `sketch_saved`. Under review (`be_public=2`): **refused**. Others' apps (`user_id` ≠ profile): **refused**.
 
 **Info patch merge:** if `--from-json` touches any of `app_name` / `excerpt` / `scene` / `allow_clone` / `allow_commerce` / `images` / `license` / `author`, CLI loads `view_app` (sketch) and fills missing info keys before `update_app`. Sparse `{"app_name":"…"}` rename is OK. Materials/deployment-only JSON is **not** force-merged with info. Private info saves still do **not** copy `be_public` from the existing view.
 
@@ -150,7 +129,12 @@ echo '{"app_name":"New Name"}' | sensecraft-cli app update --id <app_id> --from-
 sensecraft-cli app view --id <app_id> --sketch   # confirm app_name
 
 sensecraft-cli app update --id <app_id> --from-json ./app.json --yes
+
+# Join activity 1. activity_id is sent as a JSON number. tags in JSON is dropped.
+sensecraft-cli app update --id <app_id> --activity-id 1 --yes
 ```
+
+`activity_id` must be a positive integer. The server rejects anything else with `11202` `Request parameters are invalid`, and rejects a missing, unpublished, deleted, or out-of-window activity with `25000` `Activity does not exist or has expired`. Either failure discards the whole edit, including other fields in the same request. Omitting `activity_id` does not change existing activity tags. `tags` is not read by the server.
 
 ### `app publish` / `app unpublish` / `app delete` (L2)
 

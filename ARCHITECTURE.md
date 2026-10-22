@@ -238,21 +238,22 @@ precision：音频 `"3"`，视觉 `"1"`。非 Pro 强制删除 `ai_framework`。
 `rejectForbiddenPublicFlags`：拒绝**用户载荷**中的 `privacy=1` / `be_public=1`。已发布应用的 info 保存由 CLI **自行注入** `be_public=1`。  
 应用：`privacy=2` 提审（含草稿发布）、`privacy=0` 下架。模型：`status=1/0`（与 app privacy **字段不同**）。
 
-### 6.5 文件上传（OSS 预签名）
+### 6.5 文件上传（OSS POST 策略）
 
 1. 本地 stat；文件名**去掉所有空格**  
-2. **体积/格式闸门**（对齐 Console `upload.vue` / `infoForm` / `model/add.vue`，CLI service 层强制）：  
-   - type `1` 默认（模型 `pic_url`）≤ **2 MB**；`--for-app` / `--app-id` ≤ **5 MB**  
+2. **体积/格式闸门**（OpenAPI 上传规范，CLI service 层强制，发生在申请凭证之前）：  
+   - type `1` 一律 ≤ **5 MB**（含模型 `pic_url` 与应用图）  
    - 扩展名 JPG/JPEG/PNG/GIF/WebP（拒 SVG）  
    - type `2`–`6` ≤ **100 MB**  
    - **拒绝 0 字节**空文件  
+   - type `5` 静态资源必须带 `--flow-id`，否则不发请求  
 3. 可选 MD5（`--checksum`）  
-4. `GET /user/acquire_file_url` → `upload_url` + `file_url`  
-5. 独立 `http.Client` PUT（无 SenseCraft 鉴权头），30 分钟超时  
+4. `GET /user/acquire_file_url` → `host`、`policy`、`signature`、`OSSAccessKeyId`、`security_token`、`key`、`file_url`、`max_bytes`；图片另有 `content_type`。`max_bytes` 接受 JSON 数字或字符串。本地大小超过返回的 `max_bytes` 时不再 POST  
+5. 向 `host` POST `multipart/form-data`（`file` 最后）。图片同时带表单字段 `Content-Type`，且文件部分的 MIME 与 `content_type` 相同。成功是 HTTP **204**。这个请求不带 Access Key，也不带 `sensecraft-cli-*` 头。超时 30 分钟。业务侧只保存 `file_url`  
 
-> CLI 不做上传频率限制。限流在服务端按 Access Key 执行。本仓库只在发出请求前检查体积和格式。
+> CLI 不在本地计次。触发限流时，服务端返回 `11209` 或 `11210`。
 
-`file_type`：1 图 / 2 文件·模型 / 3 app / 4 固件 / 5 文档 / 6 归档。`model upload` = type=2 + checksum。
+`file_type`：1 图 / 2 文件·模型 / 3 app / 4 固件 / 5 静态资源（要 `flow_id`）/ 6 归档。`model upload` = type=2 + checksum。
 
 关联（避免未挂库的 OSS 对象）：
 

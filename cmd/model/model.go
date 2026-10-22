@@ -225,7 +225,7 @@ func newModelUploadCmd() *cobra.Command {
 		Short: "Upload a model binary; requires --id attach or --unlinked for create",
 		Long: `Uploads file_type=2 with checksum (same as file upload --type 2 --checksum).
 
-Association is required before any OSS PUT (avoids orphan static files):
+Association is required before any OSS upload (avoids orphan static files):
 
   # Prefer: attach to an existing private model (bumps patch version)
   sensecraft-cli model upload --path ./model.tflite --id <model_id> --yes

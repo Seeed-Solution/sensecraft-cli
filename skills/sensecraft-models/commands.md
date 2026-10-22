@@ -109,7 +109,7 @@ Unsupported combinations print structured JSON and exit non-zero.
 | `--yes` | with `--id` | L2; without it, attach does **not** upload |
 | `--sandbox` | no | Sample JSON, no network |
 
-When replacing an existing private model's artifact, pass `--id` so the file is attached and the **patch version auto-increments** (Console `incrementVersion`: `1.0.0` → `1.0.1` when `file_url` changes). This is L2 (`--yes`). Bare `model upload --path` (no `--id`/`--unlinked`) exits non-zero **before** PUT. Interactive TTY guides association; agents must ask the user first. JSON includes `attached`, `model_id`, `previous_version`, `version`.
+When replacing an existing private model's artifact, pass `--id` so the file is attached and the **patch version auto-increments** (Console `incrementVersion`: `1.0.0` → `1.0.1` when `file_url` changes). This is L2 (`--yes`). Bare `model upload --path` (no `--id`/`--unlinked`) exits non-zero **before** the OSS upload. Interactive TTY guides association; agents must ask the user first. JSON includes `attached`, `model_id`, `previous_version`, `version`.
 
 ```bash
 # Existing model: attach + bump version

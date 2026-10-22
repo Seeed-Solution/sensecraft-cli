@@ -9,7 +9,7 @@ Aligned with Console `views/model/add.vue`, `detail.vue`, and `constants/sensecr
 | `name` | text | yes | max **64** (`SENSECRAFT_MODEL_NAME_MAX_LENGTH`); trim before API |
 | `description` | text | yes | max **300** |
 | `content` | rich text | yes | model detail / documentation body |
-| `pic_url` | image URL | yes | inference example image; upload via `file upload --type 1` (**≤2 MB**, Console `model/add.vue` max-size=2); JPG/PNG/GIF/WebP; must be http(s) URL |
+| `pic_url` | image URL | yes | inference example image; upload via `file upload --type 1` (**≤5 MB**); JPG/PNG/GIF/WebP; must be http(s) URL |
 | `scenario` | option | yes | id from `get_constant` **`scenarios_array`** (not app `app_scenarios_array`); CLI rejects unknown ids |
 | `precision` | option | yes | id from **`model_precision_array`** (1=INT8, 2=FLOAT16, 3=FLOAT32 typical); CLI rejects unknown ids |
 | `file_url` | URL | yes | model binary URL; http(s); extension must match `model_format` |

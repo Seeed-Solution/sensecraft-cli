@@ -62,7 +62,7 @@ China 与 Global 使用同一个 AI host，账号中心不同。网页控制台�
 | App fields / tool-blocks / BOM guidance | same apps skill references | `sensecap` | Config OK; real flash = L3 |
 | Author a new app (create + info + images + BOM + blocks) | [`sensecraft-apps/create-app`](../sensecraft-apps/create-app/SKILL.md) | `sensecap` | One batch confirmation; stops before publish |
 | Create / update / publish / unpublish / delete / bom app | same + `app …` / `app bom …` | `sensecap` | **CLI shipped** (L2 `--yes`; publish also `--agree-declaration`; bare `create --name` not L2) |
-| Upload image/file/firmware/doc/archive and obtain `file_url` | [`sensecraft-files`](../sensecraft-files/SKILL.md) + `file upload` | `sensecap` | Types `1`–`2` require `--model-id`/`--app-id --yes`/`--for-app`/`--unlinked`; types `3`–`6` direct |
+| Upload image/file/firmware/static/archive and obtain `file_url` | [`sensecraft-files`](../sensecraft-files/SKILL.md) + `file upload` | `sensecap` | Types `1`–`2` require `--model-id`/`--app-id --yes`/`--for-app`/`--unlinked`; type `5` requires `--flow-id`; types `3`–`6` direct |
 | Model library search/view/download/constants | [`sensecraft-models`](../sensecraft-models/SKILL.md) | `sensecap` | **CLI shipped** |
 | Upload / publish / unpublish / delete model | same + `model upload --id --yes` / `create\|update\|publish\|unpublish\|delete` | `sensecap` | Attach bumps patch version like Console |
 | Classic reCamera (`40`) pick / check / open deploy page | [`sensecraft-recamera`](../sensecraft-recamera/SKILL.md) + `app/model list --uniform-type 40` + `recamera check` / `open` | `sensecap` | **CLI shipped**. Flash is Console L3 (IP/USB). Not `cloud deploy`. Not Pro `53`. |
@@ -105,7 +105,7 @@ SenseCAP telemetry → pick public model → deploy to Jetson:
 Published commands use **SenseCAP Access Key** (`kind=sensecap`) → `{ai-host}/openapi`:
 
 1. **Apps** — list/view/fields/blocks; create/update; publish/unpublish/delete (L2); BOM search/list/set; tool-block config via JSON (real flash = L3).
-2. **Files** — `file upload` for image/model/app/firmware/doc/archive; types 1–2 require `--model-id` / `--app-id --yes` / `--for-app` / `--unlinked` before PUT (bare upload fails).
+2. **Files** — `file upload` for image/model/app/firmware/static/archive; types 1–2 require `--model-id` / `--app-id --yes` / `--for-app` / `--unlinked` before the OSS POST (bare upload fails). Type 5 also requires `--flow-id`.
 3. **Model library** — list/view/constants; **private** download only; public models deploy-only (no `file_url`); `model upload --id --yes` attaches and auto-bumps patch version; create/update; publish/unpublish/delete (L2).
 4. **Cloud devices** — `cloud device` / `cloud deploy` / `cloud order`.
 5. **Classic reCamera 40** — `recamera check` / `recamera open` (Console AI deploy page; flash is L3).

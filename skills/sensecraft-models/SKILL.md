@@ -167,7 +167,7 @@ Detection framework→algorithm and full upload constraints are in [reference-mo
 | Supported devices | `adapteds` / `uniform_types` | multi-select device types |
 | Tech | `version`, `precision`, `checksum`, `model_size`, `attr.conf`/`iou` | device-dependent |
 | File | `file_url` | uploaded model artifact; **omitted from public list/view stdout** |
-| Cover / demo | `pic_url` | inference example image (required on create UI; **≤2 MB** when uploading with `file upload --type 1`) |
+| Cover / demo | `pic_url` | inference example image (required on create UI; **≤5 MB** when uploading with `file upload --type 1`) |
 | Visibility | `be_public` | `0` private · `1` public · `2` under review (display) |
 | Invoke / CodeCraft | detail or env deep links | Surface any API-provided invoke URL; CodeCraft workspace base from product env — **do not implement CodeCraft compile inside this skill** |
 

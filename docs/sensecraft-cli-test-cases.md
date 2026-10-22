@@ -310,8 +310,8 @@
 | FIL-01b  | 关联模型               | 私有模型             | `file upload --path ./a.tflite --model-id <id> --yes`         | 同 MDL-10b                                   |
 | FIL-01c  | 关联应用封面           | 已有 app             | `file upload --path ./cover.png --type 1 --app-id <id> --yes` | `images[0]` 为新封面；`attached: true`       |
 | FIL-01d  | model-id/app-id 互斥   | —                    | 同时传                                                        | 非 0                                         |
-| FIL-01e  | 图片 >5MB（应用）      | 本地 >5MB 图         | `file upload --type 1 --for-app`                              | 非 0；对齐 Console infoForm max-size=5       |
-| FIL-01e2 | 图片 >2MB（模型示例）  | 本地 >2MB 图         | `file upload --type 1 --unlinked`                             | 非 0；对齐 Console model pic_url max-size=2  |
+| FIL-01e  | 图片 >5MB              | 本地 >5MB 图         | `file upload --type 1 --unlinked` 或 `--for-app`              | 非 0；所有图片上限 5MB                       |
+| FIL-01e2 | type 5 缺少 flow_id    | 本地静态文件         | `file upload --type 5`                                        | 非 0；不申请凭证；`--flow-id` 后才上传      |
 | FIL-01f  | 非图 >100MB            | 本地大文件           | `file upload --type 2 --unlinked`                             | 非 0；对齐 Console 100MB                     |
 | FIL-01f2 | 空文件 0B              | 本地 0 字节          | `file upload --unlinked` / `model upload --unlinked`          | 非 0；拒绝空文件                             |
 | FIL-01g  | 应用图 >16 张          | from-json 含 17+ URL | `app update --from-json` / attach                             | 非 0；对齐 Console maxImageCount=16          |

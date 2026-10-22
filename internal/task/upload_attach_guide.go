@@ -25,7 +25,7 @@ type FileUploadAssoc struct {
 	Yes      bool
 }
 
-// ResolveModelUploadAssoc requires --id or --unlinked before any OSS PUT.
+// ResolveModelUploadAssoc requires --id or --unlinked before any OSS upload.
 // Interactive TTY: guide the user to pick attach vs new-model create.
 // Agents (non-TTY): fail with ErrAttachRequired so they ask in chat first.
 func ResolveModelUploadAssoc(console *ui.Console, modelID string, unlinked, yes bool) (ModelUploadAssoc, error) {

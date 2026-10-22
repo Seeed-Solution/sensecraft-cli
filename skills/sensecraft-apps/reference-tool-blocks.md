@@ -87,7 +87,7 @@ Checked Muse flash differences are documentation only. Do not implement them in 
 | Device | Layout | Serial / reset |
 |--------|--------|----------------|
 | E1001 / E1002 / Indicator | Five segments plus erase-all: `0x0` bootloader, `0x10000` partition table, `0x17000` OTA, `0x19000` PHY, app at `0x20000` | Close the port after the write. The user presses reset. Do not reopen the port immediately |
-| Watcher | Four segments plus erase-all, no PHY: `0x0`, `0x10000`, OTA `0x1D000`, app `0x20000`. Back up `nvsfactory` from `0x9000` for length `0x32000` first | `1a86:55d2` |
+| Watcher | Four segments plus erase-all, no PHY: `0x0`, `0x10000`, OTA `0x1D000`, app `0x20000`. Back up `nvsfactory` from `0x9000` for length `0x32000` first. Close the port after the write; the user presses reset. Do not watchdog-reset and reopen, or macOS Chrome exits | `1a86:55d2` |
 | Sticky | Same four segments as Watcher plus erase-all, its own bootloader, no `nvsfactory` backup | Checked: `1a86:55d3`, watchdog reset after the write. Unchecked: no USB restriction, one merged image from `0x0` |
 | 1.47" Touch | Same four segments as Watcher plus erase-all, its own bootloader, no `nvsfactory` backup | `303a:1001`. Close the port after the write. The user presses reset |
 

@@ -23,6 +23,7 @@ Agent fill-in guide for SenseCraft custom apps (v3). Aligns with Console `infoFo
 ### Create vs update
 
 - **Create (CLI one-shot)**: `POST /flow/app/v3/create_app` then `update_app` with the rest of `--from-json` on the **new** `app_id` only — **no `--yes`**. Editing an **existing** app is `app update --yes` (L2).
+  - The follow-up `update_app` also merges missing info keys when a sketch already exists (same merge as `app update`), so an echoed create result may show sketch values for omitted keys.
   - CLI always surfaces `app_id` / `console_url` / `detail_url` after create, even when `update_app` returns `{}`.
   - **Never** retry `app create` solely because the JSON looked empty — run `app list --mine` first; duplicate names are allowed and will spawn extra apps.
 - **Update (`app update`)**: always include `app_id` (CLI `--id`).

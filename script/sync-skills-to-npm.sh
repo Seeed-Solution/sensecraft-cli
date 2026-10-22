@@ -10,7 +10,9 @@ PKG="$ROOT/packages/cli"
 rm -rf "$PKG/skills" "$PKG/sensecraft-cli"
 
 # Copy the skills tree shipped with the CLI.
+# `*-legacy/` dirs are archived drafts kept for reference — never ship them.
 cp -R "$ROOT/skills" "$PKG/skills"
+find "$PKG/skills" -type d -name '*-legacy' -prune -exec rm -rf {} +
 
 # Ship the repo LICENSE next to the package so npm consumers get it.
 if [[ -f "$ROOT/LICENSE" ]]; then

@@ -31,7 +31,7 @@ func (s DeviceService) ListDevice(deviceType, groupUuid string) (definition.List
 		q.Set("group_uuid", groupUuid)
 	}
 
-	data, err := s.client.Get(enum.OpenApiUrlDeviceList, q)
+	body, err := s.client.GetBody(enum.OpenApiUrlDeviceList, q)
 	if err != nil {
 		if errors.Is(err, client.ErrSandboxMode) {
 			return definition.ListDeviceResponse{
@@ -41,8 +41,7 @@ func (s DeviceService) ListDevice(deviceType, groupUuid string) (definition.List
 		return nil, err
 	}
 	resp := definition.ListDeviceResponse{}
-	err = json.Unmarshal(data, &resp)
-	if err != nil {
+	if err := body.Unmarshal(&resp); err != nil {
 		return nil, err
 	}
 	return resp, nil

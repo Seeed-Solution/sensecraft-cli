@@ -1,10 +1,8 @@
 package device
 
 import (
-	"fmt"
 	"sensecraft-cloud-terminal/internal/app"
 	"sensecraft-cloud-terminal/internal/service"
-	"time"
 
 	"github.com/spf13/cobra"
 )
@@ -39,15 +37,8 @@ If group_uuid is omitted, devices from all groups are returned.`,
 				return err
 			}
 			ctx.SandBox = sandbox
-			logFields := map[string]string{
-				"cmd":    "device list",
-				"time":   time.Now().String(),
-				"params": fmt.Sprintf("device_type=%s, group_uuid=%s", deviceListType, deviceListGroupUUID),
-			}
-
 			deviceList, err := service.GetDeviceService(ctx).ListDevice(deviceListType, deviceListGroupUUID)
 			if err != nil {
-				ctx.LogError(err, logFields)
 				return err
 			}
 			return ctx.PrintJsonData(deviceList)

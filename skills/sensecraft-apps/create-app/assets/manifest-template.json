@@ -1,0 +1,46 @@
+{
+  "manifest_version": 1,
+  "identity": {
+    "app_id": null,
+    "remote_type": null,
+    "org_id": null,
+    "account": null,
+    "created_at": null
+  },
+  "info": {
+    "app_name": "",
+    "excerpt": "",
+    "scene": "",
+    "license": "",
+    "author": "",
+    "allow_clone": 1,
+    "allow_commerce": 0
+  },
+  "images": [
+    {
+      "path": "docs/images/cover.png",
+      "sha256": null,
+      "file_url": null,
+      "role": "cover"
+    }
+  ],
+  "deployment": {
+    "blocks": [
+      {
+        "id": "intro_1",
+        "type": "paragraph",
+        "content": "<p>What this app does, who it is for, and what is in the box.</p>",
+        "indent": 0
+      }
+    ]
+  },
+  "bom": {
+    "materials": []
+  },
+  "sync": {
+    "local_revision": 1,
+    "last_pushed_revision": 0,
+    "last_pushed_at": null,
+    "last_pushed_hash": null
+  }
+}

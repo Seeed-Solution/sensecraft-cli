@@ -14,6 +14,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"sensecraft-cloud-terminal/internal/enum"
@@ -289,25 +290,58 @@ func CachedNotice(current string) string {
 	return Notice(current, state.LatestVersion)
 }
 
-// StartRefresh updates the cache in the background when it is older than 24h.
-// It returns immediately and never reports errors.
+// StartRefresh begins a registry check when the cache is missing or older
+// than 24 hours. It overlaps the command and never reports errors.
+// WaitRefresh returns after that check has been stored. A fresh cache makes
+// both calls return immediately, so a command is not delayed every time.
 func StartRefresh(current string) {
+	refreshMu.Lock()
+	defer refreshMu.Unlock()
+	refreshDone = nil
 	if ShouldSkip(current) {
 		return
 	}
+	state, err := loadState()
+	if err == nil && state.LatestVersion != "" && time.Since(time.Unix(state.CheckedAt, 0)) < cacheTTL {
+		return
+	}
+	done := make(chan struct{})
+	refreshDone = done
 	go func() {
-		state, err := loadState()
-		if err == nil && state.LatestVersion != "" && time.Since(time.Unix(state.CheckedAt, 0)) < cacheTTL {
-			return
-		}
+		defer close(done)
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		latest, err := FetchLatest(ctx)
+		latest, err := fetchLatestVersion(ctx)
 		if err != nil || parseVersion(latest) == nil {
 			return
 		}
 		_ = Remember(latest)
 	}()
+}
+
+// WaitRefresh blocks until the check started by StartRefresh is finished.
+func WaitRefresh() {
+	refreshMu.Lock()
+	done := refreshDone
+	refreshMu.Unlock()
+	if done == nil {
+		return
+	}
+	<-done
+}
+
+// fetchLatestVersion is the registry call used by StartRefresh. Tests replace it.
+var fetchLatestVersion = FetchLatest
+
+var (
+	refreshMu   sync.Mutex
+	refreshDone chan struct{}
+)
+
+func resetRefresh() {
+	refreshMu.Lock()
+	refreshDone = nil
+	refreshMu.Unlock()
 }
 
 // FetchLatest reads the version field from the npm latest document.

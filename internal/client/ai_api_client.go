@@ -91,7 +91,7 @@ func (c *AIApiClient) Get(path string, query url.Values) (json.RawMessage, error
 	if err := c.ensureAccessKey(); err != nil {
 		return nil, err
 	}
-	raw, err := c.base.Get(path, query)
+	raw, _, err := c.base.Get(path, query)
 	if err != nil {
 		return nil, err
 	}
@@ -102,7 +102,7 @@ func (c *AIApiClient) Post(path string, body any) (json.RawMessage, error) {
 	if err := c.ensureAccessKey(); err != nil {
 		return nil, err
 	}
-	raw, err := c.base.Do(http.MethodPost, path, nil, body)
+	raw, _, err := c.base.Do(http.MethodPost, path, nil, body)
 	if err != nil {
 		return nil, err
 	}

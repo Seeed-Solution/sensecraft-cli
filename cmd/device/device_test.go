@@ -1,7 +1,10 @@
 package device
 
 import (
+	"encoding/json"
 	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"sensecraft-cloud-terminal/internal/cmdtest"
@@ -31,6 +34,55 @@ func TestDeviceList(t *testing.T) {
 	}
 	if stdout == "" {
 		t.Fatal("expected stdout output")
+	}
+}
+
+func TestDeviceList_RejectedAccessKey(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"code":        11104,
+			"msg":         "AccessId or accessKey error",
+			"serviceName": "sensecap",
+		})
+	}))
+	defer srv.Close()
+
+	cmdtest.SetupConfig(t, srv.URL)
+	_, err := cmdtest.Execute(t, deviceRoot(), []string{"device", "list"})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	got := err.Error()
+	if strings.Contains(got, "cannot unmarshal") || strings.Contains(got, "ListDeviceResponse") {
+		t.Fatalf("leaked decode error: %s", got)
+	}
+	if !strings.Contains(got, "11104") || !strings.Contains(got, "Access Key") {
+		t.Fatalf("got %s", got)
+	}
+}
+
+func TestDeviceList_UnreadablePayload(t *testing.T) {
+	const raw = `{"code":"0","data":{"unexpected":true}}`
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(raw))
+	}))
+	defer srv.Close()
+
+	cmdtest.SetupConfig(t, srv.URL)
+	_, err := cmdtest.Execute(t, deviceRoot(), []string{"device", "list"})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	got := err.Error()
+	for _, want := range []string{"HTTP 200", raw} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("missing %q in %s", want, got)
+		}
+	}
+	if strings.Contains(got, "cannot unmarshal") || strings.Contains(got, "ListDeviceResponse") {
+		t.Fatalf("leaked decode error: %s", got)
 	}
 }
 

@@ -93,10 +93,10 @@ func (c *BaseClient) BaseURL() string {
 	return c.baseURL
 }
 
-func (c *BaseClient) Do(method, path string, query url.Values, body any, opts ...RequestOption) ([]byte, error) {
+func (c *BaseClient) Do(method, path string, query url.Values, body any, opts ...RequestOption) ([]byte, int, error) {
 	u, err := url.Parse(c.baseURL + path)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	if len(query) > 0 {
 		u.RawQuery = query.Encode()
@@ -104,21 +104,21 @@ func (c *BaseClient) Do(method, path string, query url.Values, body any, opts ..
 
 	if c.sandbox {
 		_, _ = fmt.Fprintln(os.Stderr, fmt.Sprintf("sandBox====> method=%s url=%s body=%#v", method, u.String(), body))
-		return nil, ErrSandboxMode
+		return nil, 0, ErrSandboxMode
 	}
 
 	var bodyReader io.Reader
 	if body != nil {
 		b, err := json.Marshal(body)
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 		bodyReader = bytes.NewReader(b)
 	}
 
 	req, err := http.NewRequest(method, u.String(), bodyReader)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	req.Header.Set("sensecraft-cli-version", cliVersion())
 
@@ -135,29 +135,29 @@ func (c *BaseClient) Do(method, path string, query url.Values, body any, opts ..
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer resp.Body.Close()
 
 	raw, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, err
+		return nil, resp.StatusCode, err
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, HTTPError{StatusCode: resp.StatusCode, Body: raw}
+		return nil, resp.StatusCode, HTTPError{StatusCode: resp.StatusCode, Body: raw}
 	}
-	return raw, nil
+	return raw, resp.StatusCode, nil
 }
 
-func (c *BaseClient) Get(path string, query url.Values, opts ...RequestOption) ([]byte, error) {
+func (c *BaseClient) Get(path string, query url.Values, opts ...RequestOption) ([]byte, int, error) {
 	return c.Do(http.MethodGet, path, query, nil, opts...)
 }
 
-func (c *BaseClient) Post(path string, body any, opts ...RequestOption) ([]byte, error) {
+func (c *BaseClient) Post(path string, body any, opts ...RequestOption) ([]byte, int, error) {
 	return c.Do(http.MethodPost, path, nil, body, opts...)
 }
 
-func (c *BaseClient) PostQuery(path string, query url.Values, opts ...RequestOption) ([]byte, error) {
+func (c *BaseClient) PostQuery(path string, query url.Values, opts ...RequestOption) ([]byte, int, error) {
 	return c.Do(http.MethodPost, path, query, nil, opts...)
 }
 

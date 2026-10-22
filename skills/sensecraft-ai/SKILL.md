@@ -60,6 +60,7 @@ China 与 Global 使用同一个 AI host，账号中心不同。网页控制台�
 | SenseCAP list/bind device, groups, telemetry | [`sensecraft-data`](../sensecraft-data/SKILL.md) | `sensecap` | Shipped today |
 | Browse / search App Plaza, view app | [`sensecraft-apps`](../sensecraft-apps/SKILL.md) + `app list` / `app view` | `sensecap` | **CLI shipped** (list/view) |
 | App fields / tool-blocks / BOM guidance | same apps skill references | `sensecap` | Config OK; real flash = L3 |
+| Author a new app (create + info + images + BOM + blocks) | [`sensecraft-apps/create-app`](../sensecraft-apps/create-app/SKILL.md) | `sensecap` | One batch confirmation; stops before publish |
 | Create / update / publish / unpublish / delete / bom app | same + `app …` / `app bom …` | `sensecap` | **CLI shipped** (L2 `--yes`; publish also `--agree-declaration`; bare `create --name` not L2) |
 | Upload image/file/firmware/doc/archive and obtain `file_url` | [`sensecraft-files`](../sensecraft-files/SKILL.md) + `file upload` | `sensecap` | Types `1`–`2` require `--model-id`/`--app-id --yes`/`--for-app`/`--unlinked`; types `3`–`6` direct |
 | Model library search/view/download/constants | [`sensecraft-models`](../sensecraft-models/SKILL.md) | `sensecap` | **CLI shipped** |
@@ -126,6 +127,7 @@ Published AI CLI is `app` / `model` / `file` / `cloud` / `recamera`. If a comman
 | [`../sensecraft-data/SKILL.md`](../sensecraft-data/SKILL.md) | SenseCAP PaaS skill (shipped) |
 | [`../sensecraft-data/commands.md`](../sensecraft-data/commands.md) | Full SenseCAP command reference |
 | `skills/sensecraft-apps/` | App Plaza skill + field/block refs (**shipped**) |
+| `skills/sensecraft-apps/create-app/` | App authoring sub-skill: one batch confirmation (**shipped**) |
 | `skills/sensecraft-models/` | Model library skill + field refs (**shipped**) |
 | `skills/sensecraft-recamera/` | Classic reCamera 40 pick → check → open deploy page (**shipped**) |
 | `skills/sensecraft-devices-cloud/` | Jetson / cloud kit (**shipped**) |

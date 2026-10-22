@@ -29,6 +29,7 @@ import (
 
 var (
 	startUpdateRefresh              = update.StartRefresh
+	waitUpdate                      = update.WaitRefresh
 	updateNotice                    = update.CachedNotice
 	markUpdateShown                 = update.MarkShown
 	noticeWriter          io.Writer = os.Stderr
@@ -42,7 +43,7 @@ var (
 func GetRootCmd() *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:     "sensecraft-cli",
-		Version: version.Get().String(),
+		Version: version.Version,
 		Short:   "SenseCAP / SenseCraft AI cloud CLI",
 		Long: `Manage SenseCAP devices/data and SenseCraft AI apps/models via cloud APIs.
 
@@ -55,6 +56,7 @@ Console:                 https://sensecraft.seeed.cc`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}
+	rootCmd.SetVersionTemplate("{{.Version}}\n")
 
 	rootCmd.AddCommand(auth.NewAuthCmd())
 	rootCmd.AddCommand(device.NewDeviceCmd())
@@ -75,10 +77,16 @@ func Execute() error {
 }
 
 func execute(args []string) error {
-	startUpdateRefresh(version.Version)
+	if notifyUpdate(args) {
+		startUpdateRefresh(version.Version)
+	}
 	root := GetRootCmd()
 	root.SetArgs(args)
-	if err := root.Execute(); err != nil {
+	err := root.Execute()
+	if notifyUpdate(args) {
+		waitUpdate()
+	}
+	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return err
 	}

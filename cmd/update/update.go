@@ -38,15 +38,16 @@ func NewCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "update",
 		Short: "Update sensecraft-cli to the latest npm release",
-		Long: `Check the npm registry for a newer @seeed-studio/sensecraft-cli release.
+		Long: `Install the latest @seeed-studio/sensecraft-cli release from npm.
 
 When this binary was installed via npm and npm is on PATH, the command runs:
   npm install -g @seeed-studio/sensecraft-cli@<version>
 
-That install refreshes the packaged binary and skills. Access Key config is left in place.
+That install refreshes the packaged binary and skills even when the local version
+string already matches the registry. Access Key config is left in place.
 A binary that was not installed via npm prints the manual commands instead.
 
-Use --check to only report whether an update exists.`,
+Use --check to only report whether a newer release exists.`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -62,7 +63,7 @@ Use --check to only report whether an update exists.`,
 		},
 	}
 	cmd.Flags().BoolVar(&opts.Check, "check", false, "only check for updates, do not install")
-	cmd.Flags().BoolVar(&opts.Force, "force", false, "reinstall even when the current version is already latest")
+	cmd.Flags().BoolVar(&opts.Force, "force", false, "accepted for compatibility; update always reinstalls")
 	return cmd
 }
 
@@ -95,10 +96,6 @@ func Run(ctx context.Context, opts Options) error {
 	if opts.Check {
 		return reportCheck(opts, latest, newer)
 	}
-	if !opts.Force && !newer {
-		fmt.Fprintf(opts.Stderr, "sensecraft-cli %s 已是最新版本（已发布 %s）\n", opts.Current, latest)
-		return nil
-	}
 
 	opts.Updater.CleanupStaleFiles()
 	detect := opts.Updater.Detect()
@@ -107,7 +104,11 @@ func Run(ctx context.Context, opts Options) error {
 		return nil
 	}
 
-	fmt.Fprintf(opts.Stderr, "正在通过 npm 将 sensecraft-cli %s 更新到 %s ...\n", opts.Current, latest)
+	if newer {
+		fmt.Fprintf(opts.Stderr, "正在通过 npm 将 sensecraft-cli %s 更新到 %s ...\n", opts.Current, latest)
+	} else {
+		fmt.Fprintf(opts.Stderr, "正在通过 npm 重新安装 sensecraft-cli %s ...\n", latest)
+	}
 	restore, err := opts.Updater.PrepareSelfReplace()
 	if err != nil {
 		return err
@@ -123,7 +124,11 @@ func Run(ctx context.Context, opts Options) error {
 		restore()
 		return fmt.Errorf("新版本校验失败: %w", err)
 	}
-	fmt.Fprintf(opts.Stderr, "sensecraft-cli 已从 %s 更新到 %s\n", opts.Current, latest)
+	if newer {
+		fmt.Fprintf(opts.Stderr, "sensecraft-cli 已从 %s 更新到 %s\n", opts.Current, latest)
+	} else {
+		fmt.Fprintf(opts.Stderr, "sensecraft-cli %s 已重新安装\n", latest)
+	}
 	return nil
 }
 

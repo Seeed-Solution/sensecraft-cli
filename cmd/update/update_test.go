@@ -72,11 +72,55 @@ func TestRunCheckAndInstall(t *testing.T) {
 	}
 }
 
+func TestRunReinstallsMatchingVersion(t *testing.T) {
+	t.Setenv("SENSECRAFT_CLI_PATH", t.TempDir())
+	var installed string
+	updater := withInstall(func(_ context.Context, version string) error {
+		installed = version
+		return nil
+	}, func(context.Context, string) (string, error) {
+		return "sensecraft-cli version 0.2.0\n", nil
+	})
+	var buf bytes.Buffer
+	err := Run(context.Background(), Options{
+		Current: "0.2.0",
+		Stderr:  &buf,
+		Fetch:   func(context.Context) (string, error) { return "0.2.0", nil },
+		Updater: updater,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if installed != "0.2.0" || !strings.Contains(buf.String(), "已重新安装") {
+		t.Fatalf("install=%q output:\n%s", installed, buf.String())
+	}
+	if strings.Contains(buf.String(), "已是最新版本") {
+		t.Fatal("update must reinstall when the version already matches")
+	}
+
+	buf.Reset()
+	installed = ""
+	err = Run(context.Background(), Options{
+		Current: "0.2.0",
+		Check:   true,
+		Stderr:  &buf,
+		Fetch:   func(context.Context) (string, error) { return "0.2.0", nil },
+		Updater: updater,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if installed != "" || !strings.Contains(buf.String(), "已是最新版本") {
+		t.Fatalf("install=%q output:\n%s", installed, buf.String())
+	}
+}
+
 func TestRunAlreadyLatestAndManual(t *testing.T) {
 	t.Setenv("SENSECRAFT_CLI_PATH", t.TempDir())
 	var buf bytes.Buffer
 	err := Run(context.Background(), Options{
 		Current: "0.2.0",
+		Check:   true,
 		Stderr:  &buf,
 		Fetch:   func(context.Context) (string, error) { return "0.2.0", nil },
 		Updater: testUpdater(true),

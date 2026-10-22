@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"sensecraft-cloud-terminal/internal/activity"
+	"sensecraft-cloud-terminal/internal/version"
 )
 
 func TestPublicRootOmitsTrainAndFleet(t *testing.T) {
@@ -56,6 +57,20 @@ func TestRootRegistersUpdate(t *testing.T) {
 	}
 }
 
+func TestVersionPrintsOnlyLocalVersion(t *testing.T) {
+	root := GetRootCmd()
+	var buf bytes.Buffer
+	root.SetOut(&buf)
+	root.SetErr(&buf)
+	root.SetArgs([]string{"--version"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if strings.TrimSpace(buf.String()) != version.Version {
+		t.Fatalf("version output=%q", buf.String())
+	}
+}
+
 func TestNotifyUpdateSkipsVersionAndUpdate(t *testing.T) {
 	if !notifyUpdate([]string{"device", "list"}) {
 		t.Fatal("device list should notify")
@@ -97,6 +112,43 @@ func TestMaybeNotifyPrintsCachedNotice(t *testing.T) {
 	maybeNotify([]string{"--version"})
 	if buf.Len() != 0 {
 		t.Fatalf("version notice=%q", buf.String())
+	}
+}
+
+func TestExecutePrintsUpdateFoundDuringTheCommand(t *testing.T) {
+	origStart := startUpdateRefresh
+	origWait := waitUpdate
+	origNotice := updateNotice
+	origMark := markUpdateShown
+	origDue := activityDue
+	origWriter := noticeWriter
+	t.Cleanup(func() {
+		startUpdateRefresh = origStart
+		waitUpdate = origWait
+		updateNotice = origNotice
+		markUpdateShown = origMark
+		activityDue = origDue
+		noticeWriter = origWriter
+	})
+	ready := false
+	startUpdateRefresh = func(string) {}
+	waitUpdate = func() { ready = true }
+	updateNotice = func(string) string {
+		if !ready {
+			return ""
+		}
+		return "Warning: A new version of sensecraft-cli (0.2.0) has been released. Please run sensecraft-cli update to upgrade for more complete features and broader protection."
+	}
+	markUpdateShown = func() error { return nil }
+	activityDue = func(time.Time) []activity.Item { return nil }
+	var buf bytes.Buffer
+	noticeWriter = &buf
+
+	if err := execute([]string{"--help"}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(buf.String(), "0.2.0") {
+		t.Fatalf("notice=%q", buf.String())
 	}
 }
 

@@ -2,6 +2,17 @@
 
 Help the Agent choose the right block and fill `config` safely. Execution on hardware is **L3** unless noted.
 
+## Content format
+
+Text-block `content` (introduction and step text alike) renders **Markdown** — inline HTML like `<p>` also renders and appears in existing docs. Images and externally hosted media are available through ordinary Markdown:
+
+```markdown
+![wiring diagram](https://files.example.com/wiring.png)
+[Watch the demo video](https://example.com/demo.mp4)
+```
+
+Host binaries (images, videos) via `file upload` first; Markdown only links out, it does not embed uploads by itself.
+
 ## Document layout
 
 `deployment.blocks` is a **flat** ordered array.
@@ -20,6 +31,8 @@ Help the Agent choose the right block and fill `config` safely. Execution on har
 `step`, `paragraph`, `h1`–`h6`, `bullet`, `number`, `todo`, `quote`, `code`, `divider`.
 
 Common fields: `id`, `type`, `content`, `indent`, `title`/`expanded` for `step`.
+
+**Step titles**: the UI already prefixes the step number (`Step x:` / `第 x 步`) — `title` is the action name only.
 
 Prefer `paragraph` under a `step` for instructions; do not overload tool-block `config` with prose.
 
@@ -155,8 +168,8 @@ Used for **container / edge app** deployment UI inside the application doc.
   {
     "id": "step_1",
     "type": "step",
-    "title": "Step 1: Flash firmware",
-    "content": "Step 1: Flash firmware",
+    "title": "Flash firmware",
+    "content": "Flash firmware",
     "expanded": true,
     "indent": 0
   },

@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -146,5 +147,65 @@ func TestCachedNotice(t *testing.T) {
 	}
 	if got := CachedNotice("0.1.4"); got != Notice("0.1.4", "0.1.6") {
 		t.Fatalf("newer release should notify again, got %q", got)
+	}
+}
+
+func TestMissingCacheIsReportedByTheSameCheck(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("SENSECRAFT_CLI_PATH", dir)
+	t.Setenv("CI", "")
+	t.Setenv("BUILD_NUMBER", "")
+	t.Setenv("RUN_ID", "")
+	t.Setenv("SENSECRAFT_CLI_NO_UPDATE_NOTIFIER", "")
+	orig := fetchLatestVersion
+	t.Cleanup(func() {
+		fetchLatestVersion = orig
+		resetRefresh()
+	})
+	fetchLatestVersion = func(context.Context) (string, error) {
+		time.Sleep(150 * time.Millisecond)
+		return "0.2.0", nil
+	}
+
+	StartRefresh("0.1.6")
+	if CachedNotice("0.1.6") != "" {
+		t.Fatal("notice appeared before the registry check finished")
+	}
+	if _, err := os.Stat(filepath.Join(dir, "update-state.json")); !os.IsNotExist(err) {
+		t.Fatal("state file was written before the check finished")
+	}
+	WaitRefresh()
+	if _, err := os.Stat(filepath.Join(dir, "update-state.json")); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(CachedNotice("0.1.6"), "0.2.0") {
+		t.Fatalf("notice=%q", CachedNotice("0.1.6"))
+	}
+}
+
+func TestFreshCacheSkipsRegistry(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("SENSECRAFT_CLI_PATH", dir)
+	t.Setenv("CI", "")
+	t.Setenv("BUILD_NUMBER", "")
+	t.Setenv("RUN_ID", "")
+	t.Setenv("SENSECRAFT_CLI_NO_UPDATE_NOTIFIER", "")
+	if err := rememberAt("0.2.0", time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	orig := fetchLatestVersion
+	t.Cleanup(func() {
+		fetchLatestVersion = orig
+		resetRefresh()
+	})
+	called := 0
+	fetchLatestVersion = func(context.Context) (string, error) {
+		called++
+		return "0.9.0", nil
+	}
+	StartRefresh("0.1.6")
+	WaitRefresh()
+	if called != 0 {
+		t.Fatalf("fresh cache fetched %d times", called)
 	}
 }

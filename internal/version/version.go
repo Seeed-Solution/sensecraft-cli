@@ -37,7 +37,7 @@ func Get() Info {
 	}
 }
 
-// String is the one-line form used by `--version`.
+// String includes the commit and platform. `--version` prints Version alone.
 func (i Info) String() string {
 	return i.Version + " (" + i.Commit + ", " + i.Platform + ")"
 }

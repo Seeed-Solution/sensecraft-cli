@@ -58,7 +58,7 @@ sensecraft-cli app view --id <app_id> --sketch
 
 ### `app fields`
 
-**Status: implemented.** Prints JSON schema (app info + BOM). Requires AI auth profile; no network.
+**Status: implemented.** Prints JSON schema (app info + BOM). Requires AI auth profile; static output, zero network — **no `--sandbox` flag; run bare**.
 
 ```bash
 sensecraft-cli app fields
@@ -66,7 +66,7 @@ sensecraft-cli app fields
 
 ### `app blocks`
 
-**Status: implemented.** Prints deploy layout + tool-block catalog. Requires AI auth profile; no network.
+**Status: implemented.** Prints deploy layout + tool-block catalog. Requires AI auth profile; static output, zero network — **no `--sandbox` flag; run bare**.
 
 ```bash
 sensecraft-cli app blocks

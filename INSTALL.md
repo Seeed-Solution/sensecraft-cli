@@ -163,7 +163,7 @@ Copy-Item .\sensecraft.json "$env:APPDATA\sensecraft-cli\sensecraft.json"
 sensecraft-cli update
 ```
 
-命令会查询 npm 上的最新版本，并执行 `npm install -g @seeed-studio/sensecraft-cli@<版本>`。安装器接着比较 `vendor/.version` 与新包版本，不一致就重新下载二进制。配置目录里的 Access Key 会保留。
+命令会查询 npm 上的最新版本，并执行 `npm install -g @seeed-studio/sensecraft-cli@<版本>`。本地版本号已经相同也会重新安装。安装器接着比较 `vendor/.version` 与新包版本，不一致就重新下载二进制。配置目录里的 Access Key 会保留。`--version` 只打印本地版本号，不访问 npm。
 
 其它用法：
 

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"strconv"
 	"strings"
 
 	"sensecraft-cloud-terminal/internal/config"
@@ -19,9 +20,16 @@ type APIError struct {
 // Access Key permission (typically a read-only key on a write operation).
 const OpenAPIPermissionDenied = "11201"
 
+// OpenAPIAccessKeyRejected is SenseCAP / OpenAPI business code when the
+// Key ID or Access Key is not accepted.
+const OpenAPIAccessKeyRejected = "11104"
+
 func (e APIError) Error() string {
-	if e.Code == OpenAPIPermissionDenied {
+	switch e.Code {
+	case OpenAPIPermissionDenied:
 		return accessKeyPermissionDeniedMessage(e.Code)
+	case OpenAPIAccessKeyRejected:
+		return accessKeyRejectedMessage(e)
 	}
 	if e.Msg != "" {
 		return fmt.Sprintf("API error code=%s: %s", e.Code, e.Msg)
@@ -34,6 +42,55 @@ func accessKeyPermissionDeniedMessage(code string) string {
 		"Access Key lacks write permission (API code=%s); create or switch to a read-write key via: sensecraft-cli auth init --kind sensecap",
 		code,
 	)
+}
+
+func accessKeyRejectedMessage(e APIError) string {
+	if e.Msg != "" {
+		return fmt.Sprintf("Access Key was rejected (API code=%s: %s). Check the Key ID, Access Key, and site, then run: sensecraft-cli auth init --kind sensecap", e.Code, e.Msg)
+	}
+	return fmt.Sprintf("Access Key was rejected (API code=%s). Check the Key ID, Access Key, and site, then run: sensecraft-cli auth init --kind sensecap", e.Code)
+}
+
+// DecodeError is a 2xx response the CLI could not turn into its expected value.
+// StatusCode is the HTTP status. Body is the server's original payload, which
+// may contain a business code or may be some other text.
+type DecodeError struct {
+	StatusCode int
+	Body       []byte
+}
+
+func (e DecodeError) Error() string {
+	body := strings.TrimSpace(string(e.Body))
+	if body == "" {
+		return fmt.Sprintf("could not read server response (HTTP %d)", e.StatusCode)
+	}
+	return fmt.Sprintf("could not read server response (HTTP %d): %s", e.StatusCode, body)
+}
+
+// APIBody is one OpenAPI response. Raw is the original payload. Data is the
+// envelope data field when the envelope itself could be read.
+type APIBody struct {
+	Status int
+	Raw    []byte
+	Data   json.RawMessage
+}
+
+// Payload is the JSON a caller should decode. It is the envelope data when
+// present, otherwise the original body.
+func (b APIBody) Payload() json.RawMessage {
+	if len(b.Data) > 0 {
+		return b.Data
+	}
+	return b.Raw
+}
+
+// Unmarshal decodes Payload into dest. On failure the error includes the HTTP
+// status and the original server body.
+func (b APIBody) Unmarshal(dest any) error {
+	if err := json.Unmarshal(b.Payload(), dest); err != nil {
+		return DecodeError{StatusCode: b.Status, Body: b.Raw}
+	}
+	return nil
 }
 
 // OpenApiClient 基于 BaseClient，封装 SenseCAP OpenAPI 的认证与响应 envelope 解析。
@@ -59,30 +116,54 @@ func (c *OpenApiClient) Base() *BaseClient {
 }
 
 func (c *OpenApiClient) Get(path string, query url.Values) (json.RawMessage, error) {
-	raw, err := c.base.Get(path, query)
+	body, err := c.GetBody(path, query)
 	if err != nil {
 		return nil, err
 	}
-	return parseOpenAPIEnvelope(raw)
+	return body.Payload(), nil
+}
+
+func (c *OpenApiClient) GetBody(path string, query url.Values) (APIBody, error) {
+	raw, status, err := c.base.Get(path, query)
+	if err != nil {
+		return APIBody{}, err
+	}
+	return parseOpenAPIEnvelope(status, raw)
 }
 
 func (c *OpenApiClient) Post(path string, body any) (json.RawMessage, error) {
-	raw, err := c.base.Post(path, body)
+	parsed, err := c.PostBody(path, body)
 	if err != nil {
 		return nil, err
 	}
-	return parseOpenAPIEnvelope(raw)
+	return parsed.Payload(), nil
+}
+
+func (c *OpenApiClient) PostBody(path string, body any) (APIBody, error) {
+	raw, status, err := c.base.Post(path, body)
+	if err != nil {
+		return APIBody{}, err
+	}
+	return parseOpenAPIEnvelope(status, raw)
 }
 
 func (c *OpenApiClient) PostQuery(path string, query url.Values) (json.RawMessage, error) {
-	raw, err := c.base.PostQuery(path, query)
+	parsed, err := c.PostQueryBody(path, query)
 	if err != nil {
 		return nil, err
 	}
-	return parseOpenAPIEnvelope(raw)
+	return parsed.Payload(), nil
 }
 
-func (c *OpenApiClient) CreateDevelopmentKit(sku, devName string, deviceInfo any) (json.RawMessage, error) {
+func (c *OpenApiClient) PostQueryBody(path string, query url.Values) (APIBody, error) {
+	raw, status, err := c.base.PostQuery(path, query)
+	if err != nil {
+		return APIBody{}, err
+	}
+	return parseOpenAPIEnvelope(status, raw)
+}
+
+func (c *OpenApiClient) CreateDevelopmentKit(sku, devName string, deviceInfo any) (APIBody, error) {
 	body := map[string]any{"sku": sku}
 	if devName != "" {
 		body["dev_name"] = devName
@@ -90,27 +171,38 @@ func (c *OpenApiClient) CreateDevelopmentKit(sku, devName string, deviceInfo any
 	if deviceInfo != nil {
 		body["device_info"] = deviceInfo
 	}
-	return c.Post(enum.OpenApiUrlDeviceCreateDevelopmentKit, body)
+	return c.PostBody(enum.OpenApiUrlDeviceCreateDevelopmentKit, body)
 }
 
-func (c *OpenApiClient) ViewNodeKey(eui string) (json.RawMessage, error) {
-	return c.Get(enum.OpenApiUrlDeviceViewNodeKey, url.Values{"node_eui": {eui}})
+func (c *OpenApiClient) ViewNodeKey(eui string) (APIBody, error) {
+	return c.GetBody(enum.OpenApiUrlDeviceViewNodeKey, url.Values{"node_eui": {eui}})
 }
 
-func parseOpenAPIEnvelope(raw []byte) (json.RawMessage, error) {
+func parseOpenAPIEnvelope(status int, raw []byte) (APIBody, error) {
+	parsed := APIBody{Status: status, Raw: append([]byte(nil), raw...)}
 	var envelope struct {
-		Code string          `json:"code"`
+		Code json.RawMessage `json:"code"`
 		Msg  string          `json:"msg"`
 		Data json.RawMessage `json:"data"`
 	}
 	if err := json.Unmarshal(raw, &envelope); err != nil {
-		return raw, nil
+		return APIBody{}, DecodeError{StatusCode: status, Body: parsed.Raw}
 	}
-	if envelope.Code != "" && envelope.Code != "0" {
-		return nil, APIError{Code: envelope.Code, Msg: envelope.Msg}
+	code, ok := parseFlexibleCode(envelope.Code)
+	if !ok {
+		if len(strings.TrimSpace(string(envelope.Code))) == 0 {
+			parsed.Data = parsed.Raw
+			return parsed, nil
+		}
+		return APIBody{}, DecodeError{StatusCode: status, Body: parsed.Raw}
+	}
+	if code != 0 {
+		return APIBody{}, APIError{Code: strconv.Itoa(code), Msg: envelope.Msg}
 	}
 	if len(envelope.Data) > 0 {
-		return envelope.Data, nil
+		parsed.Data = envelope.Data
+		return parsed, nil
 	}
-	return raw, nil
+	parsed.Data = parsed.Raw
+	return parsed, nil
 }

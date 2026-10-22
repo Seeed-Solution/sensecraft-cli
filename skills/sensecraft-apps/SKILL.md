@@ -13,7 +13,8 @@ description: >-
 Domain skill for **SenseCraft AI applications**. Auth: **Access Key** → `{ai-host}/openapi` (HTTP Basic).
 
 Parent router: [`../sensecraft-ai/SKILL.md`](../sensecraft-ai/SKILL.md).  
-SenseCAP IoT: [`../sensecraft-data/SKILL.md`](../sensecraft-data/SKILL.md).
+SenseCAP IoT: [`../sensecraft-data/SKILL.md`](../sensecraft-data/SKILL.md).  
+Child skill: [`create-app/SKILL.md`](create-app/SKILL.md) — manifest-driven app lifecycle: mine a finished local project into a versioned `sensecraft-app.json` manifest (source of truth), create the app in one go, then local-first updates with drift detection (one batch confirmation per push). Publish / unpublish / delete stay in this file.
 
 ## Agent rules
 
@@ -22,7 +23,7 @@ SenseCAP IoT: [`../sensecraft-data/SKILL.md`](../sensecraft-data/SKILL.md).
    sensecraft-cli auth info
    ```
    Need an active **SenseCAP Access Key**. If missing, ask the user to run `sensecraft-cli auth init --kind sensecap` locally. **Never** run `auth init` for them.
-2. **L2 confirm is a separate chat turn** ([`../confirmation.md`](../confirmation.md)) before: `publish` (`--agree-declaration`), `unpublish`, `delete`, **`app update` / `bom set`**. 「删除应用 demo」is **not** confirmation — ask `将从{环境}环境删除应用 demo（ID: …）。删除后可能无法恢复。是否确认执行？`, wait for `确认`, then `--yes`. Never pass `--yes` on the same turn as the first request.  
+2. **L2 confirm is a separate chat turn** ([`../confirmation.md`](../confirmation.md)) before: `publish` (`--agree-declaration`), `unpublish`, `delete`, **`app update` / `bom set`**. 「删除应用 demo」is **not** confirmation — ask `将从{环境}环境删除应用 demo（ID: …）。删除后可能无法恢复。是否确认执行？`, wait for `确认`, then `--yes`. Never pass `--yes` on the same turn as the first request. **Exception — batch authoring:** [`create-app`](create-app/SKILL.md) confirms a whole push batch (fields + images + BOM + blocks) in one turn instead of per write; its one-go `app create` needs no confirmation at all.  
    **`app create` is not L2** — including `--from-json` with full fields (create + internal follow-up `update_app` on the **new** `app_id` only). Prefer one-shot create when the payload is ready. Still tell the user what will be created before running create.
 3. **Privacy values**: submit review → `privacy` / flow uses **`2`** (pending); unpublish/private → **`0`**. **Never send `1`** (ops-approved public; Admin only).
 4. Tool-block **configuration** may be written into `deployment.blocks`. **Executing** flash / USB deploy / container install on hardware is **L3**. Classic reCamera (`40`): [`sensecraft-recamera`](../sensecraft-recamera/SKILL.md) (`check` / `open`). Other benches: Console `/ai/device/local/32|36|37|41|52`. `flash-firmware` run is out of scope this pass.
@@ -41,7 +42,7 @@ SenseCAP IoT: [`../sensecraft-data/SKILL.md`](../sensecraft-data/SKILL.md).
 | Cover / attachment upload                                              | `file upload --path <img> --type 1 --app-id <id> --yes` (prepends cover, **5 MB**). Unlinked: `file upload --type 1 --for-app` when building a new app payload.                        |
 | `app bom search\|list\|set`                                            | **Implemented** (catalog = local filter on `get_production_options`; set via `update_app`)                                                                                             |
 | `scene` / option ids                                                   | Use `sensecraft-cli model constants` (`app_scenarios_array`)                                                                                                                           |
-| BOM **price / image**                                                  | Seeed rows: **readable** from `app bom search` (`price`, `pic_url`), resolved by SKU — not stored in `materials[]`. Custom rows: **unsupported by the platform** (no input in Console) |
+| BOM **price / image**                                                  | Seeed rows: **readable** from `app bom search` (`price`, `pic_url`), resolved by SKU — not stored in `materials[]`. Custom rows: price/image **unsupported** (no Console input) — custom rows themselves are fine |
 
 When a command exists, prefer it. When it does not, explain the gap and use field/block references below to prepare payloads — do not invent HTTP with guessed tokens; do not misuse SenseCAP CLI.
 

@@ -1,7 +1,6 @@
 package service
 
 import (
-	"encoding/json"
 	"fmt"
 	"slices"
 
@@ -26,13 +25,13 @@ func (s DevKitService) CreateDevelopmentKit(sku, devName string, deviceInfo any)
 		)
 	}
 
-	data, err := s.client.CreateDevelopmentKit(sku, devName, deviceInfo)
+	body, err := s.client.CreateDevelopmentKit(sku, devName, deviceInfo)
 	if err != nil {
 		return definition.CreateDevelopmentKitResponse{}, err
 	}
 
 	resp := definition.CreateDevelopmentKitResponse{}
-	if err := json.Unmarshal(data, &resp); err != nil {
+	if err := body.Unmarshal(&resp); err != nil {
 		return definition.CreateDevelopmentKitResponse{}, err
 	}
 	return resp, nil
@@ -43,13 +42,13 @@ func (s DevKitService) ViewNodeKey(eui string) (definition.ViewNodeKeyResponse, 
 		return definition.ViewNodeKeyResponse{}, fmt.Errorf("EUI must be 16 characters, got length: %d", len(eui))
 	}
 
-	data, err := s.client.ViewNodeKey(eui)
+	body, err := s.client.ViewNodeKey(eui)
 	if err != nil {
 		return definition.ViewNodeKeyResponse{}, err
 	}
 
 	resp := definition.ViewNodeKeyResponse{}
-	if err := json.Unmarshal(data, &resp); err != nil {
+	if err := body.Unmarshal(&resp); err != nil {
 		return definition.ViewNodeKeyResponse{}, err
 	}
 	return resp, nil

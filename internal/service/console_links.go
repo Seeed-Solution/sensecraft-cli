@@ -29,8 +29,44 @@ func ModelDetailConsoleURL(remoteType, modelID string) string {
 	return fmt.Sprintf("%s%s/model/detail?%s", consoleAIOrigin(remoteType), consoleAIPathPrefix, q.Encode())
 }
 
-// AppEditConsoleURL matches Console post-create navigation:
-// /application/edit?id=<app_id>
+// appSiteOrigin is the standalone app site. API calls stay on the AI host.
+// A test AI host (SENSECRAFT_AI_HOST containing "test-") maps to the test app site.
+func appSiteOrigin(remoteType string) string {
+	host, err := enum.EffectiveAIHost(remoteType)
+	if err == nil && strings.Contains(strings.ToLower(host), "test-") {
+		return "https://test-app.seeed.cc"
+	}
+	return "https://app.seeed.cc"
+}
+
+// appTitleSlug matches the app site formatToTitleCase used in /view-application/{id}-{slug}.
+func appTitleSlug(name string) string {
+	var b strings.Builder
+	dash := false
+	for _, r := range strings.ToLower(strings.TrimSpace(name)) {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '_' || (r >= 0x4e00 && r <= 0x9fff) {
+			b.WriteRune(r)
+			dash = false
+			continue
+		}
+		if b.Len() > 0 && !dash {
+			b.WriteByte('-')
+			dash = true
+		}
+	}
+	return strings.Trim(b.String(), "-")
+}
+
+func appViewPath(appID, appName string) string {
+	id := url.PathEscape(strings.TrimSpace(appID))
+	slug := appTitleSlug(appName)
+	if slug == "" {
+		return "/view-application/" + id
+	}
+	return "/view-application/" + id + "-" + slug
+}
+
+// AppEditConsoleURL is the app-site editor: /application/edit?id=<app_id>
 func AppEditConsoleURL(remoteType, appID string) string {
 	id := strings.TrimSpace(appID)
 	if id == "" {
@@ -38,14 +74,12 @@ func AppEditConsoleURL(remoteType, appID string) string {
 	}
 	q := url.Values{}
 	q.Set("id", id)
-	return fmt.Sprintf("%s%s/application/edit?%s", consoleAIOrigin(remoteType), consoleAIPathPrefix, q.Encode())
+	return appSiteOrigin(remoteType) + "/application/edit?" + q.Encode()
 }
 
-// AppDetailConsoleURL is the owner detail route. Console detail.vue uses
-// view_sketch=0 unless query from=my-apps (then sketch). CLI create/restore
-// writes the sketch; without from=my-apps the page fetches the empty published
-// snapshot and the cover is missing.
-func AppDetailConsoleURL(remoteType, appID string) string {
+// AppDetailConsoleURL is the owner detail route. from=my-apps loads the sketch;
+// without it the page fetches the published snapshot and the cover is missing.
+func AppDetailConsoleURL(remoteType, appID, appName string) string {
 	id := strings.TrimSpace(appID)
 	if id == "" {
 		return ""
@@ -53,16 +87,19 @@ func AppDetailConsoleURL(remoteType, appID string) string {
 	q := url.Values{}
 	q.Set("tab", "custom")
 	q.Set("from", "my-apps")
-	return fmt.Sprintf("%s%s/application/detail/%s?%s", consoleAIOrigin(remoteType), consoleAIPathPrefix, url.PathEscape(id), q.Encode())
+	return appSiteOrigin(remoteType) + appViewPath(id, appName) + "?" + q.Encode()
 }
 
 // AppPlazaDetailConsoleURL is the public plaza snapshot (no from=my-apps).
-func AppPlazaDetailConsoleURL(remoteType, appID string) string {
+func AppPlazaDetailConsoleURL(remoteType, appID, appName string) string {
 	id := strings.TrimSpace(appID)
 	if id == "" {
 		return ""
 	}
-	return fmt.Sprintf("%s%s/application/detail/%s", consoleAIOrigin(remoteType), consoleAIPathPrefix, url.PathEscape(id))
+	q := url.Values{}
+	q.Set("tab", "public")
+	q.Set("from", "application-store")
+	return appSiteOrigin(remoteType) + appViewPath(id, appName) + "?" + q.Encode()
 }
 
 // RecameraModelDeployURL is the AI deploy page for classic reCamera (uniform_type 40).
@@ -74,11 +111,11 @@ func RecameraModelDeployURL(remoteType, modelID string) string {
 
 // RecameraAppDeployURL is the app detail page where deploy-ai-model can open the
 // same RecameraWorkspaceConnectPanel. Public plaza apps omit from=my-apps.
-func RecameraAppDeployURL(remoteType, appID string, mine bool) string {
+func RecameraAppDeployURL(remoteType, appID, appName string, mine bool) string {
 	if mine {
-		return AppDetailConsoleURL(remoteType, appID)
+		return AppDetailConsoleURL(remoteType, appID, appName)
 	}
-	return AppPlazaDetailConsoleURL(remoteType, appID)
+	return AppPlazaDetailConsoleURL(remoteType, appID, appName)
 }
 
 func extractModelID(raw json.RawMessage) string {

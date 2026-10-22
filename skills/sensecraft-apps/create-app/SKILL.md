@@ -48,12 +48,20 @@ Mine first, ask approval once at the end.
    It only validates **format, never content truth**. Cross-check structure with the static schema commands `sensecraft-cli app fields` and `sensecraft-cli app blocks` — they are zero-network, run them bare (they take **no** `--sandbox` flag).
 5. Snapshot the manifest (archive copy when there is no git).
 
+## When the source is a Markdown document
+
+The app editor stores a flat `deployment.blocks` array. It does not keep the Markdown file and it does not re-parse Markdown at preview time. There is no `app import-md` command.
+
+Follow [../../../docs/md-to-app.md](../../../docs/md-to-app.md): lift `app_name` / `excerpt` / scene / BOM out of the prose, map headings that are real user actions to `step` blocks (a `h2` is not a step), and write inline formatting as HTML. Then run the same create → update → publish commands as below. `**bold**` inside `content` will display as asterisks.
+
+Contest entry is a later `app update --activity-id <id>`. CLI also writes `"allow_clone": 1` on that update when the sketch is not already `1` and the JSON did not set `allow_clone`. Confirm the id is in `app activity list` first.
+
 ## Writing the prose
 
 Published text is what plaza users actually read — mine it from the project, but author it deliberately.
 
 - `excerpt`: what the app is, who it is for, why it is interesting. Nothing else — no hardware/framework spec dump, no deploy steps, no version history or changelog.
-- `deployment.blocks` prose: short onboarding steps — necessary prep, main actions, how to start and stop. Include a step only if the feature exists. Target structure: an intro of at most two short paragraphs, then one step per distinct user action (typically 3–5 steps). No full menu enumeration, no exhaustive troubleshooting, no spec tables, no restating the excerpt inside steps. Text blocks render Markdown — images and external video links are available; see [reference-tool-blocks.md](../reference-tool-blocks.md#content-format).
+- `deployment.blocks` prose: short onboarding steps — necessary prep, main actions, how to start and stop. Include a step only if the feature exists. Target structure: an intro of at most two short paragraphs, then one step per distinct user action (typically 3–5 steps). No full menu enumeration, no exhaustive troubleshooting, no spec tables, no restating the excerpt inside steps. Inline formatting in `content` is HTML, not Markdown. Images and video are uploaded first, then linked; see [reference-tool-blocks.md](../reference-tool-blocks.md#content-format).
 - Review once before every push: would a first-time user find every sentence clear, with nothing repeated?
 
 ## Workflow B — create (one-go)

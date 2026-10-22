@@ -463,6 +463,37 @@ func TestRejectUnownedAppWriteLiveAuthor(t *testing.T) {
 	}
 }
 
+func TestCreateAppKeepsNameWhenAPIOmitsIt(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != enum.AIApiPathAppCreate {
+			t.Errorf("unexpected %s %s", r.Method, r.URL.Path)
+			http.NotFound(w, r)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"code": 0,
+			"data": map[string]any{"app_id": "11641"},
+		})
+	}))
+	t.Cleanup(srv.Close)
+	s := appServiceForTest(t, srv)
+	raw, err := s.CreateApp(AppCreateParams{Name: "reTerminal Sticky"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got map[string]any
+	if err := json.Unmarshal(raw, &got); err != nil {
+		t.Fatal(err)
+	}
+	if got["app_name"] != "reTerminal Sticky" {
+		t.Fatalf("app_name: %#v", got["app_name"])
+	}
+	detail, _ := got["detail_url"].(string)
+	if !strings.Contains(detail, "/view-application/11641-reterminal-sticky") {
+		t.Fatalf("detail_url: %s", detail)
+	}
+}
+
 func TestCreateAppWritesPayloadWhenSketchIsMissing(t *testing.T) {
 	var updateBody map[string]any
 	var updateCalls int
@@ -675,7 +706,12 @@ func TestUpdateAppActivityFlagOnly(t *testing.T) {
 		case enum.AIApiPathAppView:
 			_ = json.NewEncoder(w).Encode(map[string]any{
 				"code": 0,
-				"data": map[string]any{"app_id": "11619", "be_public": 0, "excerpt": "keep"},
+				"data": map[string]any{"app_id": "11619", "be_public": 0, "excerpt": "keep", "allow_clone": 1},
+			})
+		case enum.AIApiPathActivityList:
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"code": 0,
+				"data": map[string]any{"list": []any{map[string]any{"activity_id": "12", "name": "Open"}}},
 			})
 		case enum.AIApiPathAppUpdate:
 			rawBody, _ = io.ReadAll(r.Body)
@@ -723,6 +759,51 @@ func TestUpdateAppSurfacesExpiredActivity(t *testing.T) {
 	_, err := s.UpdateApp(AppUpdateParams{AppID: "11619", Yes: true, ActivitySet: true, ActivityID: "9"})
 	if err == nil || !strings.Contains(err.Error(), "25000") || !strings.Contains(err.Error(), "Activity does not exist or has expired") {
 		t.Fatalf("got %v", err)
+	}
+}
+
+func TestUpdateAppContestSetsAllowCloneAndRejectsMissingActivity(t *testing.T) {
+	var updateCalls int
+	var body map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case enum.AIApiPathAppView:
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"code": 0,
+				"data": map[string]any{
+					"app_id": "11619", "be_public": 0, "excerpt": "keep",
+					"allow_clone": 0, "app_name": "Demo", "scene": "5",
+					"allow_commerce": 0, "images": []any{"https://example.invalid/a.png"},
+					"license": "", "author": "me",
+				},
+			})
+		case enum.AIApiPathActivityList:
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"code": 0,
+				"data": map[string]any{"list": []any{map[string]any{"activity_id": "3", "name": "Open", "tag_ids": []any{"1"}}}},
+			})
+		case enum.AIApiPathAppUpdate:
+			updateCalls++
+			raw, _ := io.ReadAll(r.Body)
+			_ = json.Unmarshal(raw, &body)
+			_ = json.NewEncoder(w).Encode(map[string]any{"code": 0, "data": map[string]any{}})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	s := appServiceForTest(t, srv)
+	if _, err := s.UpdateApp(AppUpdateParams{AppID: "11619", Yes: true, ActivitySet: true, ActivityID: "9"}); err == nil || !strings.Contains(err.Error(), "expired") {
+		t.Fatalf("missing activity got %v", err)
+	}
+	if updateCalls != 0 {
+		t.Fatalf("inactive activity must not POST, calls=%d", updateCalls)
+	}
+	if _, err := s.UpdateApp(AppUpdateParams{AppID: "11619", Yes: true, ActivitySet: true, ActivityID: "3"}); err != nil {
+		t.Fatal(err)
+	}
+	if body["allow_clone"] != float64(1) || body["activity_id"] != float64(3) {
+		t.Fatalf("body=%#v", body)
 	}
 }
 

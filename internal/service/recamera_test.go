@@ -57,8 +57,11 @@ func TestRecameraCheckAppFromBlocks(t *testing.T) {
 	if res.AskPick {
 		t.Fatal("single candidate should not ask_pick")
 	}
-	if !strings.Contains(res.ConsoleURL, "/ai/application/detail/recamera-app") {
+	if !strings.Contains(res.ConsoleURL, "/view-application/recamera-app-sandbox-vision-app") {
 		t.Fatalf("console_url=%s", res.ConsoleURL)
+	}
+	if !strings.Contains(res.ConsoleURL, "from=my-apps") {
+		t.Fatalf("owner detail must keep from=my-apps: %s", res.ConsoleURL)
 	}
 }
 
@@ -126,12 +129,12 @@ func TestRecameraConsoleURLs(t *testing.T) {
 	if model != "https://sensecraft.seeed.cc/ai/model/detail?id=abc&tab=custom" {
 		t.Fatalf("model url=%s", model)
 	}
-	mine := RecameraAppDeployURL("Global", "app-1", true)
-	if mine != "https://sensecraft.seeed.cc/ai/application/detail/app-1?from=my-apps&tab=custom" {
+	mine := RecameraAppDeployURL("Global", "app-1", "Demo", true)
+	if mine != "https://app.seeed.cc/view-application/app-1-demo?from=my-apps&tab=custom" {
 		t.Fatalf("mine url=%s", mine)
 	}
-	plaza := RecameraAppDeployURL("China", "app-1", false)
-	if plaza != "https://sensecraft.seeed.cc/ai/application/detail/app-1" {
+	plaza := RecameraAppDeployURL("China", "app-1", "Demo", false)
+	if plaza != "https://app.seeed.cc/view-application/app-1-demo?from=application-store&tab=public" {
 		t.Fatalf("plaza url=%s", plaza)
 	}
 }

@@ -234,7 +234,9 @@ func (s AppService) CreateApp(p AppCreateParams) (json.RawMessage, error) {
 		return created, nil
 	}
 	if extra == nil {
-		return s.withAppConsoleURL(created), nil
+		// create_app often returns only app_id. Keep the name we sent so the
+		// detail link still gets the title slug.
+		return s.withAppConsoleURL(ensureAppIdentity(created, appID, name)), nil
 	}
 	// A just-created app has no sketch yet. view_sketch=1 returns 11306
 	// ("Not Found the resources"); still write the rest of the payload.
@@ -286,9 +288,10 @@ func ensureAppIdentity(raw json.RawMessage, appID, name string) json.RawMessage 
 
 func (s AppService) withAppConsoleURL(data json.RawMessage) json.RawMessage {
 	id := extractAppID(data)
+	name := extractAppString(data, "app_name")
 	out := attachConsoleURL(data, "app_id", id, AppEditConsoleURL(s.remoteType, id))
-	// Also expose the detail page for Agents that want a read-only link.
-	detail := AppDetailConsoleURL(s.remoteType, id)
+	// Owner detail. from=my-apps loads the sketch cover.
+	detail := AppDetailConsoleURL(s.remoteType, id, name)
 	if detail == "" {
 		return out
 	}
@@ -421,6 +424,10 @@ func (s AppService) applyAppPatch(appID string, body map[string]any, allowMissin
 		}
 	}
 	body["app_id"] = appID
+	userSetAllowClone := false
+	if _, ok := body["allow_clone"]; ok {
+		userSetAllowClone = true
+	}
 
 	existing, err := s.loadExistingApp(appID)
 	if err != nil {
@@ -434,6 +441,16 @@ func (s AppService) applyAppPatch(appID string, body map[string]any, allowMissin
 	currentPublic := appMapBePublic(existing)
 	if currentPublic == 2 {
 		return nil, ErrAppLockedUnderReview
+	}
+	if n, ok := positiveInt64(body["activity_id"]); ok {
+		if err := s.rejectInactiveActivity(n); err != nil {
+			return nil, err
+		}
+		// Contest entry on the web also writes allow_clone=1 when it is not already 1.
+		// An explicit allow_clone in this JSON is left alone.
+		if !userSetAllowClone && !allowCloneIsOne(existing["allow_clone"]) {
+			body["allow_clone"] = 1
+		}
 	}
 
 	if patchTouchesAppInfo(body) {

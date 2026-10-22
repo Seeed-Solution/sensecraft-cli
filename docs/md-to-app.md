@@ -1,0 +1,362 @@
+# 把用户 Markdown 写成应用
+
+给人和 Agent 用。网页编辑器是自研块编辑器（`sensecraft-app/src/views/app/edit`），不是「把整篇 Markdown 存进去再渲染」。CLI 也没有 `app import-md`。做法是：人读 Markdown，拆成下面的 JSON，再用已有的 `app create` / `app update` / `app publish` 写上去。
+
+块类型和工具块字段以编辑器为准。工具块每个字段怎么填，见 `skills/sensecraft-apps/reference-tool-blocks.md`。资料字段和物料见 `skills/sensecraft-apps/reference-app-fields.md`。
+
+---
+
+## 1. 编辑器实际存什么
+
+一篇应用文档只有一个数组：`deployment.blocks`。顺序就是阅读顺序。没有嵌套 children。
+
+```text
+[ 介绍区文本块... ] [ step ][ 这段里的文本或工具块... ] [ step ][ ... ]
+```
+
+| 区域 | 规则 |
+| --- | --- |
+| 介绍 | 第一个 `type === "step"` **之前**的所有块 |
+| 一个部署步骤 | 一个 `step`，加上它后面、下一个 `step` 之前的块 |
+| 没有 `step` | 整篇都算介绍，详情页不会出现「第 N 步」 |
+
+预览按 `type` 自己包标签（段落包 `<p>`，标题包 `<h1>`…）。`content` 里再写 `# 标题`、`**粗体**`、`- 列表`，会原样显示成字符，不会变成标题或列表。行内格式必须已经是 HTML。
+
+旧字段 `introduction`（一大段纯文本）不要再写。编辑器可能把它再插进介绍区，和 blocks 重复。
+
+`deployment.myModels` 是编辑器从 `deploy-ai-model` 里抽出来的，发布前网页会自己填。CLI 不要手写这个数组。
+
+---
+
+## 2. 一篇应用在 CLI 里分成四块
+
+| 块 | JSON | 从用户 Markdown 的哪里来 | 命令 |
+| --- | --- | --- | --- |
+| 资料 | 顶层 `app_name` `excerpt` `scene` `allow_clone` `allow_commerce` `license` `author` `images` `pic_url` | 标题、第一段、文首元数据 | `app create` / `app update` |
+| 文档 | `deployment.blocks` | 正文 | 同上，和资料可以一次 `--from-json` |
+| 物料 | `materials` | 「硬件 / BOM / 物料」那一节 | 可放进同一次 JSON，或之后 `app bom set` |
+| 上架 | 不在 JSON 里 | 用户明确说要发布 | `app publish` |
+
+创建成功只是私有草稿（`be_public = 0`）。广场上看不到，直到 `app publish`（提交审核，`privacy = 2`）。不要在 JSON 里写 `be_public` 或 `privacy`。不要传 `privacy = 1`。
+
+---
+
+## 3. 资料字段：从 Markdown 里抽，不要塞进正文块
+
+| 字段 | 规则 | 从 Markdown 怎么取 |
+| --- | --- | --- |
+| `app_name` | 必填，去空格后 1–60 字 | 文首唯一的一级标题。没有标题就用文件名，先跟用户确认 |
+| `excerpt` | 必填，1–300 字 | 「简介 / Overview」的第一段，或标题下、第一个空行前的那段。不要把步骤、参数表、更新日志写进来 |
+| `scene` | 必填，字符串 id | 先跑 `sensecraft-cli model constants`，在 `app_scenarios_array` 里对场景中文名或英文名。对不上就问，不要编 id |
+| `allow_clone` | 必填，`0` 或 `1` | 文里写了「允许克隆 / allow clone」用 `1`，写了禁止用 `0`。没写：普通教程用 `1`，含私有固件或密钥的用 `0`，并在提问里说一声 |
+| `allow_commerce` | 必填，`0` 或 `1` | 没写就用 `0` |
+| `license` | 可空字符串 | 文里的 License 行。没有就 `""` |
+| `author` | 建议填 | `sensecraft-cli auth info` 的账号。不要从 Markdown 署名乱填成别人 |
+| `images` | 发布前至少 1 张，最多 16，JPG/GIF/PNG/WebP，每张 ≤ 5 MB | 文中第一张适合当封面的图（优先 4:3）。本地路径先上传。第一张同时写进 `pic_url` |
+| `activity_id` | 可选正整数 | 只有用户说参加某场竞赛才加。先 `app activity list`。不在进行中就不要带。这次更新若没写 `allow_clone`，CLI 会在当前不是 `1` 时补成 `1` |
+
+封面和文中插图是两套：
+
+- 封面进 `images[]`，广场卡片用。
+- 文中的图留在某个块的 `content` 里，用上传后的 `https` 地址。
+
+本地图上传：
+
+```bash
+sensecraft-cli file upload --path ./cover.png --type 1 --for-app
+sensecraft-cli file upload --path ./wiring.png --type 1 --for-app
+```
+
+stdout 里的 `file_url` 才是能写进 JSON 的地址。Markdown 里的 `./images/a.png` 不能直接当 `src`。
+
+---
+
+## 4. 正文：Markdown 语法 → 块
+
+下面这张表就是编辑器粘贴解析（`pasteMarkdownUtils.js`）的规则，再加「步骤」这一条。步骤是粘贴解析**不会**自动产生的，必须由转换的人判断。
+
+空行结束当前段落。连续的非空普通行合并成**一个** `paragraph`，行与行之间变成空格，不是 `<br>`。
+
+| 用户 Markdown | `type` | `content` 里写什么 |
+| --- | --- | --- |
+| 普通段落 | `paragraph` | 行内 HTML，见第 5 节。不要带外层 `<p>` |
+| `#` … `######` 且**不是**步骤 | `h1` … `h6` | 只放标题文字的行内 HTML。`#` 本身不要写入 |
+| 用来分步骤的标题 | `step` | 见第 6 节。不要做成 `h2` |
+| `-` / `*` / `+` 开头的一行 | `bullet` | 去掉列表符之后的行内 HTML。每一行一个块 |
+| `1.` `2.` 这种有序列表 | `number` | 去掉序号之后的行内 HTML。每一行一个块。序号编辑器会自己画，不要写进 content |
+| `- [ ]` / `- [x]` | `todo` | 未勾选：行内 HTML，**不要**写 `[ ]`。已勾选：`[x] ` 加行内 HTML（方括号后有一个空格） |
+| `>` 连续几行 | `quote` | 这几行用空格拼成一段行内 HTML |
+| ` ``` ` 围栏 | `code` | **纯文本**，保留换行。不要包 `<pre>`。语言写在 `config.lang`（可省略） |
+| `---` / `***` / `___` 单独成行 | `divider` | `""` |
+| `![说明](url)` | 不单独成块 | 放进所在段落：`<img src="url" alt="说明" />` |
+| `[文字](url)` | 不单独成块 | `<a href="url">文字</a>` |
+| 表格 | **没有表格块** | 改成一组 `bullet`，或原样放进一个 `code`。不要指望 `|` 会画成表 |
+| HTML 表格、Word 粘贴 | 不要原样抄 | 抽成段落和列表 |
+
+每个块都要有字符串 `id`，同一篇里不重复。推荐 `p1`、`h1`、`s1`、`b1`、`c1`、`ff1`。编辑器自己生成的是 `tool_<时间>_<随机>`，两种都可以。
+
+文本块建议带 `"indent": 0`。只有用户在步骤里面又缩进了一层时才用 `1`、`2`。介绍区用 `0`。
+
+`align` 只对 `paragraph` 和 `h1`–`h6` 有意义，取值 `left` / `center` / `right`。不写就是默认左对齐。
+
+---
+
+## 5. 行内 HTML：只留这些标签
+
+编辑器保存时会洗掉其它标签（`sanitizeInlineHtml`）。转换时就按洗完的结果写。
+
+| Markdown | 写入 `content` |
+| --- | --- |
+| `**粗体**` 或 `__粗体__` | `<strong>粗体</strong>` |
+| `*斜体*` 或 `_斜体_` | `<em>斜体</em>` |
+| `` `代码` `` | `<code>代码</code>` |
+| `~~删除~~` | `<s>删除</s>` |
+| `[看这里](https://example.com)` | `<a href="https://example.com">看这里</a>` |
+| `![接线](https://…/a.png)` | `<img src="https://…/a.png" alt="接线" />` |
+| 下划线（Markdown 没有） | `<u>…</u>` |
+| 换行（很少需要） | `<br>` |
+
+允许的标签只有：`b` `strong` `i` `em` `u` `s` `strike` `code` `br` `img` `video` `a` `iframe`，以及包 YouTube 等嵌入用的 `<div class="video-embed-wrapper">`。`<span>` 只保留 `color` / `background-color`。`<script>`、`<table>`、`<div>`（除视频容器）、样式表都会被丢掉。
+
+直接视频文件用：
+
+```html
+<video src="https://…/demo.mp4" controls></video>
+```
+
+YouTube、TikTok、抖音、Bilibili、Vimeo、优酷、爱奇艺可以写成链接；编辑器打开后会收成 iframe。CLI 侧写成普通链接即可，不要手写来路不明的 iframe。
+
+指向 `.pdf` `.zip` `.bin` `.hex` `.json` 等文件的链接，预览会显示成下载块。固件若要给用户烧录，优先用 `flash-firmware` 工具块，不要只丢一个下载链接。
+
+`code` 块的 `content` 是源码原文。`<` `>` 不要转成实体，也不要写成 HTML。可选：
+
+```json
+{ "id": "c1", "type": "code", "content": "void setup() {}\n", "indent": 0, "config": { "lang": "cpp" } }
+```
+
+---
+
+## 6. 什么时候用 `step`
+
+详情页的「第 1 步 / Step 1」只来自 `type === "step"`。`h2` 只是大字，不会变成步骤。
+
+把下面这些标题收成 `step`，标题文字放进 `title`，`content` 写成和 `title` 相同的字符串，`expanded: true`，`indent: 0`：
+
+- `## 步骤：烧录固件`、`## Step 2. Connect`、`### 1. 部署模型`
+- 文中明确的「使用步骤」列表，每一项一个 `step`
+
+`title` 只写动作，不要自己加 `Step 1:` 或 `第 1 步`。网页会加序号。上面例子的 `title` 是 `烧录固件`、`Connect`、`部署模型`。
+
+这个 `step` **后面**、下一个 `step` 之前，放该步的段落、列表、代码、工具块。不要把整步说明写进 `step.content`。
+
+介绍区（第一个 `step` 之前）控制在一两段。不要把目录、故障排除大表、和 excerpt 重复的句子再铺一遍。一个应用通常 3–5 个步骤。某一步用户在网页上做不到（没有对应工具块），就不要写成步骤，改成说明或在提问里告诉用户。
+
+文首那个当应用名的 `# 标题` 不要再做成 `h1` 块。
+
+---
+
+## 7. 工具块：正文里出现「让用户在页面上做事」时插入
+
+工具块和文本块一样放在数组里，一般放在某一步的说明段落后面。CLI 只写入配置。真正烧录、部署、装容器是网页上的按钮，CLI 不要声称已经烧进去。
+
+| 正文在说 | `type` | 配置放哪 |
+| --- | --- | --- |
+| 把固件烧进板子 | `flash-firmware` | **摊平在块上**，不要包一层 `config`。SKU、地址见 reference-tool-blocks |
+| 部署视觉 / 声音模型 | `deploy-ai-model` | 放在 `config` 里 |
+| 异常振动 | `ai-vibration` | 放在 `config` 里 |
+| 边缘容器应用 | `deploy-container-app` | 放在 `config` 里 |
+| Node-RED 流程 | `node-red` | 放在 `config` 里；顶层还要同步 `flow_data` 字符串 |
+| Aily Blockly 公开项目 | `aily-blockly` | 放在 `config` 里 |
+
+没有对应文件时，块仍然留着，缺的 URL 先空着并在回复里标明「待用户提供」，不要删掉这一步。
+
+固件先上传再写入 URL：
+
+```bash
+sensecraft-cli file upload --path ./firmware.bin --type 4 --checksum
+```
+
+`firmware_size` 用字符串。`device_id` 是物料 SKU（如 `"100017057"`），不是 `uniform_type`。
+
+物料清单（Markdown 表格或「硬件」小节）不要写进 blocks，写进 `materials`：
+
+- 能在 `sensecraft-cli app bom search --name "XIAO ESP32S3"` 里对上的：带 `id`（SKU）、`name`、`quantity`（字符串）、`note`、`buy_url`。不要写 `price` / `pic_url`，网页按 SKU 自己查。
+- 对不上的：只有 `name`、`quantity`，可选 `note`、`buy_url`，**不要** `id`。
+
+普通杜邦线、电脑、螺丝刀不要进物料。设备本身和文档点名的配件要进。
+
+---
+
+## 8. 对照例子
+
+用户给出的 Markdown：
+
+```markdown
+# 罐盖计数
+
+传送带上用 XIAO ESP32S3 Sense 数瓶盖。适合产线巡检。
+
+## 介绍
+
+把摄像头对准瓶盖，打开应用后即可看到计数。
+
+## 步骤：烧录固件
+
+用 USB 连接 XIAO ESP32S3 Sense，然后烧录。
+
+- 固件：`firmware.bin`
+- 烧录时不要断开 USB
+
+## 步骤：看计数
+
+烧录完成后重新上电，屏幕上会显示当前数量。
+
+## 硬件
+
+- Seeed Studio XIAO ESP32S3 Sense × 1
+```
+
+转成的 `--from-json`（封面 URL、固件 URL、场景 id、SKU 按实际上传和检索结果替换）：
+
+```json
+{
+  "app_name": "罐盖计数",
+  "excerpt": "传送带上用 XIAO ESP32S3 Sense 数瓶盖。适合产线巡检。",
+  "scene": "7",
+  "allow_clone": 1,
+  "allow_commerce": 0,
+  "license": "",
+  "author": "maker@example.com",
+  "images": ["https://files.example.com/cover.png"],
+  "pic_url": "https://files.example.com/cover.png",
+  "deployment": {
+    "blocks": [
+      {
+        "id": "p1",
+        "type": "paragraph",
+        "content": "把摄像头对准瓶盖，打开应用后即可看到计数。",
+        "indent": 0
+      },
+      {
+        "id": "s1",
+        "type": "step",
+        "title": "烧录固件",
+        "content": "烧录固件",
+        "expanded": true,
+        "indent": 0
+      },
+      {
+        "id": "p2",
+        "type": "paragraph",
+        "content": "用 USB 连接 XIAO ESP32S3 Sense，然后烧录。",
+        "indent": 0
+      },
+      {
+        "id": "b1",
+        "type": "bullet",
+        "content": "固件：<code>firmware.bin</code>",
+        "indent": 0
+      },
+      {
+        "id": "b2",
+        "type": "bullet",
+        "content": "烧录时不要断开 USB",
+        "indent": 0
+      },
+      {
+        "id": "ff1",
+        "type": "flash-firmware",
+        "device_id": "113991254",
+        "device_type": "32",
+        "flash_mode": "bin",
+        "firmware_url": "https://files.example.com/firmware.bin",
+        "firmware_name": "firmware.bin",
+        "firmware_size": "412316",
+        "flash_address": "0x0",
+        "muse_gadget": false,
+        "full_flash": false
+      },
+      {
+        "id": "s2",
+        "type": "step",
+        "title": "看计数",
+        "content": "看计数",
+        "expanded": true,
+        "indent": 0
+      },
+      {
+        "id": "p3",
+        "type": "paragraph",
+        "content": "烧录完成后重新上电，屏幕上会显示当前数量。",
+        "indent": 0
+      }
+    ]
+  },
+  "materials": [
+    {
+      "id": "113991254",
+      "name": "Seeed Studio XIAO ESP32S3 Sense",
+      "quantity": "1",
+      "note": "",
+      "buy_url": "https://www.seeedstudio.com/"
+    }
+  ]
+}
+```
+
+纯文本、没有标签的 `content` 可以不包 HTML。一旦有强调、链接、图片，就按第 5 节写成标签，不要混用 `**`。
+
+`flash-firmware` 的 `device_type` / `flash_address` 以 `reference-tool-blocks.md` 里该 SKU 的那一行为准。上面的 `32` 和 `0x0` 只说明字段位置。`full_flash` 默认 `false`；只有 `muse_gadget` 为 `true` 时写成 `true`。非 Muse 设备不要写这两个字段为 `true`。
+
+---
+
+## 9. 用 CLI 写上去
+
+先读文档，列出将要创建的名称、步骤标题、物料、还缺的封面或固件。缺场景或封面时先问。用户确认后再创建。`app create` 本身不要 `--yes`。之后的 `app update` / `app bom set` / `app publish` 要另一次确认再加 `--yes`。
+
+```bash
+sensecraft-cli auth info
+sensecraft-cli model constants
+sensecraft-cli app bom search --name "XIAO ESP32S3 Sense"
+sensecraft-cli file upload --path ./cover.png --type 1 --for-app
+sensecraft-cli file upload --path ./firmware.bin --type 4 --checksum
+
+sensecraft-cli app create --from-json ./payload.json
+sensecraft-cli app view --id <app_id> --sketch
+```
+
+`app create` 的 stdout 必须有 `app_id`。没有就先 `app list --mine --name "罐盖计数"`，不要再 create 一次（重名会再造一个）。
+
+更新已有应用（会改草稿，广场上的已发布版要等再次 publish 才变）：
+
+```bash
+sensecraft-cli app update --id <app_id> --from-json ./payload.json --yes
+sensecraft-cli app view --id <app_id> --sketch
+```
+
+只改物料：
+
+```bash
+sensecraft-cli app bom set --id <app_id> --from-json ./materials.json --yes
+```
+
+`materials.json` 是 `{ "materials": [ ... ] }`。
+
+发布（审核中会锁编辑）。先跟用户读免责声明，用户同意后才加 `--agree-declaration`：
+
+```bash
+sensecraft-cli app publish --id <app_id> --agree-declaration --yes
+```
+
+发布前网页和 CLI 都会卡这四项：名称、简介、场景、至少一张封面。缺一项就先补，不要发。
+
+成功后告诉用户：应用仍是「审核中」，不是已经出现在广场上。把 `detail_url` 给用户自己打开核对。有 `web_link` 的应用卡片会跳外链，那种不是这个编辑器文档。
+
+结构是否写对，可以在无网络时对照：
+
+```bash
+sensecraft-cli app fields
+sensecraft-cli app blocks
+```
+
+这两个命令不加 `--sandbox`。

@@ -64,7 +64,7 @@ sensecraft-cli recamera open --model-id <model_id>
 sensecraft-cli recamera open --app-id <app_id> --print-only
 ```
 
-`console_url` is `/ai/model/detail?id=…` or `/ai/application/detail/…`.  
+`console_url` is `/ai/model/detail?id=…` for a model, or `https://app.seeed.cc/view-application/<id>-<slug>` for an app.  
 **Not** `/ai/device/local/40` (that family is 32/36/37/41/52). **Not** `/ai/recamera` (301 → Grove 36).
 
 ## Out of scope

@@ -19,8 +19,8 @@ const AppPublishDeclarationURL = "https://sensecraft.seeed.cc/legal/en/declarati
 
 // ErrConfirmRequired is returned for L2 write ops when --yes is missing
 // and there was no interactive TTY confirm. Agents must ask in chat first
-// (操作类型 + 环境 + 对象 ID); the user's first request is not confirmation.
-var ErrConfirmRequired = errors.New("confirmation required: ask the user first (include 操作类型 + 环境 + 对象 ID), wait for 确认/confirm, then re-run with --yes. The first user request (e.g. 删这个63760) is intent, not confirmation")
+// (operation, environment, and object id); the user's first request is not confirmation.
+var ErrConfirmRequired = errors.New("confirmation required: ask the user first (include the operation, environment, and object id), wait for them to confirm, then re-run with --yes. The first user request (for example \"delete 63760\") is intent, not confirmation")
 
 // ErrDeclarationRequired matches Console publish dialog warrantyAccepted checkbox.
 // Agreement is client-side only (API body stays app_id + privacy); see legal URL in the error.
@@ -43,7 +43,7 @@ var ErrForeignAppNoEdit = errors.New("cannot edit another user's app")
 const AppSketchSaveHint = "published app was saved as a draft (sketch); plaza listing is unchanged until: sensecraft-cli app publish --id <app_id> --agree-declaration --yes"
 
 // AppDraftPublishHint is returned when privacy=2 is sent for an already-public app
-// (Console 发布草稿 / publishDraft).
+// (Console publish-draft / publishDraft).
 const AppDraftPublishHint = "submitted draft for review (same as Console publishDraft); plaza listing updates after approval"
 
 func requireYes(yes bool) error {

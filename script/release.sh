@@ -6,25 +6,25 @@ DIST_DIR="${ROOT_DIR}/dist"
 VERSION="${1:-}"
 
 if [[ -z "${VERSION}" ]]; then
-  echo "用法: $0 <version>"
-  echo "示例: $0 1.0.0"
+  echo "usage: $0 <version>"
+  echo "example: $0 1.0.0"
   exit 1
 fi
 
 if ! command -v node >/dev/null 2>&1; then
-  echo "比对版本需要 node" >&2
+  echo "node is required to compare versions" >&2
   exit 1
 fi
 PKG_VERSION="$(node -p "require('${ROOT_DIR}/packages/cli/package.json').version")"
 if [[ "${VERSION}" != "${PKG_VERSION}" ]]; then
-  echo "传入版本 ${VERSION} 与 packages/cli/package.json（${PKG_VERSION}）不一致"
+  echo "version ${VERSION} does not match packages/cli/package.json (${PKG_VERSION})"
   exit 1
 fi
 
 TAG="v${VERSION}"
 
 if [[ ! -d "${DIST_DIR}" ]]; then
-  echo "dist 目录不存在，请先运行 script/build.sh"
+  echo "dist does not exist; run script/build.sh first"
   exit 1
 fi
 
@@ -36,23 +36,23 @@ ARTIFACTS=(
   sensecraft-cli-windows-amd64.exe
 )
 
-echo "准备发布 ${TAG}"
+echo "Preparing release ${TAG}"
 for name in "${ARTIFACTS[@]}"; do
   if [[ ! -f "${DIST_DIR}/${name}" ]]; then
-    echo "缺少构建产物: ${DIST_DIR}/${name}"
+    echo "missing build artifact: ${DIST_DIR}/${name}"
     exit 1
   fi
   echo "  ✓ ${name}"
 done
 
 echo ""
-echo "请在 GitHub 仓库 sensecraft-cli 创建 Release："
+echo "Create a GitHub Release in the sensecraft-cli repository:"
 echo "  Tag:  ${TAG}"
 echo ""
-echo "将以下文件上传为 Release 附件（文件名保持不变）："
+echo "Upload these files as Release assets (keep the file names):"
 for name in "${ARTIFACTS[@]}"; do
   echo "  ${DIST_DIR}/${name}"
 done
 echo ""
-echo "发布 npm 包："
+echo "Publish the npm package:"
 echo "  cd packages/cli && npm publish --access public"

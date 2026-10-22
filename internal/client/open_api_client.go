@@ -93,7 +93,7 @@ func (b APIBody) Unmarshal(dest any) error {
 	return nil
 }
 
-// OpenApiClient 基于 BaseClient，封装 SenseCAP OpenAPI 的认证与响应 envelope 解析。
+// OpenApiClient wraps BaseClient with SenseCAP OpenAPI auth and response-envelope parsing.
 type OpenApiClient struct {
 	base *BaseClient
 }

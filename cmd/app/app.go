@@ -268,12 +268,12 @@ func newAppPublishCmd() *cobra.Command {
 		Long: `POST /flow/app/v3/edit_privacy_app with privacy=2 (under review).
 Never sends privacy=1 (ops-approved public).
 
-Matches Console 「发布确认」: user must agree to the Publish Declaration
+Matches the Console publish confirmation: user must agree to the Publish Declaration
 (https://sensecraft.seeed.cc/legal/en/declaration) via --agree-declaration.
 Submitting locks editing until review finishes (or unpublish).
 
 Private apps: submit for first public listing.
-Already published (be_public=1) with a sketch: same API as Console 「发布草稿」 / publishDraft.
+Already published (be_public=1) with a sketch: same API as the Console publish-draft action.
 Under review (be_public=2): refused until unpublish.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx, err := cmdctx.GetAICmdContext()

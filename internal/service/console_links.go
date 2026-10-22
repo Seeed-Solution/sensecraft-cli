@@ -66,7 +66,7 @@ func AppPlazaDetailConsoleURL(remoteType, appID string) string {
 }
 
 // RecameraModelDeployURL is the AI deploy page for classic reCamera (uniform_type 40).
-// Console model/detail.vue opens RecameraWorkspaceConnectPanel (IP/USB) on 部署;
+// Console model/detail.vue opens RecameraWorkspaceConnectPanel (IP/USB) on Deploy;
 // there is no /ai/device/local/40, and /ai/recamera 301s to Grove Vision (36).
 func RecameraModelDeployURL(remoteType, modelID string) string {
 	return ModelDetailConsoleURL(remoteType, modelID)

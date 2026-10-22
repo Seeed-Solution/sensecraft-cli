@@ -13,7 +13,7 @@ import (
 
 const totalSteps = 5
 
-// InitContext 向导共享状态。
+// InitContext is the shared state of the auth init wizard.
 type InitContext struct {
 	UI         *ui.Console
 	Ctx        context.Context
@@ -28,8 +28,8 @@ type InitContext struct {
 
 type step func(*InitContext) (step, error)
 
-// RunInitFlow 执行 auth init 向导。
-// kind 只接受 sensecap（可省略）。
+// RunInitFlow runs the auth init wizard.
+// kind accepts only sensecap, and may be omitted.
 func RunInitFlow(ctx context.Context, console *ui.Console, sandbox bool, kind string) error {
 	if !console.IsInteractive() && !sandbox {
 		return fmt.Errorf("auth init requires an interactive terminal, or use --sandbox to try the flow")

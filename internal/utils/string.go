@@ -41,12 +41,12 @@ func RandString(size int) (string, error) {
 	b := make([]byte, size)
 	charsetLen := byte(len(charset))
 
-	// 生成随机字节
+	// Fill random bytes.
 	if _, err := rand.Read(b); err != nil {
 		return "", err
 	}
 
-	// 映射到字符集
+	// Map each byte into the charset.
 	for i := range b {
 		b[i] = charset[b[i]%charsetLen]
 	}
@@ -104,24 +104,22 @@ func UrlAddParam(link, key, value string) (string, error) {
 }
 
 func GetCharAndByte(str string, index int) (char rune, byteVal byte, err error) {
-	// 将字符串转换为rune切片，以正确处理Unicode字符
+	// Use runes so indexes follow Unicode characters.
 	runes := []rune(str)
 
-	// 检查索引是否有效
 	if index < 0 || index >= len(runes) {
 		return 0, 0, fmt.Errorf("index %d out of range (string length: %d)", index, len(runes))
 	}
 
-	// 获取指定位置的字符
 	char = runes[index]
 
-	// 获取该字符在原始字符串中的位置
+	// Byte offset of that character in the original string.
 	charPos := 0
 	for i := 0; i < index; i++ {
 		charPos += len(string(runes[i]))
 	}
 
-	// 获取该字符的字节值（第一个字节）
+	// First byte of that character.
 	if charPos < len(str) {
 		byteVal = str[charPos]
 	}

@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-// AuthAPIClient 用户中心 authapi 客户端（Device Flow + 需 Bearer 的用户 API）。
+// AuthAPIClient calls the account-center authapi (device flow and user APIs that need a bearer token).
 type AuthAPIClient struct {
 	base       *BaseClient
 	httpClient *http.Client

@@ -5,12 +5,12 @@ import (
 	"path/filepath"
 )
 
-// JoinPath 使用操作系统路径规则拼接路径（跨平台）。
+// JoinPath joins path elements with the OS separator.
 func JoinPath(elem ...string) string {
 	return filepath.Join(elem...)
 }
 
-// AbsPath 将路径转为绝对路径；空字符串返回空。
+// AbsPath returns the absolute path. An empty path stays empty.
 func AbsPath(path string) (string, error) {
 	if path == "" {
 		return "", nil
@@ -22,7 +22,7 @@ func AbsPath(path string) (string, error) {
 	return abs, nil
 }
 
-// WorkingDir 返回当前工作目录。
+// WorkingDir returns the current working directory.
 func WorkingDir() (string, error) {
 	wd, err := os.Getwd()
 	if err != nil {
@@ -31,12 +31,12 @@ func WorkingDir() (string, error) {
 	return filepath.Clean(wd), nil
 }
 
-// ResolveFilePath 解析配置文件路径。
+// ResolveFilePath resolves a config file path.
 //
-// 规则：
-//  1. configFile 非空时作为目标文件；绝对路径直接使用，相对路径基于 baseDir 拼接。
-//  2. configFile 为空时使用 defaultFileName。
-//  3. baseDir 非空时作为目录；为空时使用当前工作目录。
+// Rules:
+//  1. A non-empty configFile is the target. An absolute path is used as-is; a relative path is joined to baseDir.
+//  2. An empty configFile uses defaultFileName.
+//  3. A non-empty baseDir is the directory. An empty baseDir uses the working directory.
 func ResolveFilePath(configFile, baseDir, defaultFileName string) (string, error) {
 	dir := baseDir
 	if dir == "" {

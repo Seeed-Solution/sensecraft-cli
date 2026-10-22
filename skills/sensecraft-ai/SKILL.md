@@ -10,7 +10,7 @@ description: >-
 
 # SenseCraft AI (Meta)
 
-Router skill for **SenseCraft AI** capabilities exposed via CLI in this repo (`sensecraft-cloud-terminal`). Domain skills and AI subcommands are rolled out in phases; this skill always applies for **intent routing, auth kind selection, and product-term disambiguation**.
+Router skill for **SenseCraft AI** capabilities exposed via CLI in this repo (`sensecraft-cli`). Domain skills and AI subcommands are rolled out in phases; this skill always applies for **intent routing, auth kind selection, and product-term disambiguation**.
 
 Sibling (already shipped): [`../sensecraft-data/SKILL.md`](../sensecraft-data/SKILL.md) — SenseCAP PaaS OpenAPI (`device` / `group` / `data`).
 

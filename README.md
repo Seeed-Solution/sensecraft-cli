@@ -139,7 +139,7 @@ cd packages/cli && npm run test:install
 
 发版勾选与联调抽查见 [`docs/sensecraft-cli-smoke.md`](docs/sensecraft-cli-smoke.md)；功能细节用例见 [`docs/sensecraft-cli-test-cases.md`](docs/sensecraft-cli-test-cases.md)。
 
-发布：在 GitHub 上为 `sensecraft-cloud-terminal` 打与 `packages/cli/package.json` 一致的 tag（如 `v0.1.4`），交叉编译后上传 Release 资产，再发布 npm。npm 发布需要 `NPM_TOKEN`。
+发布：在 GitHub 上为 `sensecraft-cli` 打与 `packages/cli/package.json` 一致的 tag（如 `v0.1.4`），交叉编译后上传 Release 资产，再发布 npm。npm 发布需要 `NPM_TOKEN`。
 
 ## 许可证
 

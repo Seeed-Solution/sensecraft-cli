@@ -46,7 +46,7 @@ for name in "${ARTIFACTS[@]}"; do
 done
 
 echo ""
-echo "请在 GitHub 仓库 sensecraft-cloud-terminal 创建 Release："
+echo "请在 GitHub 仓库 sensecraft-cli 创建 Release："
 echo "  Tag:  ${TAG}"
 echo ""
 echo "将以下文件上传为 Release 附件（文件名保持不变）："

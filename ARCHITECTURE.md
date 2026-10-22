@@ -381,7 +381,7 @@ Agent 规则摘要：
 
 1. tag 版本必须等于 `packages/cli/package.json` 的 version
 2. `script/build.sh` 交叉编译，并生成 `SHA256SUMS`
-3. 在 GitHub 仓库 `sensecraft-cloud-terminal` 创建同名 Release，上传 `dist/` 里的二进制
+3. 在 GitHub 仓库 `sensecraft-cli` 创建同名 Release，上传 `dist/` 里的二进制
 4. `npm publish`（需要 `NPM_TOKEN`）
 
 npm 安装器默认从 `https://sensecraft-statics.seeed.cc/static/bin/sensecraft-cli` 下载对应版本的二进制。

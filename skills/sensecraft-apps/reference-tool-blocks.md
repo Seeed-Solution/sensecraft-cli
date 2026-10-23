@@ -87,8 +87,8 @@ Checked Muse flash differences are documentation only. Do not implement them in 
 | Device | Layout | Serial / reset |
 |--------|--------|----------------|
 | E1001 / E1002 / Indicator | Five segments, no erase-all: `0x0` bootloader, `0x10000` partition table, `0x17000` OTA, `0x19000` PHY, app at `0x20000` | Close the port after the write. The user presses reset. Do not reopen the port immediately |
-| Watcher | Four segments, no erase-all and no PHY: `0x0`, `0x10000`, OTA `0x1D000`, app `0x20000`. Do not download `nvsfactory` in the browser. Close the port after the write; the user presses reset. Do not watchdog-reset and reopen, or macOS Chrome exits | `1a86:55d2` |
-| Sticky | Same four segments as Watcher, no erase-all, its own bootloader, no `nvsfactory` backup | Checked: `1a86:55d3`. Do not watchdog-reset and do not call `port.close()` after the write; closing this chip exits macOS Chrome. The user presses reset, then sends the token. Unchecked: no USB restriction, one merged image from `0x0`, watchdog reset after the write |
+| Watcher | Four segments, no erase-all and no PHY: `0x0`, `0x10000`, OTA `0x1D000`, app `0x20000`. Do not download `nvsfactory` in the browser. Close the port after the write. Do not reset: an RTS pulse or an on-chip watchdog reset, followed by closing the port, exits macOS Chrome. The page asks the user to replug USB, then send the token | `1a86:55d2` |
+| Sticky | Same four segments as Watcher, no erase-all, its own bootloader, no `nvsfactory` backup. Checked baud is 115200 | Checked: `1a86:55d3`. After the write, hard-reset, wait until the port is idle, then send the token at 115200 and close. Do not toggle the port in the same moment as the reset. Unchecked: no USB restriction, one merged image from `0x0`, watchdog reset after the write |
 | 1.47" Touch | Same four segments as Watcher, no erase-all, its own bootloader, no `nvsfactory` backup | `303a:1001`. Close the port after the write. The user presses reset |
 
 Unchecked `muse_gadget` keeps the single-file device table below and does not require a token. `full_flash` may still be `true` on a Muse SKU.

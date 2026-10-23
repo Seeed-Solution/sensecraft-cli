@@ -32,6 +32,7 @@ func TestFlashFirmwareCatalogKeys(t *testing.T) {
 		"flash_address",
 		"project_zip_url", "project_zip_name", "project_zip_size", "precheck_fields",
 		"muse_gadget",
+		"full_flash",
 	}
 	if len(keys) != len(want) {
 		t.Fatalf("config_keys=%v", keys)
@@ -48,7 +49,7 @@ func TestFlashFirmwareCatalogKeys(t *testing.T) {
 			}
 		}
 	}
-	for _, phrase := range []string{"muse_gadget", "114993068", "0x20000", "muse-gadget.bin", "do not write 0x20000"} {
+	for _, phrase := range []string{"muse_gadget", "full_flash", "114993068", "0x20000", "muse-gadget.bin", "do not write 0x20000", "0x8000"} {
 		if !strings.Contains(notes, phrase) {
 			t.Fatalf("notes missing %q: %s", phrase, notes)
 		}

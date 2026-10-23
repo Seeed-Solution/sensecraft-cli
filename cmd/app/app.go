@@ -1,6 +1,7 @@
 package app
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -16,6 +17,7 @@ func NewAppCmd() *cobra.Command {
 		Short: "SenseCraft Application Plaza (requires Access Key /openapi)",
 	}
 	cmd.AddCommand(newAppListCmd())
+	cmd.AddCommand(newAppActivityCmd())
 	cmd.AddCommand(newAppViewCmd())
 	cmd.AddCommand(newAppFieldsCmd())
 	cmd.AddCommand(newAppBlocksCmd())
@@ -23,55 +25,80 @@ func NewAppCmd() *cobra.Command {
 	cmd.AddCommand(newAppUpdateCmd())
 	cmd.AddCommand(newAppPublishCmd())
 	cmd.AddCommand(newAppUnpublishCmd())
+	cmd.AddCommand(newAppWithdrawCmd())
 	cmd.AddCommand(newAppDeleteCmd())
+	cmd.AddCommand(newAppLikeCmd())
+	cmd.AddCommand(newAppUnlikeCmd())
+	cmd.AddCommand(newAppCollectCmd())
+	cmd.AddCommand(newAppUncollectCmd())
+	cmd.AddCommand(newAppMarkDeployCmd())
+	cmd.AddCommand(newAppCloneCmd())
 	cmd.AddCommand(newAppBOMCmd())
 	return cmd
 }
 
 func newAppListCmd() *cobra.Command {
 	var (
-		public      bool
-		mine        bool
-		name        string
-		scene       string
-		uniformType string
-		page        int
-		length      int
-		markType    string
-		sandbox     bool
+		public             bool
+		mine               bool
+		name               string
+		scene              string
+		uniformType        string
+		page               int
+		length             int
+		markType           string
+		sort               string
+		priorityActivityID string
+		tagID              string
+		likes              bool
+		collections        bool
+		sandbox            bool
 	)
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List applications (plaza or my apps)",
 		Long: `List SenseCraft apps via {ai-host}/openapi (Access Key Basic).
 
-  --public         Application Plaza (be_public=1)
-  --mine           My apps (omit be_public; default if neither flag set)
-  --name           Filter by app_name
-  --scene          Scene id
-  --uniform-type   Device type (list_app uniform_type: reCamera=40, XIAO ESP32S3=32)
-  --page / --length  Pagination (default 1 / 20)`,
+  Plaza:            --public
+  My apps:          --mine, or omit both visibility flags
+  Plaza hot sort:   --public --sort popular
+  --name            Filter by app_name
+  --scene           Scene id
+  --uniform-type    Device type (list_app uniform_type: reCamera=40, XIAO ESP32S3=32)
+  --sort            popular | newest | likes. Omitted: do not send sort_by
+  --priority-activity-id
+                    Only with --sort popular. Omitted on popular: first ongoing activity
+  --tag-id          Competition filter (activity tag id)
+  --mark-type       1 = my likes, 0 = my collections
+  --likes           mark_type=1 and be_public=1. Not with --mine
+  --collections     mark_type=0 and be_public=1. Not with --mine
+  --page / --length Pagination (default 1 / 20)`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx, err := cmdctx.GetAICmdContext()
 			if err != nil {
 				return err
 			}
 			ctx.SandBox = sandbox
-			if !public && !mine {
+			if !public && !mine && !likes && !collections {
 				mine = true
 			}
 			if public && mine {
 				return fmt.Errorf("use only one of --public or --mine")
 			}
 			data, err := service.GetAppService(ctx).ListApps(service.AppListParams{
-				Public:      public,
-				Mine:        mine,
-				Name:        name,
-				Scene:       scene,
-				UniformType: uniformType,
-				Page:        page,
-				Length:      length,
-				MarkType:    markType,
+				Public:             public,
+				Mine:               mine,
+				Name:               name,
+				Scene:              scene,
+				UniformType:        uniformType,
+				Page:               page,
+				Length:             length,
+				MarkType:           markType,
+				Sort:               sort,
+				PriorityActivityID: priorityActivityID,
+				TagID:              tagID,
+				Likes:              likes,
+				Collections:        collections,
 			})
 			if err != nil {
 				return err
@@ -86,7 +113,47 @@ func newAppListCmd() *cobra.Command {
 	cmd.Flags().StringVar(&uniformType, "uniform-type", "", "Filter by device type (uniform_type: 40=reCamera, 32=XIAO ESP32S3, 53=reCamera Pro)")
 	cmd.Flags().IntVar(&page, "page", 1, "Page number")
 	cmd.Flags().IntVar(&length, "length", 20, "Page size")
-	cmd.Flags().StringVar(&markType, "mark-type", "", "mark_type filter (like/star when supported)")
+	cmd.Flags().StringVar(&markType, "mark-type", "", "1 = my likes, 0 = my collections")
+	cmd.Flags().StringVar(&sort, "sort", "", "Sort: popular, newest, or likes")
+	cmd.Flags().StringVar(&priorityActivityID, "priority-activity-id", "", "With --sort popular, pin this activity first (positive integer)")
+	cmd.Flags().StringVar(&tagID, "tag-id", "", "Competition tag id (list_app tag_id)")
+	cmd.Flags().BoolVar(&likes, "likes", false, "My likes (mark_type=1, be_public=1). Not with --mine")
+	cmd.Flags().BoolVar(&collections, "collections", false, "My collections (mark_type=0, be_public=1). Not with --mine")
+	cmd.Flags().BoolVar(&sandbox, "sandbox", false, "Sandbox mode: no real network; return sample JSON")
+	return cmd
+}
+
+func newAppActivityCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "activity",
+		Short: "Ongoing SenseCraft activities",
+	}
+	cmd.AddCommand(newAppActivityListCmd())
+	return cmd
+}
+
+func newAppActivityListCmd() *cobra.Command {
+	var sandbox bool
+	cmd := &cobra.Command{
+		Use:   "list",
+		Short: "List ongoing activities (read-only)",
+		Long: `GET /activity/list with no time filter.
+
+Prints { "list": [ { activity_id, name, tag_ids, start_time, end_time } ] }.
+Rows missing a positive activity_id or a name are dropped. No --yes.`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx, err := cmdctx.GetAICmdContext()
+			if err != nil {
+				return err
+			}
+			ctx.SandBox = sandbox
+			data, err := service.GetAppService(ctx).ListActivities()
+			if err != nil {
+				return err
+			}
+			return ctx.PrintRawData(data)
+		},
+	}
 	cmd.Flags().BoolVar(&sandbox, "sandbox", false, "Sandbox mode: no real network; return sample JSON")
 	return cmd
 }
@@ -217,6 +284,9 @@ Rejects user JSON be_public=1 / privacy=1.
 
 --activity-id joins an activity (positive integer, sent as a JSON number).
 Omit it, or pass an empty value, to leave existing activity tags unchanged.
+If the activity is not in app activity list, update_app is not sent.
+When --activity-id is set and the JSON omits allow_clone, CLI sets allow_clone
+to 1 unless the sketch is already 1.
 tags in JSON is ignored and is not sent.
 
 Lifecycle (matches Console edit.vue / list.vue):
@@ -309,8 +379,11 @@ func newAppUnpublishCmd() *cobra.Command {
 	)
 	cmd := &cobra.Command{
 		Use:   "unpublish",
-		Short: "Make app private (privacy=0, L2: --yes)",
-		Long:  `POST /flow/app/v3/edit_privacy_app with privacy=0.`,
+		Short: "Make a public app private (privacy=0, L2: --yes)",
+		Long: `POST /flow/app/v3/edit_privacy_app with privacy=0.
+
+Use this for an already public app (be_public=1). It does not withdraw a
+review. An app under review (be_public=2) uses: app withdraw --id <id> --yes`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx, err := cmdctx.GetAICmdContext()
 			if err != nil {
@@ -330,6 +403,116 @@ func newAppUnpublishCmd() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&id, "id", "", "app_id (required)")
 	cmd.Flags().BoolVar(&yes, "yes", false, "Confirm L2 unpublish after user approval")
+	cmd.Flags().BoolVar(&sandbox, "sandbox", false, "Sandbox mode: no real network; return sample JSON")
+	_ = cmd.MarkFlagRequired("id")
+	return cmd
+}
+
+func newAppWithdrawCmd() *cobra.Command {
+	return newAppIDYesCmd("withdraw", "Withdraw an app that is under review (L2: --yes)",
+		`POST /flow/app/v3/callback_sketch with {app_id} only.
+
+Refuses unless be_public=2. A public app uses app unpublish. A private app
+has nothing to withdraw.`,
+		func(ctx cmdctx.AICmdContext, id string, yes bool) (json.RawMessage, error) {
+			return service.GetAppService(ctx).WithdrawApp(service.AppDeleteParams{AppID: id, Yes: yes})
+		})
+}
+
+func newAppLikeCmd() *cobra.Command {
+	return newAppMarkCmd("like", "Like an app (op_type=1, L2: --yes)", 1)
+}
+
+func newAppUnlikeCmd() *cobra.Command {
+	return newAppMarkCmd("unlike", "Remove a like (op_type=0, L2: --yes)", 0)
+}
+
+func newAppCollectCmd() *cobra.Command {
+	return newAppMarkCmd("collect", "Collect an app (op_type=3, L2: --yes)", 3)
+}
+
+func newAppUncollectCmd() *cobra.Command {
+	return newAppMarkCmd("uncollect", "Remove a collection (op_type=2, L2: --yes)", 2)
+}
+
+func newAppMarkDeployCmd() *cobra.Command {
+	return newAppMarkCmd("mark-deploy", "Record one public-detail deploy (op_type=4, L2: --yes)", 4)
+}
+
+func newAppMarkCmd(use, short string, op int) *cobra.Command {
+	return newAppIDYesCmd(use, short,
+		`POST /flow/app/v2/mark_app. Does not flash a device.
+stdout includes app_id and op_type even when the API body is empty.`,
+		func(ctx cmdctx.AICmdContext, id string, yes bool) (json.RawMessage, error) {
+			return service.GetAppService(ctx).MarkApp(id, op, yes)
+		})
+}
+
+func newAppCloneCmd() *cobra.Command {
+	var (
+		id      string
+		name    string
+		yes     bool
+		sandbox bool
+	)
+	cmd := &cobra.Command{
+		Use:   "clone",
+		Short: "Clone an app into my apps (L2: --yes)",
+		Long: `POST /flow/app/v3/clone_app.
+
+Refuses when the source allow_clone is 0. Without --name the new name is
+Clone_ plus the first 54 characters of the source name.
+Does not copy be_public and does not publish.`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx, err := cmdctx.GetAICmdContext()
+			if err != nil {
+				return err
+			}
+			ctx.SandBox = sandbox
+			data, err := service.GetAppService(ctx).CloneApp(service.AppCloneParams{
+				AppID: id,
+				Name:  name,
+				Yes:   yes,
+			})
+			if err != nil {
+				return err
+			}
+			return ctx.PrintRawData(data)
+		},
+	}
+	cmd.Flags().StringVar(&id, "id", "", "Source app_id (required)")
+	cmd.Flags().StringVar(&name, "name", "", "New app name (default Clone_ + source name)")
+	cmd.Flags().BoolVar(&yes, "yes", false, "Confirm L2 clone after user approval")
+	cmd.Flags().BoolVar(&sandbox, "sandbox", false, "Sandbox mode: no real network; return sample JSON")
+	_ = cmd.MarkFlagRequired("id")
+	return cmd
+}
+
+func newAppIDYesCmd(use, short, long string, run func(ctx cmdctx.AICmdContext, id string, yes bool) (json.RawMessage, error)) *cobra.Command {
+	var (
+		id      string
+		yes     bool
+		sandbox bool
+	)
+	cmd := &cobra.Command{
+		Use:   use,
+		Short: short,
+		Long:  long,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx, err := cmdctx.GetAICmdContext()
+			if err != nil {
+				return err
+			}
+			ctx.SandBox = sandbox
+			data, err := run(ctx, id, yes)
+			if err != nil {
+				return err
+			}
+			return ctx.PrintRawData(data)
+		},
+	}
+	cmd.Flags().StringVar(&id, "id", "", "app_id (required)")
+	cmd.Flags().BoolVar(&yes, "yes", false, "Confirm L2 write after user approval")
 	cmd.Flags().BoolVar(&sandbox, "sandbox", false, "Sandbox mode: no real network; return sample JSON")
 	_ = cmd.MarkFlagRequired("id")
 	return cmd

@@ -4,14 +4,13 @@ Help the Agent choose the right block and fill `config` safely. Execution on har
 
 ## Content format
 
-Text-block `content` (introduction and step text alike) renders **Markdown** — inline HTML like `<p>` also renders and appears in existing docs. Images and externally hosted media are available through ordinary Markdown:
+The editor does **not** render Markdown on read. Preview wraps each block by `type` and treats `content` as HTML or plain text. Raw `**bold**`, `# heading`, or `- item` inside `content` shows up as those characters.
 
-```markdown
-![wiring diagram](https://files.example.com/wiring.png)
-[Watch the demo video](https://example.com/demo.mp4)
-```
+Write inline formatting as HTML: `<strong>`, `<em>`, `<code>`, `<s>`, `<a href="…">`, `<img src="…" alt="…" />`, `<video src="…" controls>`. Do not wrap a `paragraph` in an extra `<p>` — the preview adds it. `code` block `content` is plain source, not HTML.
 
-Host binaries (images, videos) via `file upload` first; Markdown only links out, it does not embed uploads by itself.
+How to split a user Markdown file into these blocks, then create and publish: [../../docs/md-to-app.md](../../docs/md-to-app.md).
+
+Host binaries (images, videos, firmware) via `file upload` first. A relative path from the Markdown file is not a valid `src`.
 
 ## Document layout
 
@@ -64,8 +63,9 @@ Write these as **flat fields** on the block. The editor wraps them into `config`
 | `flash_address` | Only `"0x0"`, `"0x4000"`, `"0x10000"`, `"0x90000"`. Use the device default below. The editor resets a non-default address the first time the doc is opened. Do not write `0x20000` here |
 | `project_zip_url` / `project_zip_name` / `project_zip_size` / `precheck_fields` | Zip mode only. Sizes are strings. `precheck_fields` is `[{ key, name, info, type, default }]` from `sensecraft_config.h`, or omit / `[]` |
 | `muse_gadget` | Boolean, default `false`. A missing field is `false`. `"true"` and `1` are read as `true`. `true` shows the Muse SDK token input under the flash button in preview |
+| `full_flash` | Boolean, default `false`. Same true/false reading as `muse_gadget`. Kept only on the Muse SKUs below; any other device is reset to `false`. `true` erases the whole flash before the write. When `muse_gadget` is `true`, set `full_flash` to `false`. The editor hides the checkbox while Muse is on |
 
-`muse_gadget: true` is kept only for these SKUs. Any other device written `true` is reset to `false` by the editor:
+`muse_gadget: true` is kept only for these SKUs. Any other device written `true` is reset to `false` by the editor. `full_flash` uses the same SKU list:
 
 | Device | `device_id` (SKU) |
 |--------|-------------------|
@@ -76,7 +76,9 @@ Write these as **flat fields** on the block. The editor wraps them into `config`
 | XIAO 1.47" Touch Display | `100069905` |
 | reTerminal Sticky | `100056818` |
 
-When `muse_gadget` is `true`, `firmware_url` must be `muse-gadget.bin` linked at `0x20000`. A binary linked at `0x90000` or `0x10000` will not boot. Checking the box does not change `flash_address`: E100x stays `0x90000`, Sticky / Indicator / 1.47" Touch stay `0x0`, Watcher stays on the XIAO address rule.
+When `muse_gadget` is `true`, set `full_flash` to `false`. The editor hides that checkbox until Muse is turned off. `firmware_url` must be `muse-gadget.bin` linked at `0x20000`. A binary linked at `0x90000` or `0x10000` will not boot. Checking the box does not change `flash_address`: E100x stays `0x90000`, Sticky / Indicator / 1.47" Touch stay `0x0`, Watcher stays on the XIAO address rule.
+
+`full_flash: true` with `muse_gadget: false` is the switch back from a Muse image to another firmware. E1001 / E1002 then also rewrite the stock bootloader at `0x0` and the partition table at `0x8000`; the app stays at `0x90000`. Indicator, 1.47" Touch, Sticky, and Watcher non-Muse images are already merged at `0x0`, so the flag only turns on erase-all. Do not put the reTerminal stock bootloader into those images, and do not put it into a Muse image.
 
 Do **not** write an SDK token (`mgst_…`), `flash_target`, `flash_address_adapted`, or the bootloader, partition table, OTA, and PHY addresses and files. The app site supplies those. A token stays in the browser session. Watcher fills `flash_target` with `"xiao"` on open; do not write `"himax"`.
 
@@ -84,12 +86,12 @@ Checked Muse flash differences are documentation only. Do not implement them in 
 
 | Device | Layout | Serial / reset |
 |--------|--------|----------------|
-| E1001 / E1002 / Indicator | Five segments, no full-chip erase: `0x0` bootloader, `0x10000` partition table, `0x17000` OTA, `0x19000` PHY, app at `0x20000` | E1001 / E1002 do not auto-reset after the write |
-| Watcher | Four segments, no PHY, no full-chip erase: `0x0`, `0x10000`, OTA `0x1D000`, app `0x20000`. Back up `nvsfactory` from `0x9000` for length `0x32000` first | `1a86:55d2` |
-| Sticky | Same four segments as Watcher, its own bootloader, no `nvsfactory` backup | Checked: `1a86:55d3`. Unchecked: no USB restriction, one merged image from `0x0` |
-| 1.47" Touch | Same four segments as Watcher, its own bootloader, no `nvsfactory` backup | `303a:1001`. Does not auto-reset after the write |
+| E1001 / E1002 / Indicator | Five segments, no erase-all: `0x0` bootloader, `0x10000` partition table, `0x17000` OTA, `0x19000` PHY, app at `0x20000` | Close the port after the write. The user presses reset. Do not reopen the port immediately |
+| Watcher | Four segments, no erase-all and no PHY: `0x0`, `0x10000`, OTA `0x1D000`, app `0x20000`. Do not download `nvsfactory` in the browser. Close the port after the write. Do not reset: an RTS pulse or an on-chip watchdog reset, followed by closing the port, exits macOS Chrome. The page asks the user to replug USB, then send the token | `1a86:55d2` |
+| Sticky | Same four segments as Watcher, no erase-all, its own bootloader, no `nvsfactory` backup. Checked baud is 115200 | Checked: `1a86:55d3`. After the write, hard-reset, wait until the port is idle, then send the token at 115200 and close. Do not toggle the port in the same moment as the reset. Unchecked: no USB restriction, one merged image from `0x0`, watchdog reset after the write |
+| 1.47" Touch | Same four segments as Watcher, no erase-all, its own bootloader, no `nvsfactory` backup | `303a:1001`. Close the port after the write. The user presses reset |
 
-Unchecked `muse_gadget` keeps the single-file device table below and does not require a token.
+Unchecked `muse_gadget` keeps the single-file device table below and does not require a token. `full_flash` may still be `true` on a Muse SKU.
 
 | Device | `device_id` (SKU) | `flash_mode` | `flash_address` | File |
 |--------|-------------------|--------------|-----------------|------|
@@ -189,7 +191,8 @@ Used for **container / edge app** deployment UI inside the application doc.
     "firmware_name": "e1002-app.bin",
     "firmware_size": "1234567",
     "flash_address": "0x90000",
-    "muse_gadget": false
+    "muse_gadget": false,
+    "full_flash": false
   }
 ]
 ```

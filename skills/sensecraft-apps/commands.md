@@ -21,24 +21,34 @@ List apps.
 
 | Flag                  | Default                 | Notes                                                        |
 | --------------------- | ----------------------- | ------------------------------------------------------------ |
-| `--public`            | plaza mode              | `be_public=1`                                                |
-| `--mine`              | default if neither flag | My apps                                                      |
+| `--public`            |                         | Plaza (`be_public=1`). Required for the store; not the default |
+| `--mine`              | default if neither flag | My apps. Omit both visibility flags for the same result     |
 | `--name`              |                         | Search keyword → API `app_name` (Console app list)           |
 | `--scene`             |                         | Scene id                                                     |
 | `--uniform-type`      |                         | Device type → API `uniform_type` (`40` reCamera, `32` XIAO ESP32S3, `53` reCamera Pro) |
-| `--mark-type`         |                         | Optional mark filter, such as `like` / `star` when supported |
+| `--sort`              |                         | `popular`, `newest`, or `likes` → `sort_by`. Omit to leave the API unordered |
+| `--priority-activity-id` |                    | Positive integer. Only with `--sort popular`. If omitted on popular, CLI fills the first ongoing activity |
+| `--tag-id`            |                         | Competition filter → `tag_id`                                |
+| `--mark-type`         |                         | `1` = my likes, `0` = my collections                         |
+| `--likes`             |                         | `mark_type=1` and `be_public=1`. Not with `--mine`           |
+| `--collections`       |                         | `mark_type=0` and `be_public=1`. Not with `--mine`           |
 | `--page` / `--length` | 1 / 20                  | Pagination                                                   |
-| `--sandbox`           |                         | Sample JSON, no network                                      |
+| `--sandbox`           |                         | Sample JSON, no network. Includes `sandbox_query`           |
 
 ```bash
-# Application Plaza
+# Application Plaza. Omit visibility flags for my apps. Hot sort is explicit.
 sensecraft-cli app list --public --name "vision" --scene <scene_id> --page 1 --length 20
+sensecraft-cli app list --public --sort popular --length 12
+sensecraft-cli app list --public --sort popular --tag-id 1
+sensecraft-cli app list --public --sort newest
+sensecraft-cli app list --public --likes
+sensecraft-cli app list --public --collections
 sensecraft-cli app list --public --uniform-type 40
 sensecraft-cli app list --mine --uniform-type 40
 
-# My Apps / marked apps
+# My apps
 sensecraft-cli app list --mine
-sensecraft-cli app list --mine --mark-type star
+sensecraft-cli app list --public --mark-type 1
 ```
 
 ### `app view`
@@ -88,7 +98,12 @@ sensecraft-cli app blocks
 
 Rejects `be_public=1` / `privacy=1`. Do **not** confuse with `app update` (existing app → L2).
 
-**Success output:** CLI always prints `app_id`, `console_url` (edit `/ai/application/edit?id=…`), and `detail_url` (`/ai/application/detail/<id>?tab=custom&from=my-apps`). The `from=my-apps` query loads the sketch (cover/`images`) the same as Console 我的应用. Do **not** send users to `/application/detail/<id>` without that query — that page fetches `view_sketch=0` and will look like it has no cover after create/restore.
+**Success output:** CLI always prints `app_id`, `console_url`, and `detail_url` on the app site (`https://app.seeed.cc`, or `https://test-app.seeed.cc` when the AI host contains `test-`):
+
+- edit: `/application/edit?id=<app_id>`
+- my app detail: `/view-application/<app_id>-<slug>?tab=custom&from=my-apps`
+
+`from=my-apps` loads the sketch (cover/`images`). A public link uses `tab=public&from=application-store` and must not include `from=my-apps`. If a list item has a non-empty `web_link`, give the user that URL instead of `view-application`. Model and legal pages stay on `sensecraft.seeed.cc`.
 
 **Do not retry create blindly:**
 
@@ -134,7 +149,9 @@ sensecraft-cli app update --id <app_id> --from-json ./app.json --yes
 sensecraft-cli app update --id <app_id> --activity-id 1 --yes
 ```
 
-`activity_id` must be a positive integer. The server rejects anything else with `11202` `Request parameters are invalid`, and rejects a missing, unpublished, deleted, or out-of-window activity with `25000` `Activity does not exist or has expired`. Either failure discards the whole edit, including other fields in the same request. Omitting `activity_id` does not change existing activity tags. `tags` is not read by the server.
+`activity_id` must be a positive integer. List ongoing ids with `app activity list` first. If that list succeeds and does not contain the id, CLI does not POST. The server still rejects a bad id with `11202` and a missing or expired activity with `25000` `Activity does not exist or has expired` (the whole edit is discarded). Omitting `activity_id` does not change existing activity tags. `tags` is not read by the server.
+
+When `--activity-id` is set and this JSON does not include `allow_clone`, CLI sets `allow_clone` to `1` unless the sketch is already `1`. That matches the web contest save. An explicit `allow_clone` in the JSON is kept.
 
 ### `app publish` / `app unpublish` / `app delete` (L2)
 
@@ -145,7 +162,8 @@ sensecraft-cli app update --id <app_id> --activity-id 1 --yes
   - Review will lock editing until approval (or `unpublish`)
   - Declaration URL: https://sensecraft.seeed.cc/legal/en/declaration
   - Do **not** pass `--agree-declaration` unless the user explicitly agreed
-- `unpublish` → `privacy=0` (private / withdraw review). Owner only. No declaration flag.
+- `unpublish` → `privacy=0` for an **already public** app (make it private). Owner only. No declaration flag. Do **not** use it to withdraw a review.
+- `withdraw` → `POST /flow/app/v3/callback_sketch` with `{app_id}` only, and only when `be_public=2`. Public apps: `unpublish`. Private apps: nothing to withdraw.
 - `delete` → `POST /flow/app/v2/delete_app` — **private + owner** (`be_public=0`)
 - **Never** send privacy `1`
 - All require a **separate chat confirm** ([`../confirmation.md`](../confirmation.md)) then `--yes`; `publish` also requires `--agree-declaration`. 「删除应用 demo」is intent — ask first.
@@ -154,7 +172,44 @@ sensecraft-cli app update --id <app_id> --activity-id 1 --yes
 # after the user replies 确认:
 sensecraft-cli app publish --id <app_id> --agree-declaration --yes
 sensecraft-cli app unpublish --id <app_id> --yes
+sensecraft-cli app withdraw --id <app_id> --yes
 sensecraft-cli app delete --id <app_id> --yes
+```
+
+### `app activity list`
+
+**Status: implemented.** Read-only. `GET /activity/list` with no `time` query. stdout is `{ "list": [...] }` with numeric `activity_id`, `name`, `tag_ids`, and unix `start_time` / `end_time` when present. Rows without a positive id or a name are dropped.
+
+```bash
+sensecraft-cli app activity list
+```
+
+### `app like` / `app unlike` / `app collect` / `app uncollect` / `app mark-deploy` (L2)
+
+**Status: implemented.** `POST /flow/app/v2/mark_app`.
+
+| Command | `op_type` |
+| --- | --- |
+| `like` | `1` |
+| `unlike` | `0` |
+| `collect` | `3` |
+| `uncollect` | `2` |
+| `mark-deploy` | `4` (records a download; does not flash) |
+
+stdout always includes `app_id` and `op_type`. Whether the user already liked or collected is `like_time` / `follow_time` on `app view` (non-zero means set). Counts are `like_num` / `follow_num`.
+
+```bash
+sensecraft-cli app like --id <app_id> --yes
+sensecraft-cli app mark-deploy --id <app_id> --yes
+```
+
+### `app clone` (L2)
+
+**Status: implemented.** `POST /flow/app/v3/clone_app`. Refuses when source `allow_clone` is `0` and does not POST. Without `--name`, the name is `Clone_` plus the first 54 characters of the source name. stdout includes the new `app_id`, `console_url`, and `detail_url`. Does not copy `be_public` and does not publish.
+
+```bash
+sensecraft-cli app clone --id <source_app_id> --yes
+sensecraft-cli app clone --id <source_app_id> --name "New name" --yes
 ```
 
 ### `app bom`

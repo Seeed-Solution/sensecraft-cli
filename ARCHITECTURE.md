@@ -268,7 +268,7 @@ precision：音频 `"3"`，视觉 `"1"`。非 Pro 强制删除 `ai_framework`。
 - Access Key 创建后**不返回密钥本体**，须回查列表（按 label 倒序匹配）
 - `edit_model` 须同时带 `id` 与 `model_id`（缺 `id` → 11202）
 - `publish_model` / `delete_model` 的 `model_id` 须为 **JSON number**（CLI `--id` 为纯数字时发 `63758` 而非 `"63758"`；字符串会 11202）
-- Console 深链：`/ai/model/detail?...`、`/ai/application/edit?...`；create 注入，update 不注入
+- 深链：模型仍是 `sensecraft.seeed.cc/ai/model/detail?...`。应用编辑和详情在应用站 `app.seeed.cc`（测试 AI host 含 `test-` 时为 `test-app.seeed.cc`）：`/application/edit?id=`、`/view-application/<id>-<slug>?tab=custom&from=my-apps`。create / clone 注入，update 不注入
 
 ---
 

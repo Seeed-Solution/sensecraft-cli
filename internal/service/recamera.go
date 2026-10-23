@@ -155,7 +155,7 @@ func (s RecameraService) checkApp(appID string) (RecameraCheckResult, error) {
 		Name:       name,
 		BePublic:   bePublic,
 		Flash:      "local",
-		ConsoleURL: RecameraAppDeployURL(s.remoteType, appID, mine),
+		ConsoleURL: RecameraAppDeployURL(s.remoteType, appID, name, mine),
 		Candidates: candidates,
 		AskPick:    len(candidates) > 1,
 	}

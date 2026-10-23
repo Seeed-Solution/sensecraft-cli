@@ -29,7 +29,7 @@ Agent fill-in guide for SenseCraft custom apps (v3). Aligns with Console `infoFo
 - **Update (`app update`)**: always include `app_id` (CLI `--id`).
   - **Info fields** (`app_name`, `excerpt`, `scene`, `allow_clone`, `allow_commerce`, `images`, `license`, `author`): aiserver often **ignores** a body that only contains `app_name`. CLI **auto-merges** missing info keys from `app view --sketch` before calling `update_app` (does **not** merge `be_public` from user/existing for private apps). If current `be_public=1`, CLI **injects** `be_public=1` like Console info save (plaza unchanged until `app publish`). `be_public=2` refuses update. Agents may pass a sparse rename patch; still **re-read** with `app view` / `app list` after update because success may be `{}`.
   - **Other sections** (`deployment`, `materials`, …): may be sent alone without forcing an info merge. Full leave-save usually sends info + deployment + materials together.
-  - **Activity**: `--activity-id <positive integer>` or JSON `activity_id`. Do not send `tags`; the server ignores it and the CLI strips it. A blank `activity_id` is omitted.
+  - **Activity**: `--activity-id <positive integer>` or JSON `activity_id`. Do not send `tags`; the server ignores it and the CLI strips it. A blank `activity_id` is omitted. If `activity_id` is set and this JSON omits `allow_clone`, CLI sets `allow_clone` to `1` when the current sketch is not already `1`.
   - **Rename workflow**: confirm with user (L2) → `app update --id … --from-json '{"app_name":"…"}' --yes` (CLI fills the rest) → verify name via `app view --id … --sketch` or `app list --mine --name …`.
 
 ## Visibility / review

@@ -469,5 +469,4 @@ sensecraft-cli cloud device list --uniform-type 26
 | `skills/sensecraft-recamera/` | 经典 reCamera 40 |
 | `skills/sensecraft-devices-cloud/` | Jetson 云部署 |
 | `skills/sensecraft-files/` | 文件上传 |
-| `ARCHITECTURE.md` | 架构 |
 | `script/smoke-*.sh` | 沙箱冒烟 |

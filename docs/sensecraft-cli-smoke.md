@@ -79,4 +79,3 @@ sensecraft-cli cloud device list --uniform-type 26
 | [`sensecraft-cli-test-cases.md`](sensecraft-cli-test-cases.md) | 全量功能测试用例 |
 | [`../script/smoke-ai.sh`](../script/smoke-ai.sh) | AI sandbox 冒烟脚本 |
 | [`../script/smoke-sensecap.sh`](../script/smoke-sensecap.sh) | SenseCAP sandbox 冒烟脚本 |
-| [`../ARCHITECTURE.md`](../ARCHITECTURE.md) §10 | CI 与冒烟说明 |

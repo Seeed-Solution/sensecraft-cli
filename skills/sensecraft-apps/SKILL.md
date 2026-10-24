@@ -184,7 +184,7 @@ Base: `{host}/openapi` with HTTP Basic (`key_id`:`access_key`).
 
 | Action  | Method | Path                                                             |
 | ------- | ------ | ---------------------------------------------------------------- |
-| List    | GET    | `/flow/app/v2/list_app` (`be_public`, `sort_by`, `priority_activity_id`, `tag_id`, `mark_type` `1`/`0`) |
+| List    | GET    | `/flow/app/v2/list_app` (`be_public`, `order_type` `1`/`2`/`3`, `priority_activity_id`, `tag_id`, `mark_type` `1`/`0`) |
 | Activities | GET | `/activity/list` (no `time`) |
 | View    | GET    | `/flow/app/v3/view_app`                                          |
 | Create  | POST   | `/flow/app/v3/create_app`                                        |

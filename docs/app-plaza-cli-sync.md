@@ -53,7 +53,7 @@
 广场默认排序是「热门」。请求会带：
 
 ```
-GET /flow/app/v2/list_app?be_public=1&sort_by=popular&priority_activity_id=<活动 id>&page=1&length=12
+GET /flow/app/v2/list_app?be_public=1&order_type=1&priority_activity_id=<活动 id>&page=1&length=12
 ```
 
 `priority_activity_id` 是进行中活动列表的 **第一场** `activity_id`（`GET /activity/list` 不传 `time`，服务端按开始时间从早到晚）。没有进行中的活动时，网页不传这个参数。
@@ -66,22 +66,22 @@ CLI 现状：`buildAppListQuery`（`internal/service/open_api_app.go`）没有�
 
 - 新增 `app list --priority-activity-id <正整数>`，原样放到 query `priority_activity_id`。
 - 新增 `app list --sort popular`。当 `--sort popular` 且用户没写 `--priority-activity-id` 时，CLI 自己请求 `GET /activity/list`，取第一场的 `activity_id` 填上。列表为空或请求失败：不传该参数，列表仍成功（与网页一致）。
-- `--sort newest`、`--sort likes` 只传 `sort_by`，禁止自动补 `priority_activity_id`。
-- 不传 `--sort` 时保持今天的行为（不传 `sort_by`，也不要偷偷加活动优先），避免把「我的应用」默认列表改掉。广场热门必须显式 `--public --sort popular`。
+- `--sort newest`、`--sort likes` 只传 `order_type`（`2` / `3`），禁止自动补 `priority_activity_id`。
+- 不传 `--sort` 时不传 `order_type`，也不要偷偷加活动优先。服务端此时默认按最新；只有带了 `priority_activity_id` 且确实有活动应用要提前时才默认热门。广场热门必须显式 `--public --sort popular`。
 
 活动 id 规则与现有 `app update --activity-id` 相同：正整数。`0`、负数、非整数在发请求前拒绝。
 
-### 1.2 `sort_by`
+### 1.2 `order_type`
 
-网页三个排序键，原样作为 `sort_by`：
+网页三个排序键对应 query `order_type`。不是 1、2、3 时服务端整次失败，错误码 `11202`。不传时：带了 `priority_activity_id` 且确实有活动应用要提前，默认热门；否则默认最新。列表返回里没有 `last_issued`。
 
-| 网页 | `sort_by` | 说明 |
-| --- | --- | --- |
-| 热门 | `popular` | 顺序由服务端按 `priority_activity_id` 决定，前端不再重排 |
-| 最新 | `newest` | 网页在重新拉列表后，对已加载页按 `created` 降序排。服务端是否已实现 `sort_by=newest` 未确认，CLI 先把参数送出去 |
-| 点赞量 | `likes` | 同上，重新拉列表后按 `like_num` 降序排已加载页 |
+| 网页 | `--sort` | `order_type` | 说明 |
+| --- | --- | --- | --- |
+| 热门 | `popular` | `1` | `view_num` 从高到低，相同再按 `updated` 从新到旧。活动提前仍由 `priority_activity_id` 决定 |
+| 最新 | `newest` | `2` | 公开列表按 `flow_app.last_issued` 从新到旧。看自己的应用时，有草稿按草稿 `updated`，没有草稿按应用 `updated` |
+| 点赞量 | `likes` | `3` | `like_num` 从高到低，相同再按 `updated` 从新到旧 |
 
-「最新」「点赞量」下，网页会记住当前卡片顺序：原地改 `like_num` 不挪位，只有重新请求（换排序、筛选、刷新、往下加载的新尾巴）才重排。这是 `list.vue` 的展示层。CLI 每次调用都是新请求，送出 `sort_by` 即可，不要做冻结。
+「最新」「点赞量」下，网页会记住当前卡片顺序：原地改 `like_num` 不挪位，只有重新请求（换排序、筛选、刷新、往下加载的新尾巴）才重排。这是 `list.vue` 的展示层。CLI 每次调用都是新请求，送出 `order_type` 即可，不要做冻结，也不要在本地再排。
 
 建议 flag：`--sort popular|newest|likes`。不要用帮助文案里的 `hot`。
 

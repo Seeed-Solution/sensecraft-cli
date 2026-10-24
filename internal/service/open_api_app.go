@@ -118,8 +118,8 @@ func buildAppListQuery(p AppListParams) url.Values {
 	if p.MarkType != "" {
 		q.Set("mark_type", p.MarkType)
 	}
-	if sort := strings.TrimSpace(p.Sort); sort != "" {
-		q.Set("sort_by", sort)
+	if orderType := appListOrderType(p.Sort); orderType != "" {
+		q.Set("order_type", orderType)
 	}
 	if id := strings.TrimSpace(p.PriorityActivityID); id != "" {
 		q.Set("priority_activity_id", id)
@@ -132,7 +132,23 @@ func buildAppListQuery(p AppListParams) url.Values {
 	return q
 }
 
+// appListOrderType maps --sort onto list_app order_type.
+// 1 is popular, 2 is newest, 3 is likes. An empty sort sends nothing.
+func appListOrderType(sort string) string {
+	switch strings.TrimSpace(sort) {
+	case "popular":
+		return "1"
+	case "newest":
+		return "2"
+	case "likes":
+		return "3"
+	default:
+		return ""
+	}
+}
+
 func prepareAppListQuery(p AppListParams, activities []ongoingActivity, activitiesErr error) (url.Values, error) {
+	p.Sort = strings.TrimSpace(p.Sort)
 	switch p.Sort {
 	case "", "popular", "newest", "likes":
 	default:

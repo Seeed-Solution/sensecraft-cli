@@ -65,7 +65,8 @@ func newAppListCmd() *cobra.Command {
   --name            Filter by app_name
   --scene           Scene id
   --uniform-type    Device type (list_app uniform_type: reCamera=40, XIAO ESP32S3=32)
-  --sort            popular | newest | likes. Omitted: do not send sort_by
+  --sort            popular | newest | likes. Sends order_type 1, 2, or 3.
+                    Omitted: do not send order_type
   --priority-activity-id
                     Only with --sort popular. Omitted on popular: first ongoing activity
   --tag-id          Competition filter (activity tag id)
@@ -114,7 +115,7 @@ func newAppListCmd() *cobra.Command {
 	cmd.Flags().IntVar(&page, "page", 1, "Page number")
 	cmd.Flags().IntVar(&length, "length", 20, "Page size")
 	cmd.Flags().StringVar(&markType, "mark-type", "", "1 = my likes, 0 = my collections")
-	cmd.Flags().StringVar(&sort, "sort", "", "Sort: popular, newest, or likes")
+	cmd.Flags().StringVar(&sort, "sort", "", "popular (order_type=1), newest (2), or likes (3). Omitted: server default")
 	cmd.Flags().StringVar(&priorityActivityID, "priority-activity-id", "", "With --sort popular, pin this activity first (positive integer)")
 	cmd.Flags().StringVar(&tagID, "tag-id", "", "Competition tag id (list_app tag_id)")
 	cmd.Flags().BoolVar(&likes, "likes", false, "My likes (mark_type=1, be_public=1). Not with --mine")

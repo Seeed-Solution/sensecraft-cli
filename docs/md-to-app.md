@@ -101,6 +101,7 @@ sensecraft-cli app create --from-md ./README.md --from-json ./scene.json
 | `author` | 建议填 | `sensecraft-cli auth info` 的账号。不要从 Markdown 署名乱填成别人 |
 | `images` | 发布前至少 1 张，最多 16，JPG/GIF/PNG/WebP，每张 ≤ 5 MB | 文中第一张适合当封面的图（优先 4:3）。本地路径先上传。第一张同时写进 `pic_url` |
 | `activity_id` | 可选正整数 | 只有用户说参加某场竞赛才加。先 `app activity list`。不在进行中就不要带。这次更新若没写 `allow_clone`，CLI 会在当前不是 `1` 时补成 `1` |
+| `cancel_activity_id` | 可选正整数 | 只有用户说退出某场已参加的活动才加。CLI 原样把正整数交给 `update_app`，不改 `allow_clone`。不要和同一个 `activity_id` 一起写 |
 
 封面和文中插图是两套：
 

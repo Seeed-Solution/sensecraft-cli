@@ -871,6 +871,129 @@ func TestUpdateAppContestSetsAllowCloneAndRejectsMissingActivity(t *testing.T) {
 	}
 }
 
+func TestUpdateAppCancelActivityFlagOnly(t *testing.T) {
+	var rawBody []byte
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case enum.AIApiPathAppView:
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"code": 0,
+				"data": map[string]any{
+					"app_id": "11619", "be_public": 0, "excerpt": "keep",
+					"allow_clone": 0, "app_name": "Demo",
+				},
+			})
+		case enum.AIApiPathActivityList:
+			t.Errorf("cancel must not consult the ongoing activity list")
+			http.NotFound(w, r)
+		case enum.AIApiPathAppUpdate:
+			rawBody, _ = io.ReadAll(r.Body)
+			_ = json.NewEncoder(w).Encode(map[string]any{"code": 0, "data": map[string]any{}})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	s := appServiceForTest(t, srv)
+	if _, err := s.UpdateApp(AppUpdateParams{AppID: "11619", Yes: true, CancelActivitySet: true, CancelActivityID: "1"}); err != nil {
+		t.Fatal(err)
+	}
+	var body map[string]any
+	if err := json.Unmarshal(rawBody, &body); err != nil {
+		t.Fatal(err)
+	}
+	if body["cancel_activity_id"] != float64(1) || body["app_id"] != "11619" {
+		t.Fatalf("body=%#v", body)
+	}
+	if _, ok := body["allow_clone"]; ok {
+		t.Fatalf("cancel must not force allow_clone: %#v", body)
+	}
+	if _, ok := body["excerpt"]; ok {
+		t.Fatalf("cancel-only update must not merge info fields: %#v", body)
+	}
+}
+
+func TestUpdateAppCancelActivityFromJSON(t *testing.T) {
+	var body map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case enum.AIApiPathAppView:
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"code": 0,
+				"data": map[string]any{"app_id": "11619", "be_public": 0, "excerpt": "keep"},
+			})
+		case enum.AIApiPathAppUpdate:
+			raw, _ := io.ReadAll(r.Body)
+			_ = json.Unmarshal(raw, &body)
+			_ = json.NewEncoder(w).Encode(map[string]any{"code": 0, "data": map[string]any{}})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	s := appServiceForTest(t, srv)
+	path := filepath.Join(t.TempDir(), "patch.json")
+	if err := os.WriteFile(path, []byte(`{"excerpt":"new","cancel_activity_id":"1"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.UpdateApp(AppUpdateParams{AppID: "11619", FromJSON: path, Yes: true}); err != nil {
+		t.Fatal(err)
+	}
+	if body["cancel_activity_id"] != float64(1) {
+		t.Fatalf("cancel_activity_id must be a JSON number: %#v", body)
+	}
+}
+
+func TestUpdateAppRejectsBadCancelActivityID(t *testing.T) {
+	var updateCalls int
+	var body map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case enum.AIApiPathAppView:
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"code": 0,
+				"data": map[string]any{"app_id": "11619", "be_public": 0, "excerpt": "keep"},
+			})
+		case enum.AIApiPathAppUpdate:
+			updateCalls++
+			raw, _ := io.ReadAll(r.Body)
+			_ = json.Unmarshal(raw, &body)
+			_ = json.NewEncoder(w).Encode(map[string]any{"code": 0, "data": map[string]any{}})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	s := appServiceForTest(t, srv)
+	for _, payload := range []string{
+		`{"excerpt":"new","cancel_activity_id":0}`,
+		`{"excerpt":"new","cancel_activity_id":-1}`,
+		`{"excerpt":"new","cancel_activity_id":"abc"}`,
+		`{"excerpt":"new","activity_id":1,"cancel_activity_id":1}`,
+	} {
+		path := filepath.Join(t.TempDir(), "patch.json")
+		if err := os.WriteFile(path, []byte(payload), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := s.UpdateApp(AppUpdateParams{AppID: "11619", FromJSON: path, Yes: true}); err == nil {
+			t.Fatalf("payload %s: expected error", payload)
+		}
+	}
+	blank := filepath.Join(t.TempDir(), "blank.json")
+	if err := os.WriteFile(blank, []byte(`{"excerpt":"new","cancel_activity_id":""}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.UpdateApp(AppUpdateParams{AppID: "11619", FromJSON: blank, Yes: true}); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := body["cancel_activity_id"]; ok {
+		t.Fatalf("blank cancel_activity_id must be omitted: %#v", body)
+	}
+	if updateCalls != 1 {
+		t.Fatalf("only the blank cancel id may POST, calls=%d", updateCalls)
+	}
+}
+
 func appServiceForTest(t *testing.T, srv *httptest.Server) AppService {
 	t.Helper()
 	return AppService{

@@ -360,6 +360,10 @@ type AppUpdateParams struct {
 	// omits the field so the server leaves existing activity tags unchanged.
 	ActivitySet bool
 	ActivityID  string
+	// CancelActivitySet is true when --cancel-activity-id was passed. An empty
+	// value omits the field. A positive integer leaves that activity.
+	CancelActivitySet bool
+	CancelActivityID  string
 }
 
 // appInfoMergeKeys are Console infoForm fields. aiserver often no-ops sparse
@@ -379,8 +383,8 @@ func (s AppService) UpdateApp(p AppUpdateParams) (json.RawMessage, error) {
 		return nil, fmt.Errorf("--id is required")
 	}
 	fromJSON := strings.TrimSpace(p.FromJSON)
-	if fromJSON == "" && !p.MarkdownSet && !p.ActivitySet {
-		return nil, fmt.Errorf("provide --from-json, --from-md, and/or --activity-id")
+	if fromJSON == "" && !p.MarkdownSet && !p.ActivitySet && !p.CancelActivitySet {
+		return nil, fmt.Errorf("provide --from-json, --from-md, --activity-id, and/or --cancel-activity-id")
 	}
 	body := map[string]any{}
 	if fromJSON != "" {
@@ -401,6 +405,9 @@ func (s AppService) UpdateApp(p AppUpdateParams) (json.RawMessage, error) {
 	}
 	if p.ActivitySet {
 		body["activity_id"] = strings.TrimSpace(p.ActivityID)
+	}
+	if p.CancelActivitySet {
+		body["cancel_activity_id"] = strings.TrimSpace(p.CancelActivityID)
 	}
 	updated, err := s.applyAppPatch(p.AppID, body, false)
 	if err != nil {
@@ -553,6 +560,9 @@ func (s AppService) applyAppPatch(appID string, body map[string]any, allowMissin
 	if err != nil {
 		return nil, err
 	}
+	if err := normalizeAppCancelActivityID(body); err != nil {
+		return nil, err
+	}
 	if scene := stringFromMap(body, "scene"); scene != "" {
 		if err := s.validateAppSceneID(scene); err != nil {
 			return nil, err
@@ -656,6 +666,35 @@ func normalizeAppActivityID(body map[string]any) (tagsDropped bool, err error) {
 	}
 	body["activity_id"] = n
 	return tagsDropped, nil
+}
+
+// normalizeAppCancelActivityID prepares update_app activity withdrawal.
+// cancel_activity_id is optional. Missing, null, or blank leaves the key unset.
+// A present value must be a positive integer and is sent as a JSON number.
+// Unlike activity_id, it is not checked against the ongoing activity list and
+// does not change allow_clone.
+func normalizeAppCancelActivityID(body map[string]any) error {
+	if body == nil {
+		return nil
+	}
+	raw, ok := body["cancel_activity_id"]
+	if !ok || raw == nil {
+		delete(body, "cancel_activity_id")
+		return nil
+	}
+	if s, isString := raw.(string); isString && strings.TrimSpace(s) == "" {
+		delete(body, "cancel_activity_id")
+		return nil
+	}
+	n, ok := positiveInt64(raw)
+	if !ok {
+		return fmt.Errorf("cancel_activity_id must be a positive integer")
+	}
+	if join, joinOK := positiveInt64(body["activity_id"]); joinOK && join == n {
+		return fmt.Errorf("activity_id and cancel_activity_id must not be the same")
+	}
+	body["cancel_activity_id"] = n
+	return nil
 }
 
 func positiveInt64(v any) (int64, bool) {

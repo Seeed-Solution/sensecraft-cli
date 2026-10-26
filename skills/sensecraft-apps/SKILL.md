@@ -83,6 +83,14 @@ sensecraft-cli app update --id <app_id> --activity-id 1 --yes
 
 `activity_id` is an optional positive integer. List ids with `app activity list`. Omit it to leave existing activity tags unchanged. `tags` is ignored. A bad id fails the whole edit (`11202`); an unknown or inactive activity also fails the whole edit (`25000` `Activity does not exist or has expired`). If this update sets `--activity-id` and the JSON does not set `allow_clone`, CLI writes `allow_clone=1` unless the sketch is already `1`.
 
+### Leave an activity (L2)
+
+```bash
+sensecraft-cli app update --id <app_id> --cancel-activity-id 1 --yes
+```
+
+`cancel_activity_id` is an optional positive integer sent as a JSON number. It does not change `allow_clone` and is not checked against `app activity list`. Omit it to leave participation unchanged. Do not send the same id as `activity_id` in one update.
+
 ### Publish / unpublish / delete (L2)
 
 ```bash

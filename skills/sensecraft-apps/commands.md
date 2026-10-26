@@ -146,6 +146,7 @@ sensecraft-cli app create --name "My App"
 | `--from-json`   | path or `-`; optional when `--from-md` or `--activity-id` is set                                          |
 | `--from-md`     | Markdown path or `-`. Same compile as create. Does not replace an `app_name` / `excerpt` already in the JSON |
 | `--activity-id` | optional positive integer. Joins that activity. Omit or pass empty to leave existing activity tags as-is |
+| `--cancel-activity-id` | optional positive integer. Leaves that activity. Does not change `allow_clone` |
 | `--yes`         | after user confirmation                                                                                    |
 | `--sandbox`     | sample JSON                                                                                                |
 
@@ -165,9 +166,14 @@ sensecraft-cli app update --id <app_id> --from-json ./app.json --yes
 
 # Join activity 1. activity_id is sent as a JSON number. tags in JSON is dropped.
 sensecraft-cli app update --id <app_id> --activity-id 1 --yes
+
+# Leave activity 1. cancel_activity_id is sent as a JSON number.
+sensecraft-cli app update --id <app_id> --cancel-activity-id 1 --yes
 ```
 
 `activity_id` must be a positive integer. List ongoing ids with `app activity list` first. If that list succeeds and does not contain the id, CLI does not POST. The server still rejects a bad id with `11202` and a missing or expired activity with `25000` `Activity does not exist or has expired` (the whole edit is discarded). Omitting `activity_id` does not change existing activity tags. `tags` is not read by the server.
+
+`cancel_activity_id` must be a positive integer. CLI sends it as a JSON number and does not check the ongoing list or change `allow_clone`. Omitting it leaves participation unchanged. The same id cannot be both `activity_id` and `cancel_activity_id`.
 
 When `--activity-id` is set and this JSON does not include `allow_clone`, CLI sets `allow_clone` to `1` unless the sketch is already `1`. That matches the web contest save. An explicit `allow_clone` in the JSON is kept.
 

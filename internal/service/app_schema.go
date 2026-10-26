@@ -16,6 +16,7 @@ func AppFieldsSchema() json.RawMessage {
 			{"field": "be_public", "type": "lifecycle", "values": map[string]string{"0": "private", "1": "public(ops)", "2": "pending_review"}, "notes": "Agent submit review uses privacy=2; never send 1"},
 			{"field": "app_id", "type": "id", "required_on_update": true},
 			{"field": "activity_id", "type": "id", "required": false, "notes": "positive integer; omit or blank leaves existing activity tags unchanged. tags is ignored and is not sent"},
+			{"field": "cancel_activity_id", "type": "id", "required": false, "notes": "positive integer; leave this activity. omit or blank leaves participation unchanged. does not change allow_clone. must not equal activity_id"},
 			{"field": "author", "type": "text", "required": false, "notes": "recommended on save"},
 		},
 		"materials": map[string]any{

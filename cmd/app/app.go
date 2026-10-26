@@ -372,19 +372,21 @@ func newAppCreateCmd() *cobra.Command {
 
 func newAppUpdateCmd() *cobra.Command {
 	var (
-		id         string
-		fromJSON   string
-		fromMD     string
-		activityID string
-		yes        bool
-		sandbox    bool
+		id               string
+		fromJSON         string
+		fromMD           string
+		activityID       string
+		cancelActivityID string
+		yes              bool
+		sandbox          bool
 	)
 	cmd := &cobra.Command{
 		Use:   "update",
 		Short: "Update an app from JSON or Markdown (L2: --yes)",
 		Long: `POST /flow/app/v3/update_app
 
-Requires --id and at least one of --from-json / --from-md / --activity-id. Injects app_id.
+Requires --id and at least one of --from-json / --from-md / --activity-id / --cancel-activity-id.
+Injects app_id.
 --from-md compiles Markdown into editor blocks. It fills app_name and excerpt
 only when the JSON omits them, and appends JSON deployment.blocks after the
 compiled document. --from-json text blocks get editor video, link, and image
@@ -396,6 +398,9 @@ Omit it, or pass an empty value, to leave existing activity tags unchanged.
 If the activity is not in app activity list, update_app is not sent.
 When --activity-id is set and the JSON omits allow_clone, CLI sets allow_clone
 to 1 unless the sketch is already 1.
+--cancel-activity-id leaves an activity (positive integer, sent as a JSON number).
+It does not change allow_clone and is not checked against the ongoing list.
+The same id cannot be both joined and cancelled in one update.
 tags in JSON is ignored and is not sent.
 
 Lifecycle (matches Console edit.vue / list.vue):
@@ -420,17 +425,19 @@ Lifecycle (matches Console edit.vue / list.vue):
 					return err
 				}
 			}
-			if strings.TrimSpace(fromJSON) == "" && !markdownSet && !cmd.Flags().Changed("activity-id") {
-				return fmt.Errorf("provide --from-json, --from-md, and/or --activity-id")
+			if strings.TrimSpace(fromJSON) == "" && !markdownSet && !cmd.Flags().Changed("activity-id") && !cmd.Flags().Changed("cancel-activity-id") {
+				return fmt.Errorf("provide --from-json, --from-md, --activity-id, and/or --cancel-activity-id")
 			}
 			data, err := service.GetAppService(ctx).UpdateApp(service.AppUpdateParams{
-				AppID:       id,
-				FromJSON:    fromJSON,
-				Markdown:    markdown,
-				MarkdownSet: markdownSet,
-				Yes:         yes,
-				ActivitySet: cmd.Flags().Changed("activity-id"),
-				ActivityID:  activityID,
+				AppID:             id,
+				FromJSON:          fromJSON,
+				Markdown:          markdown,
+				MarkdownSet:       markdownSet,
+				Yes:               yes,
+				ActivitySet:       cmd.Flags().Changed("activity-id"),
+				ActivityID:        activityID,
+				CancelActivitySet: cmd.Flags().Changed("cancel-activity-id"),
+				CancelActivityID:  cancelActivityID,
 			})
 			if err != nil {
 				return err
@@ -442,6 +449,7 @@ Lifecycle (matches Console edit.vue / list.vue):
 	cmd.Flags().StringVar(&fromJSON, "from-json", "", "JSON file path or - for stdin")
 	cmd.Flags().StringVar(&fromMD, "from-md", "", "Markdown file path, or - for stdin; compiled into editor blocks")
 	cmd.Flags().StringVar(&activityID, "activity-id", "", "Join this activity (positive integer). Empty leaves current activity tags unchanged")
+	cmd.Flags().StringVar(&cancelActivityID, "cancel-activity-id", "", "Leave this activity (positive integer). Empty leaves current activity tags unchanged")
 	cmd.Flags().BoolVar(&yes, "yes", false, "Confirm L2 update after user approval")
 	cmd.Flags().BoolVar(&sandbox, "sandbox", false, "Sandbox mode: no real network; return sample JSON")
 	_ = cmd.MarkFlagRequired("id")

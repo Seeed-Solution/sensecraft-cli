@@ -30,11 +30,11 @@ func TestAppConsoleURLs(t *testing.T) {
 		t.Fatalf("edit got %q want %q", edit, wantEdit)
 	}
 	detail := AppDetailConsoleURL("China", "app-1", "reTerminal Sticky")
-	wantDetail := "https://app.seeed.cc/view-application/app-1-reterminal-sticky?from=my-apps&tab=custom"
+	wantDetail := "https://app.seeed.cc/view-application/app-1-reterminal-sticky?from=user-center&tab=custom"
 	if detail != wantDetail {
 		t.Fatalf("detail got %q want %q", detail, wantDetail)
 	}
-	if AppDetailConsoleURL("Global", "app-1", "") != "https://app.seeed.cc/view-application/app-1?from=my-apps&tab=custom" {
+	if AppDetailConsoleURL("Global", "app-1", "") != "https://app.seeed.cc/view-application/app-1?from=user-center&tab=custom" {
 		t.Fatal("empty name must not invent a slug")
 	}
 }
@@ -90,7 +90,7 @@ func TestAppCreateAttachesConsoleURLsInSandbox(t *testing.T) {
 	if edit != "https://app.seeed.cc/application/edit?id=sandbox-created-app" {
 		t.Fatalf("console_url=%q", edit)
 	}
-	if detail != "https://app.seeed.cc/view-application/sandbox-created-app-smokeapp?from=my-apps&tab=custom" {
+	if detail != "https://app.seeed.cc/view-application/sandbox-created-app-smokeapp?from=user-center&tab=custom" {
 		t.Fatalf("detail_url=%q", detail)
 	}
 }

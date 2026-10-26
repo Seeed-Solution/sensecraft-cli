@@ -82,6 +82,19 @@ sensecraft-cli app fields
 sensecraft-cli app blocks
 ```
 
+### `app doc compile`
+
+**Status: implemented.** Compiles a Markdown file into editor `deployment.blocks`. No Access Key, no network, no `--sandbox`. Does not upload files and does not insert tool-blocks.
+
+```bash
+sensecraft-cli app doc compile --from-md ./README.md
+# stdin: sensecraft-cli app doc compile --from-md -
+```
+
+Use stdout `deployment` in `app create` / `app update`, or skip this step and pass the file as `app create --from-md` / `app update --from-md`. `suggested_app_name` is the opening `# title`. `suggested_excerpt` is the paragraph under it. `pending_uploads` lists local image/video/file paths that were left out of `content`; upload those, then put the https URL in `src` or `href`.
+
+`--from-json` rejects text blocks whose `content` is still Markdown (`**bold**`, `` `code` ``, a leading `#` or list marker). `code` block source is exempt. The same write fills a paragraph that is only a video URL, a remote file link, and a remote image up to the editor's HTML. A video URL inside a sentence is left as text.
+
 ### `app create` / `app update`
 
 **Status: implemented.**
@@ -92,8 +105,9 @@ sensecraft-cli app blocks
 
 | Flag          | Notes                                                                                                                                                                       |
 | ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--name`      | `app_name` only create (empty shell)                                                                                                                                        |
-| `--from-json` | JSON path or `-`; must include `app_name` if `--name` omitted. Extra fields → follow-up `update_app` **only on the newly created `app_id`** (cannot target an existing app) |
+| `--name`      | `app_name` only create (empty shell). Optional when JSON or the Markdown title provides one                                                                                |
+| `--from-md`   | Markdown path or `-`. Compiled into editor blocks. Fills `app_name` / `excerpt` when omitted. Appends JSON `deployment.blocks` after the document. stdout adds `pending_uploads` and `warnings` |
+| `--from-json` | JSON path or `-`; must include `app_name` if `--name` and `--from-md` omit it. Extra fields → follow-up `update_app` **only on the newly created `app_id`** (cannot target an existing app). Text blocks get editor video, link, and image HTML |
 | `--sandbox`   | sample JSON                                                                                                                                                                 |
 
 Rejects `be_public=1` / `privacy=1`. Do **not** confuse with `app update` (existing app → L2).
@@ -101,9 +115,9 @@ Rejects `be_public=1` / `privacy=1`. Do **not** confuse with `app update` (exist
 **Success output:** CLI always prints `app_id`, `console_url`, and `detail_url` on the app site (`https://app.seeed.cc`, or `https://test-app.seeed.cc` when the AI host contains `test-`):
 
 - edit: `/application/edit?id=<app_id>`
-- my app detail: `/view-application/<app_id>-<slug>?tab=custom&from=my-apps`
+- my app detail: `/view-application/<app_id>-<slug>?from=user-center&tab=custom`
 
-`from=my-apps` loads the sketch (cover/`images`). A public link uses `tab=public&from=application-store` and must not include `from=my-apps`. If a list item has a non-empty `web_link`, give the user that URL instead of `view-application`. Model and legal pages stay on `sensecraft.seeed.cc`.
+`from=user-center` loads the sketch (cover/`images`) and the page back button returns to the creator center. A public link uses `tab=public&from=application-store` and must not include `from=user-center` or `from=my-apps`. If a list item has a non-empty `web_link`, give the user that URL instead of `view-application`. Model and legal pages stay on `sensecraft.seeed.cc`.
 
 **Do not retry create blindly:**
 
@@ -112,6 +126,9 @@ Rejects `be_public=1` / `privacy=1`. Do **not** confuse with `app update` (exist
 - Prefer updating the existing `app_id` with `app update --yes` over creating a duplicate.
 
 ```bash
+# Markdown document. Scene, cover, BOM, and tool-blocks stay in the JSON.
+sensecraft-cli app create --from-md ./README.md --from-json ./app.json
+
 # One-shot full create: deliberately not L2
 sensecraft-cli app create --from-json ./app.json
 # Expect app_id + console_url + detail_url; if missing, list before retrying:
@@ -126,7 +143,8 @@ sensecraft-cli app create --name "My App"
 | Flag            | Notes                                                                                                      |
 | --------------- | ---------------------------------------------------------------------------------------------------------- |
 | `--id`          | required                                                                                                   |
-| `--from-json`   | path or `-`; required unless `--activity-id` is set                                                       |
+| `--from-json`   | path or `-`; optional when `--from-md` or `--activity-id` is set                                          |
+| `--from-md`     | Markdown path or `-`. Same compile as create. Does not replace an `app_name` / `excerpt` already in the JSON |
 | `--activity-id` | optional positive integer. Joins that activity. Omit or pass empty to leave existing activity tags as-is |
 | `--yes`         | after user confirmation                                                                                    |
 | `--sandbox`     | sample JSON                                                                                                |
@@ -157,7 +175,7 @@ When `--activity-id` is set and this JSON does not include `allow_clone`, CLI se
 
 **Status: implemented.**
 
-- `publish` → `privacy=2` (submit review). Same path as Console **发布草稿** when the app is already public (`is_sketch` + `be_public=1`). Result may include `draft_publish`. Refused if already `be_public=2` or not owner.
+- `publish` → `privacy=2` (submit review). Same path as Console **发布草稿** when the app is already public (`is_sketch` + `be_public=1`). Result may include `draft_publish`. Refused if already `be_public=2` or not owner. stdout `detail_url` is the creator-center page (`from=user-center`). Give the user that URL. Do not replace it with `/application/detail/<id>` (plaza page, no private draft).
 - **Publish Declaration (required for `publish` only):** matches Console 「发布确认」`warrantyAccepted`. Before passing `--agree-declaration`, show the user:
   - Review will lock editing until approval (or `unpublish`)
   - Declaration URL: https://sensecraft.seeed.cc/legal/en/declaration

@@ -97,6 +97,50 @@ func TestFinalizeAppCreateResultPrefersUpdateWithID(t *testing.T) {
 	}
 }
 
+func TestCreateAppBlankMarkdown(t *testing.T) {
+	_, err := AppService{}.CreateApp(AppCreateParams{Markdown: "  \n", MarkdownSet: true})
+	if err == nil || !strings.Contains(err.Error(), "markdown is empty") {
+		t.Fatal(err)
+	}
+}
+
+func TestCreateAppFromMarkdownSandbox(t *testing.T) {
+	s := GetAppService(app.AICmdContext{
+		Ctx:     context.Background(),
+		Access:  config.AccessApiConfig{RemoteType: "Global"},
+		SandBox: true,
+	})
+	raw, err := s.CreateApp(AppCreateParams{
+		Markdown:    "# QA Name\n\n简介\n\nhttps://www.youtube.com/watch?v=dQw4w9WgXcQ\n\n![图](./a.png)\n",
+		MarkdownSet: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var m map[string]any
+	if err := json.Unmarshal(raw, &m); err != nil {
+		t.Fatal(err)
+	}
+	if m["excerpt"] != "简介" {
+		t.Fatalf("excerpt %#v", m["excerpt"])
+	}
+	blocks, _, err := deploymentBlockList(m)
+	if err != nil || len(blocks) == 0 {
+		t.Fatalf("blocks %v %#v", err, m["deployment"])
+	}
+	content := asString(blocks[0].(map[string]any)["content"])
+	if !strings.Contains(content, "video-embed-wrapper") {
+		t.Fatalf("create did not fill video html: %s", content)
+	}
+	pending, _ := m["pending_uploads"].([]any)
+	if len(pending) != 1 {
+		t.Fatalf("pending %#v", m["pending_uploads"])
+	}
+	if _, ok := m["warnings"]; !ok {
+		t.Fatal("missing warnings")
+	}
+}
+
 func TestCreateAppFromJSONReturnsIdentityInSandbox(t *testing.T) {
 	s := GetAppService(app.AICmdContext{
 		Ctx:     context.Background(),
@@ -400,6 +444,26 @@ func TestPublishAlreadyPublicIsDraftPublish(t *testing.T) {
 	}
 	if result["draft_publish"] != true {
 		t.Fatalf("expected draft_publish: %#v", result)
+	}
+}
+
+func TestPublishDetailURLIsCreatorCenter(t *testing.T) {
+	s := sandboxAppSvc()
+	raw, err := s.SetAppPrivacy(AppPrivacyParams{
+		AppID: "sandbox-app-1", Privacy: 2, Yes: true, AgreeDeclaration: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var result map[string]any
+	if err := json.Unmarshal(raw, &result); err != nil {
+		t.Fatal(err)
+	}
+	detail, _ := result["detail_url"].(string)
+	if !strings.Contains(detail, "/view-application/sandbox-app-1-sandbox-vision-app") ||
+		!strings.Contains(detail, "from=user-center") ||
+		strings.Contains(detail, "/application/detail/") {
+		t.Fatalf("detail_url=%q", detail)
 	}
 }
 

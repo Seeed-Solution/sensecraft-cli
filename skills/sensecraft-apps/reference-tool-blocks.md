@@ -6,9 +6,9 @@ Help the Agent choose the right block and fill `config` safely. Execution on har
 
 The editor does **not** render Markdown on read. Preview wraps each block by `type` and treats `content` as HTML or plain text. Raw `**bold**`, `# heading`, or `- item` inside `content` shows up as those characters.
 
-Write inline formatting as HTML: `<strong>`, `<em>`, `<code>`, `<s>`, `<a href="…">`, `<img src="…" alt="…" />`, `<video src="…" controls>`. Do not wrap a `paragraph` in an extra `<p>` — the preview adds it. `code` block `content` is plain source, not HTML.
+Write inline formatting as HTML the editor stores: `<strong>`, `<em>`, `<code>`, `<s>`, links with `target="_blank"`, file links (pdf/zip/bin/…) also with `download` and `doc-file-download-link`, images with `draggable="false"`. A paragraph that is only a video URL becomes `<video controls>` or a `video-embed-wrapper` iframe (YouTube, TikTok, Douyin, Bilibili, Vimeo, Youku, iQiyi). Prefer `app create --from-md` / `app update --from-md` instead of writing that HTML by hand. `--from-json` fills those video, link, and image attributes when they are missing. Do not wrap a `paragraph` in an extra `<p>`. `code` block `content` is plain source, not HTML.
 
-How to split a user Markdown file into these blocks, then create and publish: [../../docs/md-to-app.md](../../docs/md-to-app.md).
+Compile a Markdown file with `sensecraft-cli app doc compile --from-md <file>` when you only want the JSON (no network). `app create --from-md` and `app update --from-md` run that compile and then write. JSON text blocks that still contain Markdown markers are rejected. How the toolbar maps onto blocks: [../../docs/md-to-app.md](../../docs/md-to-app.md).
 
 Host binaries (images, videos, firmware) via `file upload` first. A relative path from the Markdown file is not a valid `src`.
 

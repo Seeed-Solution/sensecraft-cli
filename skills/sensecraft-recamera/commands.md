@@ -55,7 +55,7 @@ Runs the same check, then opens `console_url` (or prints it). Sandbox never open
 | Flag          | Required | Notes                                         |
 | ------------- | -------- | --------------------------------------------- |
 | `--model-id`  | one of   | Model detail = AI deploy page (click 部署)    |
-| `--app-id`    | one of   | App detail; plaza omits `from=my-apps`        |
+| `--app-id`    | one of   | App detail; plaza omits `from=user-center`    |
 | `--print-only`| no       | Print URL only                                |
 | `--sandbox`   | no       | Sample JSON; never open a browser             |
 

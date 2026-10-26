@@ -52,6 +52,7 @@ func AppBlocksCatalog() json.RawMessage {
 				"Flat ordered array",
 				"Blocks before first type=step are Introduction",
 				"Each step runs until the next step; text and tool-blocks may mix",
+				"Compile Markdown with app doc compile --from-md, or pass the file to app create --from-md / app update --from-md. JSON text blocks are filled to editor video, link, and image HTML. Raw Markdown markers in JSON are rejected",
 			},
 			"text_block_types": []string{"step", "paragraph", "h1", "h2", "h3", "h4", "h5", "h6", "bullet", "number", "todo", "quote", "code", "divider"},
 		},

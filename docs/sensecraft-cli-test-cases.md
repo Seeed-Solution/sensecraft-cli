@@ -257,6 +257,87 @@
 | APP-B04 | bom set 成功 | 用户确认 | `app bom set --id … --from-json materials.json --yes` | Seeed 行带 `id`(=SKU)；自定义行可无 id |
 | APP-B05 | 自定义图价   | —        | 试图写入自定义 price/image                            | 平台不支持；文档/行为一致              |
 
+### 6.4 正文编译 `app doc compile` 与详情链接
+
+编辑器工具栏不在 CLI 里重做。`app doc compile` 把 Markdown 编成编辑器保存的 `deployment.blocks`。不联网、不需要 Access Key。
+
+| 编号 | 用例名称 | 前置条件 | 步骤 | 预期结果 |
+|------|----------|----------|------|----------|
+| DOC-01 | 文首标题与摘要 | 有二进制 | `app doc compile --from-md`，文首 `# 标题` 后紧跟一段 | `suggested_app_name` / `suggested_excerpt`；这两段不进 blocks |
+| DOC-02 | 介绍标题丢掉 | 含 `## 介绍` | 同上 | 不产生「介绍」标题块；其下段落保留 |
+| DOC-03 | 步骤标题 | `## 步骤：动作`、`## Step: Flash`、`## Step 2. Connect`、`### 1. 动作`、`## 第 1 步：动作` | 编译 | `type=step`，`title` 与 `content` 只留动作，`expanded=true`；普通 `h2` 仍是标题 |
+| DOC-04 | 行内格式 | `**` `*` `~~` 反引号 `<u>` | 编译 | `<strong>` `<em>` `<s>` `<code>` `<u>`；`a_b_c` 不变成斜体 |
+| DOC-05 | 列表 / 待办 / 引用 / 代码 / 分割线 | 对应 Markdown | 编译 | `bullet` / `number` / `todo`（未勾选无 `[ ]`，已勾选前缀 `[x] `）/ `quote` / `code`（`<` 不转义，`config.lang`）/ `divider` 的 `content=""` |
+| DOC-06 | 颜色与对齐 | 预设色 span；`{align=center}` 或 `<!-- align: right -->` | 编译 | 只保留编辑器预设色；非预设色被去掉；`align` 仅为 `center`/`right`，且只在段落和 h1–h6 |
+| DOC-07 | 本地文件 | `![alt](./a.png)`、`[固件](./a.bin)`、远程 https 图 | 编译 | 相对路径不进 `content`，出现在 `pending_uploads`（image/file/video）；https 写成 `<img>` / `<a>` |
+| DOC-08 | 连续行合并 | 两行非空正文无空行 | 编译 | 一个 `paragraph`，行之间是空格不是 `<br>` |
+| DOC-09 | 空文档 | 空白 | 编译 | 非 0 |
+| DOC-10 | 更新拒绝 Markdown | 已有 app | `app update` 的 paragraph `content` 含 `**粗体**` 或行首 `#` | 非 0，提示 `app doc compile`；`code` 块源码里的 `**` 不拒绝；`<strong>` 通过 |
+| DOC-11 | 编译结果可写入 | DOC-01 的 `deployment` | `app update --from-json` 带编译出的 blocks | `view --sketch` 的块类型与 HTML 一致 |
+| DOC-12 | 创建时直接编译 | Markdown 文件 | `app create --from-md`，可再加不含正文的 `--from-json` | 文首标题进 `app_name`（未另外指定时），下一段进 `excerpt`；正文已是编辑器 HTML；stdout 有 `pending_uploads` 与 `warnings`；JSON 里的工具块接在正文后面 |
+| DOC-13 | JSON 补齐媒体属性 | 已有块 JSON | paragraph 整段是视频地址、裸 `<video>`、缺属性的文件链接和图片；另一段句子中间夹着视频地址 | 整段视频收成 `<video controls>` 或 `video-embed-wrapper`；文件链接带 `download` 与 `doc-file-download-link`；图片带 `draggable="false"`；句中地址不变；`**粗体**` 仍拒绝 |
+| APP-R12 | 活动列表 | Access Key | `app activity list` | 进行中的活动 JSON；无活动则空列表，退出 0 |
+| APP-R13 | 我的点赞 / 收藏 | Access Key | `app list --likes` 与 `app list --collections` | `be_public=1` 的对应列表；与 `--mine` 同传则非 0 |
+| APP-R14 | 详情链接 | 自己的 app 与广场 app | `app view --sketch` / `app list` | 自己的 `detail_url` 含 `/view-application/<id>` 且 `from=user-center&tab=custom`；广场项为 `from=application-store&tab=public`；不含 `/application/detail/` |
+| APP-R15 | 热门排序 | — | `app list --public --sort popular` | 退出 0；可带 `--priority-activity-id` |
+| APP-W20 | 撤回审核 | `be_public=2` 且是自己的 | 无 `--yes` 非 0；`app withdraw --id … --yes` | 回到可编辑；已公开应用用 `unpublish` 而不是 withdraw |
+| APP-W21 | 点赞收藏下载标记 | 公开 app | 无 `--yes` 非 0；`like` 后 `unlike`，`collect` 后 `uncollect` | 成对调用，测完恢复；`mark-deploy` 只记一次下载，不烧录 |
+| APP-W22 | 克隆 | `allow_clone=1` 的应用 | 无 `--yes` 非 0；`app clone --id … --name QA-… --yes` | 新的私有 app；测完 `delete`。`allow_clone=0` 拒绝 |
+
+### 6.5 编辑器格式补齐 — 测试执行单
+
+给测试在**测试环境**手工执行。用本次构建的 `sensecraft-cli`。已安装的旧二进制没有 `app doc compile` 和 `app create --from-md`。
+
+环境：
+
+```bash
+export SENSECRAFT_AI_HOST=https://test-api-gateway.seeed.cc
+export SENSECRAFT_CONFIG_FILE=/tmp/sensecraft-qa.json
+sensecraft-cli auth info
+```
+
+`auth info` 须能打到测试网关。生产 SenseCAP 上这把测试 Key 会返回 11104，设备、分组不要用它测。测完的应用是私有草稿，确认页面后再删。不要对已有公开应用执行 `mark-deploy`。
+
+准备 `fill.md`：
+
+```markdown
+# QA-编辑器补齐
+
+这是留给测试查看的摘要。
+
+**粗体** *斜体* ~~删除线~~ `代码`
+
+## 步骤：打开串口
+
+https://www.youtube.com/watch?v=dQw4w9WgXcQ
+
+[说明文档](https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf)
+
+https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4
+
+看这个 https://www.youtube.com/watch?v=dQw4w9WgXcQ 不要变成播放器
+
+![接线](https://sensecraft-statics.seeed.cc/sensecraft-ai/Banner1.650c5596.png)
+
+![本地图](./local.png)
+```
+
+| 编号 | 步骤 | 预期 |
+|------|------|------|
+| QA-DOC-01 | `sensecraft-cli app doc compile --from-md ./fill.md`。不配 Key 也应成功 | 退出 0。`suggested_app_name` 为「QA-编辑器补齐」。`suggested_excerpt` 为摘要那一句。这两段不在 `blocks` 里。`**粗体**` 变成 `<strong>`。`## 步骤：打开串口` 是 `type=step`，`title` 只有「打开串口」。YouTube 那一块含 `video-embed-wrapper` 和 `youtube.com/embed/dQw4w9WgXcQ`。PDF 链接含 `doc-file-download-link`、`download`、`data-file-download="1"`。mp4 那一块是 `<video … controls`，没有 iframe。句中那句仍是纯文本，含 `watch?v=`。远程图片含 `draggable="false"`。`./local.png` 不在 `content` 里，在 `pending_uploads`，`kind` 为 `image` |
+| QA-DOC-02 | `sensecraft-cli app create --from-md ./fill.md` | 退出 0。stdout 有 `app_id`、`detail_url`、`console_url`、`pending_uploads`、`warnings`。`detail_url` 含 `/view-application/<id>` 且查询串为 `from=user-center&tab=custom`，不含 `/application/detail/`。应用是私有草稿 |
+| QA-DOC-03 | 浏览器打开 `console_url`（编辑页）和 `detail_url`（详情）。编辑页切到预览 | 名称是「QA-编辑器补齐」，简介是摘要那一句。正文能看到粗体。步骤显示「第 1 步」且标题是「打开串口」。YouTube 有封面。PDF 是可点的下载链接。花视频在预览里打开时是黑画面、`0:00`，点播放后能播完。句中的 YouTube 地址仍是文字，不是第二个播放器。本地图只剩「本地图」三个字 |
+| QA-DOC-04 | 另存 `half.json`：一个 paragraph 的 `content` 只有 `https://www.youtube.com/watch?v=dQw4w9WgXcQ`；一个是 `<a href="https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf">说明</a>`；一个是 `<img src="https://sensecraft-statics.seeed.cc/sensecraft-ai/Banner1.650c5596.png" alt="封面">`；一个句子中间夹着同一个 YouTube 地址；一个 `code` 块内容是 `**keep**`。再加 `app_name`、`excerpt`。执行 `sensecraft-cli app create --from-json ./half.json` | 退出 0。`app view --id <新id> --sketch` 里：整段 YouTube 已是 iframe；PDF 链接带下载标记；图片带 `draggable="false"`；句中地址不变；`code` 块仍是 `**keep**` |
+| QA-DOC-05 | `bad.json` 的 paragraph `content` 写成 `这是 **粗体**`。`sensecraft-cli app create --from-json ./bad.json` | 非 0。stderr 含 `app doc compile` 或 `--from-md`。`app list --mine` 里没有多出这个名字的应用 |
+| QA-DOC-06 | `sensecraft-cli app create --name QA-指定名称 --from-md ./fill.md` | `create` 使用「QA-指定名称」，不用文内标题。编辑页名称是「QA-指定名称」 |
+| QA-DOC-07 | JSON 里写 `"app_name":"QA-JSON名称"` 和 `"deployment":{"blocks":[{"id":"t1","type":"flash-firmware","config":{}}]}`，再 `sensecraft-cli app create --from-md ./fill.md --from-json ./extra.json` | 名称是「QA-JSON名称」。`flash-firmware` 在编译正文之后，不插到文首 |
+| QA-DOC-08 | `sensecraft-cli app update --id <QA-DOC-02 的 id> --from-md ./fill.md` 不带 `--yes`；确认后再加 `--yes` | 第一次非 0，且没有改草稿。第二次退出 0。编辑页仍是编辑器 HTML |
+| QA-DOC-09 | `printf '   \n' \| sensecraft-cli app create --from-md -` | 非 0，stderr 含 `markdown is empty`，不是 `app_name is required` |
+| QA-DOC-10 | 打开 QA-DOC-02 的 `detail_url`，点「返回」 | 去创作中心 `/creator`。不要落到广场里的旧「我的应用」。从广场列表点进自己的应用再返回，仍回广场列表 |
+| QA-DOC-11 | 只跑 `app create --from-md ./fill.md`，不要另传 scene、封面、物料 | 草稿可以没有场景、封面、物料。命令不会自己填这三项，也不会生成烧录块 |
+
+不测：点赞、收藏、`mark-deploy`（测试环境 OpenAPI 无此路径，返回 11107）。`model recamera-pro resolve --task 1` 不带 `--ai-framework` 应失败，这是和网页一致的，不要当成缺陷。
+
 ---
 
 ## 七、SenseCraft AI — model（模型库）
@@ -405,7 +486,7 @@
 | 区域                   | 已有覆盖                         | 本用例优先补测                                   |
 | ---------------------- | -------------------------------- | ------------------------------------------------ | ----------------- | ------------------------ |
 | SenseCAP cmd           | `cmd/device                      | group                                            | data/\*\_test.go` | 真实站点抽测 bind/unbind |
-| App write 边界         | `open_api_app_write_test.go`     | 真实 create 保 id、稀疏 rename、blind-retry 流程 |
+| App write 边界         | `open_api_app_write_test.go`、`app_doc_test.go` | 真实 create 保 id、稀疏 rename、`app doc compile`、Markdown 拒绝、detail_url |
 | Model                  | validation + write tests         | Pro `--target`、publish status                   |
 | Auth / profile     | `internal/config` 单测           | **交互** init/add 人工；AUTH-A08 编译回归        |
 | Cloud              | cloud sandbox                    | 有设备再跑 deploy/order                          |
@@ -420,7 +501,7 @@
 2. **鉴权**：AUTH-I\* → AUTH-A\*；（有条件再 AUTH-N\*）
 3. **SenseCAP 只读** → 可控写（测试组/测试设备）
 4. **AI 只读** app/model/constants
-5. **AI 写**：create 保 id → 稀疏 update → publish/unpublish → delete 清理
+5. **AI 写**：`app doc compile` → create 保 id → 稀疏 update → 拒绝 Markdown 正文 → blocks 写入 → BOM → 封面 → like/collect 成对恢复 → clone 后删除 → publish 缺声明失败 → publish(privacy=2) → withdraw → delete 清理
 6. **file/model upload 关联**（`--id`/`--model-id`/`--app-id --yes`）→ 新建才走 `--unlinked` + `model create`；裸 upload 必须失败
 7. **cloud**（有设备再跑 L2）
 8. **跨域 X-08 + 消歧抽查**

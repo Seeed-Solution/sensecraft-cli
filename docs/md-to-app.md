@@ -1,6 +1,19 @@
 # 把用户 Markdown 写成应用
 
-给人和 Agent 用。网页编辑器是自研块编辑器（`sensecraft-app/src/views/app/edit`），不是「把整篇 Markdown 存进去再渲染」。CLI 也没有 `app import-md`。做法是：人读 Markdown，拆成下面的 JSON，再用已有的 `app create` / `app update` / `app publish` 写上去。
+给人和 Agent 用。网页编辑器是自研块编辑器（`sensecraft-app/src/views/app/edit`），不是「把整篇 Markdown 存进去再渲染」。有 Markdown 时直接：
+
+```bash
+sensecraft-cli app create --from-md ./README.md
+sensecraft-cli app update --id <app_id> --from-md ./README.md --yes
+```
+
+命令内部会先编成编辑器 HTML 再提交。文首 `# 标题` 在 `--name` 和 JSON 都没写 `app_name` 时填上；下一段在 JSON 没写 `excerpt` 时填上，超过 300 字会截断并写进 `warnings`。stdout 带 `pending_uploads` 和 `warnings`。本地图片、视频、附件不会写进正文。
+
+只要看编译结果、先不创建应用，仍用 `sensecraft-cli app doc compile --from-md 文件.md`（不联网、不上传）。
+
+工具块按第 7 节写进 `--from-json` 的 `deployment.blocks`。和 `--from-md` 一起用时，这些块接在编译出的正文后面，不要把同一段正文再写一遍。场景、封面、物料不会自动填。没有一条会直接发布的 `app import-md`。
+
+`--from-json` 不会把 Markdown 重新编译。正文里还留着 `**粗体**`、`` `代码` ``、行首 `#`、行首列表符时会拒绝。`code` 块是源码原文，不在此列。JSON 里已经是 HTML 的文本块会补齐编辑器缺的属性：整段只有一个远程视频地址或裸 `<video>` 时收成播放器；文件链接补上下载标记；普通链接补上 `target` 和样式；图片补上 `draggable="false"` 和默认宽度。句子中间的视频地址保持原样。已经带齐这些属性的标签不再改写。
 
 块类型和工具块字段以编辑器为准。工具块每个字段怎么填，见 `skills/sensecraft-apps/reference-tool-blocks.md`。资料字段和物料见 `skills/sensecraft-apps/reference-app-fields.md`。
 
@@ -25,6 +38,40 @@
 旧字段 `introduction`（一大段纯文本）不要再写。编辑器可能把它再插进介绍区，和 blocks 重复。
 
 `deployment.myModels` 是编辑器从 `deploy-ai-model` 里抽出来的，发布前网页会自己填。CLI 不要手写这个数组。
+
+### 编译命令
+
+```bash
+sensecraft-cli app doc compile --from-md ./README.md
+sensecraft-cli app create --from-md ./README.md --from-json ./scene.json
+```
+
+`app doc compile` 不需要 Access Key。stdout 里的 `deployment` 也可以放进 `app create` / `app update` 的 JSON。直接 `--from-md` 时不用再抄一遍。另外三个字段：
+
+| 字段 | 含义 |
+| --- | --- |
+| `suggested_app_name` | 文首 `# 标题`。不做成 `h1` 块 |
+| `suggested_excerpt` | 紧跟这个标题的第一段。不进 blocks。超过 300 字要自己截 |
+| `pending_uploads` | 本地图片、视频、附件。先 `file upload`，再把返回的 https 地址写进 `src` / `href`。相对路径不会写进 `content` |
+
+和编辑器工具栏的对应关系：
+
+| 编辑器 | Markdown |
+| --- | --- |
+| 粗体 / 斜体 / 删除线 / 行内代码 | `**`、`*`、`~~`、反引号。写成 `<strong>` `<em>` `<s>` `<code>` |
+| 下划线 | `<u>…</u>`（Markdown 没有下划线） |
+| 字色 / 底色 | `<span style="color:#ef4444">`、`background-color`。只保留编辑器那一组预设色，其它颜色会被去掉 |
+| H1–H6 | `#` 到 `######`。文首那个 `#` 是应用名，不是块 |
+| 无序 / 有序 / 待办 | `-`、`1.`、`- [ ]` / `- [x]`。每行一块 |
+| 引用 / 代码 / 分割线 | `>`、围栏、`---` |
+| 对齐 | 标题行末 `{align=center}`，或上一行 `<!-- align: center -->`。取值 `left` / `center` / `right`，只作用在段落和标题上 |
+| 图片 | `![说明](https://…)`，写成带默认宽度样式的 `<img draggable="false">`。本地路径进 `pending_uploads` |
+| 视频 | 单独一段远程地址，或 `<video src="https://…">`。直链 mp4/webm/mov 等写成 `<video controls>`；YouTube、TikTok、抖音、Bilibili、Vimeo、优酷、爱奇艺写成 `video-embed-wrapper` 里的 iframe。本地视频进 `pending_uploads` |
+| 链接 / 文件 | `[文字](https://…)` 带 `target="_blank"`。pdf、zip、bin、hex、json 等后缀再加 `doc-file-download-link` 和 `download`。本地文件进 `pending_uploads` |
+| 步骤 | `## 步骤：烧录固件`、`## Step: Flash`、`## Step 2. Connect`、`### 1. 部署模型`、`## 第 1 步：烧录`。`title` 只留动作。`## 介绍` 这个标题丢掉，下面的段落保留 |
+| 显示预览 | 编辑器界面，CLI 不实现 |
+
+编译器不会插入 `flash-firmware` 等工具块。烧录、部署模型仍按第 7 节手写。
 
 ---
 
@@ -54,6 +101,7 @@
 | `author` | 建议填 | `sensecraft-cli auth info` 的账号。不要从 Markdown 署名乱填成别人 |
 | `images` | 发布前至少 1 张，最多 16，JPG/GIF/PNG/WebP，每张 ≤ 5 MB | 文中第一张适合当封面的图（优先 4:3）。本地路径先上传。第一张同时写进 `pic_url` |
 | `activity_id` | 可选正整数 | 只有用户说参加某场竞赛才加。先 `app activity list`。不在进行中就不要带。这次更新若没写 `allow_clone`，CLI 会在当前不是 `1` 时补成 `1` |
+| `cancel_activity_id` | 可选正整数 | 只有用户说退出某场已参加的活动才加。CLI 原样把正整数交给 `update_app`，不改 `allow_clone`。不要和同一个 `activity_id` 一起写 |
 
 封面和文中插图是两套：
 
@@ -111,22 +159,23 @@ stdout 里的 `file_url` 才是能写进 JSON 的地址。Markdown 里的 `./ima
 | `*斜体*` 或 `_斜体_` | `<em>斜体</em>` |
 | `` `代码` `` | `<code>代码</code>` |
 | `~~删除~~` | `<s>删除</s>` |
-| `[看这里](https://example.com)` | `<a href="https://example.com">看这里</a>` |
-| `![接线](https://…/a.png)` | `<img src="https://…/a.png" alt="接线" />` |
+| `[看这里](https://example.com)` | `<a href="https://example.com" target="_blank" rel="noopener noreferrer">看这里</a>`，并带编辑器的链接颜色 |
+| `[固件](https://…/a.bin)` | 同上，再加 `download`、`class="doc-file-download-link"`、`data-file-download="1"`。pdf、zip、hex、json 等同样处理 |
+| `![接线](https://…/a.png)` | `<img src="…" alt="接线" draggable="false" style="max-width: 100%; width: 100%; …" />` |
 | 下划线（Markdown 没有） | `<u>…</u>` |
 | 换行（很少需要） | `<br>` |
 
 允许的标签只有：`b` `strong` `i` `em` `u` `s` `strike` `code` `br` `img` `video` `a` `iframe`，以及包 YouTube 等嵌入用的 `<div class="video-embed-wrapper">`。`<span>` 只保留 `color` / `background-color`。`<script>`、`<table>`、`<div>`（除视频容器）、样式表都会被丢掉。
 
-直接视频文件用：
+单独成段的视频地址，以及整段只有一个 `<video src="https://…">`，会收成编辑器「插入视频」保存的 HTML。直链文件：
 
 ```html
-<video src="https://…/demo.mp4" controls></video>
+<video src="https://…/demo.mp4" controls style="max-width: 100%; height: auto; display: block; border-radius: 4px;"></video>
 ```
 
-YouTube、TikTok、抖音、Bilibili、Vimeo、优酷、爱奇艺可以写成链接；编辑器打开后会收成 iframe。CLI 侧写成普通链接即可，不要手写来路不明的 iframe。
+YouTube、TikTok、抖音、Bilibili、Vimeo、优酷、爱奇艺收成 `<div class="video-embed-wrapper">` 包住的 iframe，播放器地址与编辑器 `videoPlatforms.js` 一致。不要手写其它域名的 iframe。写在句子中间的平台地址仍是普通链接，不会变成播放器。
 
-指向 `.pdf` `.zip` `.bin` `.hex` `.json` 等文件的链接，预览会显示成下载块。固件若要给用户烧录，优先用 `flash-firmware` 工具块，不要只丢一个下载链接。
+指向 `.pdf` `.zip` `.bin` `.hex` `.json` 等文件的链接会带下载块标记。固件若要给用户烧录，优先用 `flash-firmware` 工具块，不要只丢一个下载链接。
 
 `code` 块的 `content` 是源码原文。`<` `>` 不要转成实体，也不要写成 HTML。可选：
 
@@ -350,7 +399,7 @@ sensecraft-cli app publish --id <app_id> --agree-declaration --yes
 
 发布前网页和 CLI 都会卡这四项：名称、简介、场景、至少一张封面。缺一项就先补，不要发。
 
-成功后告诉用户：应用仍是「审核中」，不是已经出现在广场上。把 `detail_url` 给用户自己打开核对。有 `web_link` 的应用卡片会跳外链，那种不是这个编辑器文档。
+成功后告诉用户：应用仍是「审核中」，不是已经出现在广场上。把 stdout 里的 `detail_url` 给用户自己打开核对，那是创作中心详情（`from=user-center`）。不要改成 `/application/detail/<id>`，那是应用广场页，看不到这份私有草稿。有 `web_link` 的应用卡片会跳外链，那种不是这个编辑器文档。
 
 结构是否写对，可以在无网络时对照：
 

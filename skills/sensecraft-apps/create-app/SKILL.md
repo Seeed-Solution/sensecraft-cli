@@ -52,7 +52,16 @@ Mine first, ask approval once at the end.
 
 The app editor stores a flat `deployment.blocks` array. It does not keep the Markdown file and it does not re-parse Markdown at preview time. There is no `app import-md` command.
 
-Follow [../../../docs/md-to-app.md](../../../docs/md-to-app.md): lift `app_name` / `excerpt` / scene / BOM out of the prose, map headings that are real user actions to `step` blocks (a `h2` is not a step), and write inline formatting as HTML. Then run the same create → update → publish commands as below. `**bold**` inside `content` will display as asterisks.
+When the source is Markdown, pass it on create or update. The CLI compiles editor HTML, fills `app_name` / `excerpt` when the JSON omits them, and truncates an excerpt longer than 300 characters (see `warnings`).
+
+```bash
+sensecraft-cli app create --from-md ./README.md --from-json .sensecraft/sensecraft-app.payload.json
+sensecraft-cli app update --id <app_id> --from-md ./README.md --yes
+```
+
+`--from-json` `deployment.blocks` are appended after the compiled document. Put tool-blocks there; do not repeat the prose. Upload every `pending_uploads` path, then write the returned https URL back into that block on a follow-up update. `app doc compile --from-md` only prints the JSON and does not create an app. JSON text blocks that still contain Markdown markers are rejected. Scene, cover, and BOM are not invented.
+
+Follow [../../../docs/md-to-app.md](../../../docs/md-to-app.md) for step headings (`## 步骤：动作`, `## Step: Flash`, `### 1. 动作`) and for which headings stay headings. A plain `h2` is not a step.
 
 Contest entry is a later `app update --activity-id <id>`. CLI also writes `"allow_clone": 1` on that update when the sketch is not already `1` and the JSON did not set `allow_clone`. Confirm the id is in `app activity list` first.
 

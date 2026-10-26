@@ -77,8 +77,9 @@ func AppEditConsoleURL(remoteType, appID string) string {
 	return appSiteOrigin(remoteType) + "/application/edit?" + q.Encode()
 }
 
-// AppDetailConsoleURL is the owner detail route. from=my-apps loads the sketch;
-// without it the page fetches the published snapshot and the cover is missing.
+// AppDetailConsoleURL is the owner detail route. from=user-center loads the sketch
+// and the detail back button returns to the creator center.
+// from=my-apps is the older plaza "my apps" list; do not use it for new links.
 func AppDetailConsoleURL(remoteType, appID, appName string) string {
 	id := strings.TrimSpace(appID)
 	if id == "" {
@@ -86,7 +87,7 @@ func AppDetailConsoleURL(remoteType, appID, appName string) string {
 	}
 	q := url.Values{}
 	q.Set("tab", "custom")
-	q.Set("from", "my-apps")
+	q.Set("from", "user-center")
 	return appSiteOrigin(remoteType) + appViewPath(id, appName) + "?" + q.Encode()
 }
 

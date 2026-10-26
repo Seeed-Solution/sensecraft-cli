@@ -8,6 +8,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"sensecraft-cloud-terminal/internal/client"
 	"sensecraft-cloud-terminal/internal/enum"
@@ -139,7 +140,8 @@ func (s AppService) SetAppPrivacy(p AppPrivacyParams) (json.RawMessage, error) {
 			"be_public":     2,
 		})
 	}
-	return data, nil
+	// 提交审核后给创作中心详情，不要让调用方自己拼 /application/detail/{id}（那是广场页）。
+	return s.stampOwnerDetailURL(data, strings.TrimSpace(p.AppID), stringFromMap(existing, "app_name")), nil
 }
 
 type AppDeleteParams struct {
@@ -182,11 +184,16 @@ func (s AppService) DeleteApp(p AppDeleteParams) (json.RawMessage, error) {
 type AppCreateParams struct {
 	Name     string
 	FromJSON string // path or "-"
+	// Markdown is the document text, already read by the command.
+	// MarkdownSet is true when --from-md was passed, including a blank file.
+	Markdown    string
+	MarkdownSet bool
 }
 
 func (s AppService) CreateApp(p AppCreateParams) (json.RawMessage, error) {
 	name := strings.TrimSpace(p.Name)
 	var extra map[string]any
+	var notes *AppDocCompileResult
 
 	if strings.TrimSpace(p.FromJSON) != "" {
 		body, err := LoadJSONObject(p.FromJSON)
@@ -196,21 +203,39 @@ func (s AppService) CreateApp(p AppCreateParams) (json.RawMessage, error) {
 		if err := rejectForbiddenPublicFlags(body); err != nil {
 			return nil, err
 		}
+		extra = body
+	}
+	if p.MarkdownSet {
+		result, err := CompileAppMarkdown(p.Markdown)
+		if err != nil {
+			return nil, err
+		}
+		notes = &result
+		if extra == nil {
+			extra = map[string]any{}
+		}
+		applyCompiledMarkdown(extra, notes)
+	}
+	if extra != nil {
 		if name == "" {
-			name = stringFromMap(body, "app_name")
+			name = stringFromMap(extra, "app_name")
 		}
 		// create_app only accepts app_name; remaining fields go to a follow-up update when present.
-		delete(body, "app_name")
-		delete(body, "app_id")
-		if len(body) > 0 {
-			extra = body
+		delete(extra, "app_name")
+		delete(extra, "app_id")
+		if len(extra) == 0 {
+			extra = nil
 		}
 	}
 	if err := validateAppName(name); err != nil {
 		return nil, err
 	}
 	if extra != nil {
+		NormalizeDeploymentBlocks(extra)
 		if err := validateAppInfoPatch(extra); err != nil {
+			return nil, err
+		}
+		if err := ValidateDeploymentBlocks(extra); err != nil {
 			return nil, err
 		}
 		if scene := stringFromMap(extra, "scene"); scene != "" {
@@ -236,7 +261,7 @@ func (s AppService) CreateApp(p AppCreateParams) (json.RawMessage, error) {
 	if extra == nil {
 		// create_app often returns only app_id. Keep the name we sent so the
 		// detail link still gets the title slug.
-		return s.withAppConsoleURL(ensureAppIdentity(created, appID, name)), nil
+		return attachCompileNotes(s.withAppConsoleURL(ensureAppIdentity(created, appID, name)), notes), nil
 	}
 	// A just-created app has no sketch yet. view_sketch=1 returns 11306
 	// ("Not Found the resources"); still write the rest of the payload.
@@ -246,7 +271,7 @@ func (s AppService) CreateApp(p AppCreateParams) (json.RawMessage, error) {
 	}
 	// aiserver update_app often returns {} / null — never drop the known app_id
 	// (Agents would retry create and spawn duplicates).
-	return s.withAppConsoleURL(finalizeAppCreateResult(created, updated, appID, name)), nil
+	return attachCompileNotes(s.withAppConsoleURL(finalizeAppCreateResult(created, updated, appID, name)), notes), nil
 }
 
 // finalizeAppCreateResult prefers an update body that still carries identity;
@@ -289,14 +314,30 @@ func ensureAppIdentity(raw json.RawMessage, appID, name string) json.RawMessage 
 func (s AppService) withAppConsoleURL(data json.RawMessage) json.RawMessage {
 	id := extractAppID(data)
 	name := extractAppString(data, "app_name")
+	return s.stampOwnerDetailURL(data, id, name)
+}
+
+// stampOwnerDetailURL adds the edit link and the creator-center detail link.
+// appName is used only to build the slug; it is not written into the JSON.
+func (s AppService) stampOwnerDetailURL(data json.RawMessage, appID, appName string) json.RawMessage {
+	if extractAppID(data) == "" && strings.TrimSpace(appID) != "" {
+		data = ensureAppIdentity(data, appID, "")
+	}
+	id := extractAppID(data)
+	if id == "" {
+		id = strings.TrimSpace(appID)
+	}
+	name := extractAppString(data, "app_name")
+	if name == "" {
+		name = strings.TrimSpace(appName)
+	}
 	out := attachConsoleURL(data, "app_id", id, AppEditConsoleURL(s.remoteType, id))
-	// Owner detail. from=my-apps loads the sketch cover.
 	detail := AppDetailConsoleURL(s.remoteType, id, name)
 	if detail == "" {
 		return out
 	}
 	var m map[string]any
-	if err := json.Unmarshal(out, &m); err != nil {
+	if err := json.Unmarshal(out, &m); err != nil || m == nil {
 		return out
 	}
 	m["detail_url"] = detail
@@ -310,11 +351,19 @@ func (s AppService) withAppConsoleURL(data json.RawMessage) json.RawMessage {
 type AppUpdateParams struct {
 	AppID    string
 	FromJSON string
-	Yes      bool
+	// Markdown is the document text, already read by the command.
+	// MarkdownSet is true when --from-md was passed, including a blank file.
+	Markdown    string
+	MarkdownSet bool
+	Yes         bool
 	// ActivitySet is true when --activity-id was passed. An empty ActivityID
 	// omits the field so the server leaves existing activity tags unchanged.
 	ActivitySet bool
 	ActivityID  string
+	// CancelActivitySet is true when --cancel-activity-id was passed. An empty
+	// value omits the field. A positive integer leaves that activity.
+	CancelActivitySet bool
+	CancelActivityID  string
 }
 
 // appInfoMergeKeys are Console infoForm fields. aiserver often no-ops sparse
@@ -334,8 +383,8 @@ func (s AppService) UpdateApp(p AppUpdateParams) (json.RawMessage, error) {
 		return nil, fmt.Errorf("--id is required")
 	}
 	fromJSON := strings.TrimSpace(p.FromJSON)
-	if fromJSON == "" && !p.ActivitySet {
-		return nil, fmt.Errorf("provide --from-json and/or --activity-id")
+	if fromJSON == "" && !p.MarkdownSet && !p.ActivitySet && !p.CancelActivitySet {
+		return nil, fmt.Errorf("provide --from-json, --from-md, --activity-id, and/or --cancel-activity-id")
 	}
 	body := map[string]any{}
 	if fromJSON != "" {
@@ -345,10 +394,26 @@ func (s AppService) UpdateApp(p AppUpdateParams) (json.RawMessage, error) {
 		}
 		body = loaded
 	}
+	var notes *AppDocCompileResult
+	if p.MarkdownSet {
+		result, err := CompileAppMarkdown(p.Markdown)
+		if err != nil {
+			return nil, err
+		}
+		notes = &result
+		applyCompiledMarkdown(body, notes)
+	}
 	if p.ActivitySet {
 		body["activity_id"] = strings.TrimSpace(p.ActivityID)
 	}
-	return s.applyAppPatch(p.AppID, body, false)
+	if p.CancelActivitySet {
+		body["cancel_activity_id"] = strings.TrimSpace(p.CancelActivityID)
+	}
+	updated, err := s.applyAppPatch(p.AppID, body, false)
+	if err != nil {
+		return nil, err
+	}
+	return attachCompileNotes(updated, notes), nil
 }
 
 func (s AppService) AttachCoverImage(appID, fileURL string, yes bool) (json.RawMessage, error) {
@@ -407,15 +472,95 @@ func (s AppService) loadExistingApp(appID string) (map[string]any, error) {
 	return rawJSONObject(view)
 }
 
+// applyCompiledMarkdown copies a Markdown compile into a create/update body.
+// app_name and excerpt are filled only when the body does not already have
+// them. Compiled blocks come first; blocks already in the JSON are appended,
+// so hand-written tool-blocks stay after the document.
+func applyCompiledMarkdown(body map[string]any, notes *AppDocCompileResult) {
+	if body == nil || notes == nil {
+		return
+	}
+	if stringFromMap(body, "app_name") == "" && strings.TrimSpace(notes.SuggestedAppName) != "" {
+		name := notes.SuggestedAppName
+		if utf8.RuneCountInString(name) > maxAppNameRunes {
+			name = string([]rune(name)[:maxAppNameRunes])
+			notes.Warnings = append(notes.Warnings, fmt.Sprintf("suggested_app_name truncated to %d characters", maxAppNameRunes))
+		}
+		body["app_name"] = name
+	}
+	if stringFromMap(body, "excerpt") == "" && strings.TrimSpace(notes.SuggestedExcerpt) != "" {
+		excerpt := notes.SuggestedExcerpt
+		if utf8.RuneCountInString(excerpt) > maxAppExcerptRunes {
+			excerpt = string([]rune(excerpt)[:maxAppExcerptRunes])
+		}
+		body["excerpt"] = excerpt
+	}
+	compiled := make([]any, 0, len(notes.Deployment.Blocks))
+	for _, block := range notes.Deployment.Blocks {
+		compiled = append(compiled, block)
+	}
+	if len(compiled) == 0 {
+		return
+	}
+	raw, ok := body["deployment"]
+	if !ok || raw == nil {
+		body["deployment"] = map[string]any{"blocks": compiled}
+		return
+	}
+	dep, ok := raw.(map[string]any)
+	if !ok {
+		return
+	}
+	existing, _ := dep["blocks"].([]any)
+	merged := make([]any, 0, len(compiled)+len(existing))
+	merged = append(merged, compiled...)
+	merged = append(merged, existing...)
+	dep["blocks"] = merged
+}
+
+func attachCompileNotes(data json.RawMessage, notes *AppDocCompileResult) json.RawMessage {
+	if notes == nil {
+		return data
+	}
+	m := map[string]any{}
+	if len(data) > 0 && string(data) != "null" {
+		if parsed, err := rawJSONObject(data); err == nil && parsed != nil {
+			m = parsed
+		}
+	}
+	pending := notes.PendingUploads
+	if pending == nil {
+		pending = []AppDocPendingUpload{}
+	}
+	warnings := notes.Warnings
+	if warnings == nil {
+		warnings = []string{}
+	}
+	m["pending_uploads"] = pending
+	m["warnings"] = warnings
+	out, err := json.Marshal(m)
+	if err != nil {
+		return data
+	}
+	return out
+}
+
 func (s AppService) applyAppPatch(appID string, body map[string]any, allowMissingSnapshot bool) (json.RawMessage, error) {
 	if err := rejectForbiddenPublicFlags(body); err != nil {
 		return nil, err
 	}
+	NormalizeDeploymentBlocks(body)
 	if err := validateAppInfoPatch(body); err != nil {
+		return nil, err
+	}
+	if err := ValidateDeploymentBlocks(body); err != nil {
 		return nil, err
 	}
 	tagsDropped, err := normalizeAppActivityID(body)
 	if err != nil {
+		return nil, err
+	}
+	if err := normalizeAppCancelActivityID(body); err != nil {
 		return nil, err
 	}
 	if scene := stringFromMap(body, "scene"); scene != "" {
@@ -493,7 +638,7 @@ func (s AppService) applyAppPatch(appID string, body map[string]any, allowMissin
 	if len(meta) > 0 {
 		data = attachAppJSONMeta(data, meta)
 	}
-	return data, nil
+	return s.stampOwnerDetailURL(data, appID, stringFromMap(existing, "app_name")), nil
 }
 
 // normalizeAppActivityID prepares update_app activity participation.
@@ -521,6 +666,35 @@ func normalizeAppActivityID(body map[string]any) (tagsDropped bool, err error) {
 	}
 	body["activity_id"] = n
 	return tagsDropped, nil
+}
+
+// normalizeAppCancelActivityID prepares update_app activity withdrawal.
+// cancel_activity_id is optional. Missing, null, or blank leaves the key unset.
+// A present value must be a positive integer and is sent as a JSON number.
+// Unlike activity_id, it is not checked against the ongoing activity list and
+// does not change allow_clone.
+func normalizeAppCancelActivityID(body map[string]any) error {
+	if body == nil {
+		return nil
+	}
+	raw, ok := body["cancel_activity_id"]
+	if !ok || raw == nil {
+		delete(body, "cancel_activity_id")
+		return nil
+	}
+	if s, isString := raw.(string); isString && strings.TrimSpace(s) == "" {
+		delete(body, "cancel_activity_id")
+		return nil
+	}
+	n, ok := positiveInt64(raw)
+	if !ok {
+		return fmt.Errorf("cancel_activity_id must be a positive integer")
+	}
+	if join, joinOK := positiveInt64(body["activity_id"]); joinOK && join == n {
+		return fmt.Errorf("activity_id and cancel_activity_id must not be the same")
+	}
+	body["cancel_activity_id"] = n
+	return nil
 }
 
 func positiveInt64(v any) (int64, bool) {

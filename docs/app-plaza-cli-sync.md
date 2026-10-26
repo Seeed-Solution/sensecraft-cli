@@ -2,7 +2,7 @@
 
 给 `sensecraft-cli` 开发。网页端是 `sensecraft-app`（应用广场 / 我的应用 / 详情 / 编辑）。本文只列 **CLI 还没对齐、需要改代码** 的功能。
 
-用户拿 Markdown 来生成应用，不在本文范围：编辑器是块结构，转换和发布步骤见 [md-to-app.md](md-to-app.md)。CLI 不要新做 `import-md`。
+用户拿 Markdown 来生成应用：`app create --from-md` / `app update --from-md` 会先编成编辑器块再写入。`app doc compile --from-md` 只预览、不创建。不要再做一条会直接发布的 `import-md`。转换规则见 [md-to-app.md](md-to-app.md)。
 
 对照日期：2026-10-22。网页列表热门排序已上线（`develop` `36ed158`）。同日复核：点赞后列表不再立刻重排（`5985961`）；应用站已独立到 `app.seeed.cc` / `test-app.seeed.cc`，详情不再走 `/ai/application/detail`。
 
@@ -33,7 +33,7 @@
 | 烧录固件、USB 部署、容器安装 | 网页详情里的执行动作。CLI 只写 `deployment.blocks`，不在设备上跑。 |
 | 分享卡片 / 复制图片 | 纯前端。创建成功已有 `detail_url`。不要做 canvas 分享。 |
 | 硬件 BOM 筛选（`bom` 查询参数） | 网页开关 `APP_STORE_HARDWARE_FILTER_ENABLED` 仍是 `false`，后端未接。两边都先不做。 |
-| 退出已参加的活动 | 网页取消勾选也不会提交。不传 `activity_id` 时服务端保留原标签。不要发明「清空活动」参数。 |
+| 一次清空全部活动标签 | 不传 `activity_id` 时服务端保留原标签。退出某一场用 `update_app` 的 `cancel_activity_id`（正整数），不要另造「清空全部」参数。 |
 | 落地页热度分 | 网页首页「热门应用」仍是前端给一页结果打分，不是广场热门。CLI 对齐的是广场列表，不是首页打分。 |
 | 列表 / 详情机翻 | `stampListI18nSource` 只改展示文案。CLI 打印接口原文。 |
 | 搜索框里的「设备、作者」 | 请求仍只有 `app_name`。`--name` 已对齐，不要加作者或设备搜索参数。 |
@@ -249,7 +249,7 @@ sensecraft-cli app clone --id <源 app_id> --name "新名称" --yes
 - L2。这是给当前用户新建一个应用。
 - 不传 `--name` 时，名称规则与网页一致：`Clone_` + 源 `app_name` 的前 54 个字符（`Clone_` 占 6，总长不超过网页的 60）。源名称用 `app view` 读取。
 - 克隆前看源应用 `allow_clone`。值为 `0` 时拒绝，stderr 说明不允许克隆，不要发 POST。
-- stdout 必须带新 `app_id`，以及和 `app create` 相同的 `console_url`、`detail_url`。链接格式见第 8 节：`detail_url` 带 `tab=custom&from=my-apps`，否则封面看起来是空的。不要再拼 `/ai/application/detail`。
+- stdout 必须带新 `app_id`，以及和 `app create` 相同的 `console_url`、`detail_url`。链接格式见第 8 节：`detail_url` 带 `from=user-center&tab=custom`，否则封面看起来是空的，返回也会进旧的「我的应用」。不要再拼 `/ai/application/detail`。
 - 不要把源应用的 `be_public` 抄到新应用上。克隆结果按接口返回为准，CLI 不要再调 `publish`。
 
 ---
@@ -328,7 +328,7 @@ CLI 今天的 `console_url` / `detail_url` 仍是：
 
 | 场景 | URL |
 | --- | --- |
-| 我的应用（草稿 / 私有，封面在 sketch） | `{origin}/view-application/{app_id}-{slug}?tab=custom&from=my-apps` |
+| 我的应用（草稿 / 私有，封面在 sketch） | `{origin}/view-application/{app_id}-{slug}?from=user-center&tab=custom` |
 | 广场公开详情 | `{origin}/view-application/{app_id}-{slug}?tab=public&from=application-store` |
 | 编辑 | `{origin}/application/edit?id={app_id}` |
 
@@ -336,7 +336,7 @@ CLI 今天的 `console_url` / `detail_url` 仍是：
 
 `slug` 与网页 `formatToTitleCase` 一致：名称先转小写；英文字母、数字、下划线和中日韩统一表意文字保留，其余字符换成 `-`；连续 `-` 合并；去掉首尾 `-`。例：`reTerminal Sticky` → `reterminal-sticky`，路径 `/view-application/11633-reterminal-sticky`。名称为空时路径只到 `{app_id}`，不要补假 slug。
 
-`from=my-apps` 仍然必须留在「我的」链接上，否则详情拉已发布快照，封面是空的。公开链接不要带 `from=my-apps`。
+`from=user-center` 留在「我的」链接上，详情才会读 sketch 封面，返回也回到创作中心。不要再用 `from=my-apps`，那个会回到广场里的旧「我的应用」。公开链接不要带 `from=user-center`。
 
 列表项若有非空 `web_link`，卡片不进站内详情，直接打开该外链。这种条目不要再拼 `view-application`。技能文档写明：有 `web_link` 时把外链给用户。
 

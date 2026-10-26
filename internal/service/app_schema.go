@@ -16,6 +16,7 @@ func AppFieldsSchema() json.RawMessage {
 			{"field": "be_public", "type": "lifecycle", "values": map[string]string{"0": "private", "1": "public(ops)", "2": "pending_review"}, "notes": "Agent submit review uses privacy=2; never send 1"},
 			{"field": "app_id", "type": "id", "required_on_update": true},
 			{"field": "activity_id", "type": "id", "required": false, "notes": "positive integer; omit or blank leaves existing activity tags unchanged. tags is ignored and is not sent"},
+			{"field": "cancel_activity_id", "type": "id", "required": false, "notes": "positive integer; leave this activity. omit or blank leaves participation unchanged. does not change allow_clone. must not equal activity_id"},
 			{"field": "author", "type": "text", "required": false, "notes": "recommended on save"},
 		},
 		"materials": map[string]any{
@@ -52,6 +53,7 @@ func AppBlocksCatalog() json.RawMessage {
 				"Flat ordered array",
 				"Blocks before first type=step are Introduction",
 				"Each step runs until the next step; text and tool-blocks may mix",
+				"Compile Markdown with app doc compile --from-md, or pass the file to app create --from-md / app update --from-md. JSON text blocks are filled to editor video, link, and image HTML. Raw Markdown markers in JSON are rejected",
 			},
 			"text_block_types": []string{"step", "paragraph", "h1", "h2", "h3", "h4", "h5", "h6", "bullet", "number", "todo", "quote", "code", "divider"},
 		},

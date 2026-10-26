@@ -57,11 +57,12 @@ func (s AppService) ListApps(p AppListParams) (json.RawMessage, error) {
 	data, err := s.client.Get(enum.AIApiPathAppList, q)
 	if err != nil {
 		if errors.Is(err, client.ErrSandboxMode) {
-			return sandboxAppList(q), nil
+			data = sandboxAppList(q)
+		} else {
+			return nil, err
 		}
-		return nil, err
 	}
-	return data, nil
+	return s.withListDetailURLs(data, p.Public), nil
 }
 
 type AppViewParams struct {
@@ -81,11 +82,84 @@ func (s AppService) ViewApp(p AppViewParams) (json.RawMessage, error) {
 	data, err := s.client.Get(enum.AIApiPathAppView, q)
 	if err != nil {
 		if errors.Is(err, client.ErrSandboxMode) {
-			return sandboxAppView(p), nil
+			data = sandboxAppView(p)
+		} else {
+			return nil, err
 		}
-		return nil, err
 	}
-	return data, nil
+	return s.withViewDetailURL(data), nil
+}
+
+// ownsApp reports whether this CLI user can treat the row as their own draft.
+// Public plaza rows of other people are not owned.
+func (s AppService) ownsApp(appID string, existing map[string]any) bool {
+	if s.sandbox {
+		return !sandboxIsForeignPublicID(appID)
+	}
+	if uid := strings.TrimSpace(s.userID); uid != "" {
+		if owner := appOwnerID(existing); owner != "" && owner != uid {
+			return false
+		}
+	}
+	return true
+}
+
+func (s AppService) detailURLForApp(id, name string, owned bool) string {
+	if owned {
+		return AppDetailConsoleURL(s.remoteType, id, name)
+	}
+	return AppPlazaDetailConsoleURL(s.remoteType, id, name)
+}
+
+func (s AppService) withViewDetailURL(data json.RawMessage) json.RawMessage {
+	m, err := rawJSONObject(data)
+	if err != nil || m == nil {
+		return data
+	}
+	id := stringFromMap(m, "app_id")
+	detail := s.detailURLForApp(id, stringFromMap(m, "app_name"), s.ownsApp(id, m))
+	if detail == "" {
+		return data
+	}
+	m["detail_url"] = detail
+	encoded, err := json.Marshal(m)
+	if err != nil {
+		return data
+	}
+	return encoded
+}
+
+// withListDetailURLs stamps each row. A public plaza query stays on the plaza
+// link. The owner's own list uses the creator-center detail.
+func (s AppService) withListDetailURLs(data json.RawMessage, public bool) json.RawMessage {
+	var root map[string]any
+	if err := json.Unmarshal(data, &root); err != nil || root == nil {
+		return data
+	}
+	rawList, ok := root["list"].([]any)
+	if !ok {
+		return data
+	}
+	for i, item := range rawList {
+		m, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		id := stringFromMap(m, "app_id")
+		owned := !public && s.ownsApp(id, m)
+		detail := s.detailURLForApp(id, stringFromMap(m, "app_name"), owned)
+		if detail == "" {
+			continue
+		}
+		m["detail_url"] = detail
+		rawList[i] = m
+	}
+	root["list"] = rawList
+	encoded, err := json.Marshal(root)
+	if err != nil {
+		return data
+	}
+	return encoded
 }
 
 // buildAppListQuery mirrors GET /flow/app/v2/list_app.

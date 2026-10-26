@@ -6,9 +6,10 @@ description: >-
   unpublish/delete apps. Use when the user mentions 应用广场, Application Store,
   app BOM, deploy tool-blocks, or SenseCraft app upload.
   Requires Access Key (`auth init --kind sensecap`). Not for SenseCAP devices.
-  When the user hands over a Markdown file to turn into an app, follow
-  docs/md-to-app.md: split it into deployment.blocks (content is HTML, not raw
-  Markdown) and publish with app create / app publish. There is no import-md command.
+  When the user hands over a Markdown file to turn into an app, run
+  `app create --from-md` or `app update --from-md` (see docs/md-to-app.md).
+  That compiles editor HTML before the write. `app doc compile` only previews.
+  There is no import-md command.
 ---
 
 # SenseCraft Apps (Application Plaza)
@@ -41,6 +42,7 @@ Child skill: [`create-app/SKILL.md`](create-app/SKILL.md) — manifest-driven ap
 | ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Auth `--kind sensecap`                                                 | **Implemented** (`auth init --kind sensecap`; `app` uses `{ai-host}/openapi` Basic)                                                                                                    |
 | `app list` / `app view` / `app fields` / `app blocks` / `app activity list` | **Implemented**. Plaza hot list is `--public --sort popular` |
+| `app doc compile` | **Implemented**. Markdown → editor `deployment.blocks`. No auth, no network. `app create --from-md` / `app update --from-md` compile then write. `--from-json` fills video, file-link, and image HTML, and rejects raw Markdown in text-block `content` |
 | `app create` / `update` / `publish` / `unpublish` / `withdraw` / `delete` | **Implemented** (L2 = `--yes`; publish also `--agree-declaration`; **`create` never needs `--yes`**, even with full `--from-json`). `withdraw` is review-only (`be_public=2`); `unpublish` is for an already public app |
 | `app like` / `unlike` / `collect` / `uncollect` / `mark-deploy` / `clone` | **Implemented** (L2 = `--yes`) |
 | Cover / attachment upload                                              | `file upload --path <img> --type 1 --app-id <id> --yes` (prepends cover, **5 MB**). Unlinked: `file upload --type 1 --for-app` when building a new app payload.                        |
@@ -81,6 +83,14 @@ sensecraft-cli app update --id <app_id> --activity-id 1 --yes
 
 `activity_id` is an optional positive integer. List ids with `app activity list`. Omit it to leave existing activity tags unchanged. `tags` is ignored. A bad id fails the whole edit (`11202`); an unknown or inactive activity also fails the whole edit (`25000` `Activity does not exist or has expired`). If this update sets `--activity-id` and the JSON does not set `allow_clone`, CLI writes `allow_clone=1` unless the sketch is already `1`.
 
+### Leave an activity (L2)
+
+```bash
+sensecraft-cli app update --id <app_id> --cancel-activity-id 1 --yes
+```
+
+`cancel_activity_id` is an optional positive integer sent as a JSON number. It does not change `allow_clone` and is not checked against `app activity list`. Omit it to leave participation unchanged. Do not send the same id as `activity_id` in one update.
+
 ### Publish / unpublish / delete (L2)
 
 ```bash
@@ -90,7 +100,7 @@ sensecraft-cli app unpublish --id <app_id> --yes    # privacy=0 private / withdr
 sensecraft-cli app delete --id <app_id> --yes       # private only (be_public=0)
 ```
 
-`app publish` matches Console 「发布确认」: show https://sensecraft.seeed.cc/legal/en/declaration and warn that review locks editing; only then pass `--agree-declaration --yes`. Missing either flag → non-zero. API body is still only `{app_id, privacy:2}` (agreement is client-side, like Console `warrantyAccepted`).
+`app publish` matches Console 「发布确认」: show https://sensecraft.seeed.cc/legal/en/declaration and warn that review locks editing; only then pass `--agree-declaration --yes`. Missing either flag → non-zero. API body is still only `{app_id, privacy:2}` (agreement is client-side, like Console `warrantyAccepted`). stdout includes `detail_url`: the creator-center page (`/view-application/<id>-<slug>?from=user-center&tab=custom`). Give the user that URL. Do **not** invent `https://test-app.seeed.cc/application/detail/<id>` — that is the plaza page and does not open the private draft.
 
 **Never** send `privacy=1` (ops-approved public). After editing a **published** app, tell the user plaza is unchanged until they confirm `app publish --agree-declaration --yes`.
 
@@ -115,14 +125,14 @@ Seeed rows need `id`(=SKU). Custom rows omit `id`. No manual custom image upload
    ```
    Use `app_scenarios_array` from constants and the two static catalogs; never invent option ids or block shapes.
 1. Fill required app info (see [reference-app-fields.md](reference-app-fields.md)).
-2. Build intro + stepped deploy + tool-blocks ([reference-tool-blocks.md](reference-tool-blocks.md)).
+2. Build intro + stepped deploy + tool-blocks ([reference-tool-blocks.md](reference-tool-blocks.md)). When the source is Markdown, run `sensecraft-cli app create --from-md <file>` (add `--from-json` for scene, cover, BOM, and tool-blocks). JSON `deployment.blocks` are appended after the compiled document. `app doc compile --from-md` only previews. Do not leave `**bold**` or list markers in JSON `content`.
 3. BOM: Seeed SKU rows and/or custom rows ([reference-app-fields.md](reference-app-fields.md#bom-materials))
 4. **Prefer one-shot create** when JSON is complete (**no `--yes`**):
    ```bash
    sensecraft-cli app create --from-json ./app.json
    # CLI returns app_id + console_url + detail_url (even if update_app body was {}).
-   # detail_url is https://app.seeed.cc/view-application/<id>-<slug>?tab=custom&from=my-apps
-   # (test AI host → https://test-app.seeed.cc). from=my-apps loads the sketch cover.
+   # detail_url is https://app.seeed.cc/view-application/<id>-<slug>?from=user-center&tab=custom
+   # (test AI host → https://test-app.seeed.cc). from=user-center loads the sketch cover.
    # A non-empty web_link on a list item is the link to give the user.
    # Restore JSON may have pic_url (list) or images[] (view); CLI writes both.
    # Show links to the user. NEVER re-run create because stdout looked empty —

@@ -3,9 +3,12 @@ package app
 import (
 	"encoding/json"
 	"fmt"
+	"io"
+	"os"
 	"strings"
 
 	cmdctx "sensecraft-cloud-terminal/internal/app"
+	"sensecraft-cloud-terminal/internal/output"
 	"sensecraft-cloud-terminal/internal/service"
 
 	"github.com/spf13/cobra"
@@ -21,6 +24,7 @@ func NewAppCmd() *cobra.Command {
 	cmd.AddCommand(newAppViewCmd())
 	cmd.AddCommand(newAppFieldsCmd())
 	cmd.AddCommand(newAppBlocksCmd())
+	cmd.AddCommand(newAppDocCmd())
 	cmd.AddCommand(newAppCreateCmd())
 	cmd.AddCommand(newAppUpdateCmd())
 	cmd.AddCommand(newAppPublishCmd())
@@ -225,35 +229,134 @@ func newAppBlocksCmd() *cobra.Command {
 	}
 }
 
+func newAppDocCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "doc",
+		Short: "Compile editor documents (no network)",
+	}
+	cmd.AddCommand(newAppDocCompileCmd())
+	return cmd
+}
+
+func newAppDocCompileCmd() *cobra.Command {
+	var fromMD string
+	cmd := &cobra.Command{
+		Use:   "compile",
+		Short: "Compile Markdown into editor deployment.blocks",
+		Long: `Turn a Markdown file into the block array the app editor stores.
+
+No network and no Access Key. Does not upload files and does not invent
+tool-blocks (flash-firmware, deploy-ai-model, and the rest stay hand-written).
+
+  --from-md   Markdown path, or - for stdin
+
+Stdout JSON:
+  deployment.blocks     paragraph, h1-h6, bullet, number, todo, quote, code, divider, step
+  suggested_app_name    opening "# title" (not emitted as a block)
+  suggested_excerpt     the paragraph immediately after that title
+  pending_uploads       local image/video/file paths left out of content
+  warnings
+
+Inline marks become HTML: **bold** <strong>, *italic* <em>, ~~strike~~ <s>,
+` + "`code`" + ` <code>, <u> underline, [text](https://…) links (file suffixes such as
+pdf/zip/bin become download links), ![alt](https://…) images.
+A paragraph that is only a video URL becomes <video controls>, or an iframe
+inside video-embed-wrapper for YouTube, TikTok, Douyin, Bilibili, Vimeo, Youku, and iQiyi.
+<span style="color:…"> and background-color keep only the editor color presets.
+{align=center} at the end of a heading, or a line <!-- align: center -->,
+sets align on the next paragraph or heading (left, center, right).
+
+A heading becomes a step when its text is 步骤：动作, Step: 动作, Step 2. 动作,
+第 1 步：动作, or 1. 动作. title is the action only. ## 介绍 is dropped.
+app create --from-md and app update --from-md run this compile, then write.
+Passed as --from-json, text blocks that still contain those Markdown markers are rejected.
+--from-json still fills a bare video URL, a file link, and an image up to the editor's HTML.`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			src, err := readAppMarkdown(fromMD)
+			if err != nil {
+				return err
+			}
+			result, err := service.CompileAppMarkdown(src)
+			if err != nil {
+				return err
+			}
+			return output.PrintJSON(result)
+		},
+	}
+	cmd.Flags().StringVar(&fromMD, "from-md", "", "Markdown file path, or - for stdin")
+	_ = cmd.MarkFlagRequired("from-md")
+	return cmd
+}
+
+func readAppMarkdown(fromMD string) (string, error) {
+	fromMD = strings.TrimSpace(fromMD)
+	if fromMD == "" {
+		return "", fmt.Errorf("provide --from-md")
+	}
+	var b []byte
+	var err error
+	if fromMD == "-" {
+		b, err = io.ReadAll(os.Stdin)
+	} else {
+		b, err = os.ReadFile(fromMD)
+	}
+	if err != nil {
+		return "", err
+	}
+	return string(b), nil
+}
+
 func newAppCreateCmd() *cobra.Command {
 	var (
 		name     string
 		fromJSON string
+		fromMD   string
 		sandbox  bool
 	)
 	cmd := &cobra.Command{
 		Use:   "create",
-		Short: "Create an app (--name and/or --from-json)",
-		Long: `Create a new app. Prefer --from-json with a full payload when ready (no --yes).
+		Short: "Create an app (--name, --from-json, and/or --from-md)",
+		Long: `Create a new app. Prefer --from-md for a Markdown document, or --from-json when the payload is already blocks (no --yes).
 
-  --name          required unless provided in --from-json.app_name
+  --name          app_name. Optional when --from-json or the Markdown title provides one.
+  --from-md       Markdown path, or - for stdin. Compiled into editor blocks before write.
+                  Opening "# title" becomes app_name when --name and JSON omit it.
+                  The next paragraph becomes excerpt when JSON omits excerpt.
+                  JSON deployment.blocks are appended after the compiled document.
   --from-json     JSON path or "-" (stdin). create_app(app_name) then, if extra
                   fields remain, update_app on the **new** app_id only.
+                  Video URLs, file links, and images in text blocks are filled to
+                  editor HTML. Raw Markdown markers are rejected.
   Not L2: create never requires --yes (unlike app update on an existing app).
   Never include be_public=1 / privacy=1; use app publish --agree-declaration --yes after confirmation.
-  On success, stdout includes app_id, console_url (edit page), and detail_url.`,
+  On success, stdout includes app_id, console_url (edit page), and detail_url.
+  A --from-md create also includes pending_uploads and warnings. Scene, cover,
+  BOM, and tool-blocks are not invented.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx, err := cmdctx.GetAICmdContext()
 			if err != nil {
 				return err
 			}
 			ctx.SandBox = sandbox
-			if strings.TrimSpace(name) == "" && strings.TrimSpace(fromJSON) == "" {
-				return fmt.Errorf("provide --name and/or --from-json")
+			if fromMD == "-" && strings.TrimSpace(fromJSON) == "-" {
+				return fmt.Errorf("--from-md and --from-json cannot both read stdin")
+			}
+			markdownSet := cmd.Flags().Changed("from-md")
+			var markdown string
+			if markdownSet {
+				markdown, err = readAppMarkdown(fromMD)
+				if err != nil {
+					return err
+				}
+			}
+			if strings.TrimSpace(name) == "" && strings.TrimSpace(fromJSON) == "" && !markdownSet {
+				return fmt.Errorf("provide --name, --from-json, and/or --from-md")
 			}
 			data, err := service.GetAppService(ctx).CreateApp(service.AppCreateParams{
-				Name:     name,
-				FromJSON: fromJSON,
+				Name:        name,
+				FromJSON:    fromJSON,
+				Markdown:    markdown,
+				MarkdownSet: markdownSet,
 			})
 			if err != nil {
 				return err
@@ -263,24 +366,32 @@ func newAppCreateCmd() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&name, "name", "", "app_name (max 60)")
 	cmd.Flags().StringVar(&fromJSON, "from-json", "", "JSON file path or - for stdin")
+	cmd.Flags().StringVar(&fromMD, "from-md", "", "Markdown file path, or - for stdin; compiled into editor blocks")
 	cmd.Flags().BoolVar(&sandbox, "sandbox", false, "Sandbox mode: no real network; return sample JSON")
 	return cmd
 }
 
 func newAppUpdateCmd() *cobra.Command {
 	var (
-		id         string
-		fromJSON   string
-		activityID string
-		yes        bool
-		sandbox    bool
+		id               string
+		fromJSON         string
+		fromMD           string
+		activityID       string
+		cancelActivityID string
+		yes              bool
+		sandbox          bool
 	)
 	cmd := &cobra.Command{
 		Use:   "update",
-		Short: "Update an app from JSON (L2: --yes)",
+		Short: "Update an app from JSON or Markdown (L2: --yes)",
 		Long: `POST /flow/app/v3/update_app
 
-Requires --id and at least one of --from-json / --activity-id. Injects app_id.
+Requires --id and at least one of --from-json / --from-md / --activity-id / --cancel-activity-id.
+Injects app_id.
+--from-md compiles Markdown into editor blocks. It fills app_name and excerpt
+only when the JSON omits them, and appends JSON deployment.blocks after the
+compiled document. --from-json text blocks get editor video, link, and image
+attributes. Raw Markdown markers in JSON are rejected.
 Rejects user JSON be_public=1 / privacy=1.
 
 --activity-id joins an activity (positive integer, sent as a JSON number).
@@ -288,6 +399,9 @@ Omit it, or pass an empty value, to leave existing activity tags unchanged.
 If the activity is not in app activity list, update_app is not sent.
 When --activity-id is set and the JSON omits allow_clone, CLI sets allow_clone
 to 1 unless the sketch is already 1.
+--cancel-activity-id leaves an activity (positive integer, sent as a JSON number).
+It does not change allow_clone and is not checked against the ongoing list.
+The same id cannot be both joined and cancelled in one update.
 tags in JSON is ignored and is not sent.
 
 Lifecycle (matches Console edit.vue / list.vue):
@@ -301,15 +415,30 @@ Lifecycle (matches Console edit.vue / list.vue):
 				return err
 			}
 			ctx.SandBox = sandbox
-			if strings.TrimSpace(fromJSON) == "" && !cmd.Flags().Changed("activity-id") {
-				return fmt.Errorf("provide --from-json and/or --activity-id")
+			if fromMD == "-" && strings.TrimSpace(fromJSON) == "-" {
+				return fmt.Errorf("--from-md and --from-json cannot both read stdin")
+			}
+			markdownSet := cmd.Flags().Changed("from-md")
+			var markdown string
+			if markdownSet {
+				markdown, err = readAppMarkdown(fromMD)
+				if err != nil {
+					return err
+				}
+			}
+			if strings.TrimSpace(fromJSON) == "" && !markdownSet && !cmd.Flags().Changed("activity-id") && !cmd.Flags().Changed("cancel-activity-id") {
+				return fmt.Errorf("provide --from-json, --from-md, --activity-id, and/or --cancel-activity-id")
 			}
 			data, err := service.GetAppService(ctx).UpdateApp(service.AppUpdateParams{
-				AppID:       id,
-				FromJSON:    fromJSON,
-				Yes:         yes,
-				ActivitySet: cmd.Flags().Changed("activity-id"),
-				ActivityID:  activityID,
+				AppID:             id,
+				FromJSON:          fromJSON,
+				Markdown:          markdown,
+				MarkdownSet:       markdownSet,
+				Yes:               yes,
+				ActivitySet:       cmd.Flags().Changed("activity-id"),
+				ActivityID:        activityID,
+				CancelActivitySet: cmd.Flags().Changed("cancel-activity-id"),
+				CancelActivityID:  cancelActivityID,
 			})
 			if err != nil {
 				return err
@@ -319,7 +448,9 @@ Lifecycle (matches Console edit.vue / list.vue):
 	}
 	cmd.Flags().StringVar(&id, "id", "", "app_id (required)")
 	cmd.Flags().StringVar(&fromJSON, "from-json", "", "JSON file path or - for stdin")
+	cmd.Flags().StringVar(&fromMD, "from-md", "", "Markdown file path, or - for stdin; compiled into editor blocks")
 	cmd.Flags().StringVar(&activityID, "activity-id", "", "Join this activity (positive integer). Empty leaves current activity tags unchanged")
+	cmd.Flags().StringVar(&cancelActivityID, "cancel-activity-id", "", "Leave this activity (positive integer). Empty leaves current activity tags unchanged")
 	cmd.Flags().BoolVar(&yes, "yes", false, "Confirm L2 update after user approval")
 	cmd.Flags().BoolVar(&sandbox, "sandbox", false, "Sandbox mode: no real network; return sample JSON")
 	_ = cmd.MarkFlagRequired("id")

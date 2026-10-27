@@ -47,7 +47,7 @@ Formats JPG/JPEG/PNG/GIF/WebP, ≤ 5 MB each, prefer 4:3. SVG is rejected by the
 
 ## `deployment.blocks`
 
-Flat ordered array, copied through to the payload unchanged. Blocks before the first `step` = introduction; each `step` starts a deploy step. Tool-block configs (`flash-firmware`, `deploy-ai-model`, …): [../../references/tool-blocks.md](../../references/tool-blocks.md). Firmware URLs land in `config.firmware_url` after a `file upload --type 4`.
+Flat ordered array, copied through to the payload unchanged. Blocks before the first `step` = introduction; each `step` starts a deploy step. Tool-block configs (`flash-firmware`, `deploy-ai-model`, …): [../../references/tool-blocks.md](../../references/tool-blocks.md). After `file upload --type 4`, put the URL on the `flash-firmware` block as flat `firmware_url` (plus `firmware_name` and string `firmware_size`). Do not nest those fields under `config`. The editor wraps them into `config` when the doc is opened.
 
 ## `bom.materials`
 
@@ -121,24 +121,27 @@ See [../assets/manifest-template.json](../assets/manifest-template.json) for a f
   ],
   "deployment": {
     "blocks": [
-      { "id": "intro_1", "type": "paragraph", "content": "<p>What this app does.</p>", "indent": 0 },
-      { "id": "step_1", "type": "step", "title": "Step 1: Flash firmware", "content": "Step 1: Flash firmware", "expanded": true, "indent": 0 },
+      { "id": "intro_1", "type": "paragraph", "content": "What this app does.", "indent": 0 },
+      { "id": "step_1", "type": "step", "title": "Flash firmware", "content": "Flash firmware", "expanded": true, "indent": 0 },
       {
         "id": "ff_1",
         "type": "flash-firmware",
-        "config": {
-          "device_id": "",
-          "device_type": "",
-          "firmware_url": "https://files.seeedstudio.com/…/firmware.bin",
-          "firmware_size": "412316"
-        }
+        "device_id": "113991115",
+        "device_type": "32",
+        "flash_mode": "bin",
+        "firmware_url": "https://files.seeedstudio.com/…/firmware.bin",
+        "firmware_name": "firmware.bin",
+        "firmware_size": "412316",
+        "flash_address": "0x0",
+        "muse_gadget": false,
+        "full_flash": false
       }
     ]
   },
   "bom": {
     "materials": [
       {
-        "id": "113991254",
+        "id": "113991115",
         "quantity": "1",
         "name": "Seeed Studio XIAO ESP32S3 Sense",
         "note": "Main MCU",

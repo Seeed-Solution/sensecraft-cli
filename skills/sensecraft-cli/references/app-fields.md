@@ -19,7 +19,7 @@ Agent fill-in guide for SenseCraft custom apps (v3). Aligns with Console `infoFo
 | `author`                   | string                     | recommended on save        | current user id/account                                                                                                                                                                                                                               |
 | `activity_id`              | positive integer           | no                         | Join this activity. Omit or send blank to leave existing activity tags unchanged. CLI sends a JSON number. `0`, negatives, and non-integers are rejected before POST. Server: not a positive integer → `11202` `Request parameters are invalid`; missing / unpublished / deleted / outside start–end → `25000` `Activity does not exist or has expired` (the whole edit is discarded). |
 | `cancel_activity_id`       | positive integer           | no                         | Leave this activity. Omit or send blank to leave participation unchanged. CLI sends a JSON number and does not change `allow_clone`. Must not equal `activity_id`. |
-| `flow_data` / `model_data` | Node-RED sync              | only with `node-red` block | `flow_data` must be **JSON string** at top level                                                                                                                                                                                                      |
+| `flow_data` / `model_data` | Node-RED sync              | only with `node-red` block | Block `config.flow_data` and `config.model_data` are objects, not strings. On save the app writes `JSON.stringify(config.flow_data)` to this top-level `flow_data` string and copies `model_data` here. |
 
 ### Create vs update
 
@@ -82,7 +82,7 @@ Custom rows are exactly `name` / `quantity` / `note` / `buy_url` (Console `build
 {
   "materials": [
     {
-      "id": "113991254",
+      "id": "113991115",
       "quantity": "1",
       "name": "Seeed Studio XIAO ESP32S3 Sense",
       "note": "Main MCU",

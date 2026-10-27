@@ -216,7 +216,9 @@ func TestCompileEditorVideoFileAndIndent(t *testing.T) {
 		"#### 四级\n\n" +
 		"##### 五级\n\n" +
 		"###### 六级\n\n" +
-		"  - 缩进一项\n"
+		"  - 缩进一项\n" +
+		"        - 更深一项\n" +
+		"![图](./cover.svg)\n"
 	got, err := CompileAppMarkdown(src)
 	if err != nil {
 		t.Fatal(err)
@@ -292,7 +294,31 @@ func TestCompileEditorVideoFileAndIndent(t *testing.T) {
 	if !indented {
 		t.Fatal("indent bullet")
 	}
-	if len(got.PendingUploads) != 1 || got.PendingUploads[0].Kind != "video" || got.PendingUploads[0].Path != "./clip.mp4" {
+	capped := false
+	for _, b := range got.Deployment.Blocks {
+		if b["type"] == "bullet" && strings.Contains(asString(b["content"]), "更深一项") {
+			if b["indent"] != 2 {
+				t.Fatalf("deep indent %v", b["indent"])
+			}
+			capped = true
+		}
+	}
+	if !capped {
+		t.Fatal("deep indent bullet")
+	}
+	if len(got.PendingUploads) != 2 {
+		t.Fatalf("pending %#v", got.PendingUploads)
+	}
+	sawVideo, sawSVG := false, false
+	for _, p := range got.PendingUploads {
+		if p.Kind == "video" && p.Path == "./clip.mp4" {
+			sawVideo = true
+		}
+		if p.Kind == "file" && p.Path == "./cover.svg" {
+			sawSVG = true
+		}
+	}
+	if !sawVideo || !sawSVG {
 		t.Fatalf("pending %#v", got.PendingUploads)
 	}
 	for _, b := range got.Deployment.Blocks {

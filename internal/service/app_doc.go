@@ -501,8 +501,9 @@ func leadingIndent(raw string) int {
 		break
 	}
 	indent := n / 2
-	if indent > 6 {
-		return 6
+	// Editor toolbar stops at 2 (MarkdownBlockEditor MAX_BLOCK_INDENT_LEVEL).
+	if indent > 2 {
+		return 2
 	}
 	return indent
 }
@@ -966,7 +967,8 @@ func isRemoteURL(raw string) bool {
 func uploadKind(path string) string {
 	low := strings.ToLower(path)
 	switch {
-	case hasExt(low, ".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg"):
+	// SVG is not an app image. Console upload rejects image/svg+xml.
+	case hasExt(low, ".png", ".jpg", ".jpeg", ".gif", ".webp"):
 		return "image"
 	case hasExt(low, ".mp4", ".webm", ".mov"):
 		return "video"

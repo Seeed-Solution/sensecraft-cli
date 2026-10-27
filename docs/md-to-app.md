@@ -60,7 +60,7 @@ sensecraft-cli app create --from-md ./README.md --from-json ./scene.json
 | --- | --- |
 | 粗体 / 斜体 / 删除线 / 行内代码 | `**`、`*`、`~~`、反引号。写成 `<strong>` `<em>` `<s>` `<code>` |
 | 下划线 | `<u>…</u>`（Markdown 没有下划线） |
-| 字色 / 底色 | `<span style="color:#ef4444">`、`background-color`。只保留编辑器那一组预设色，其它颜色会被去掉 |
+| 字色 / 底色 | `<span style="color:#ef4444">`、`background-color`。`--from-md` 只保留编辑器色板里的颜色，其它颜色会去掉。编辑器保存时不按色板删：合法的 hex、rgb、hsl、颜色名都会留下 |
 | H1–H6 | `#` 到 `######`。文首那个 `#` 是应用名，不是块 |
 | 无序 / 有序 / 待办 | `-`、`1.`、`- [ ]` / `- [x]`。每行一块 |
 | 引用 / 代码 / 分割线 | `>`、围栏、`---` |
@@ -68,7 +68,7 @@ sensecraft-cli app create --from-md ./README.md --from-json ./scene.json
 | 图片 | `![说明](https://…)`，写成带默认宽度样式的 `<img draggable="false">`。本地路径进 `pending_uploads` |
 | 视频 | 单独一段远程地址，或 `<video src="https://…">`。直链 mp4/webm/mov 等写成 `<video controls>`；YouTube、TikTok、抖音、Bilibili、Vimeo、优酷、爱奇艺写成 `video-embed-wrapper` 里的 iframe。本地视频进 `pending_uploads` |
 | 链接 / 文件 | `[文字](https://…)` 带 `target="_blank"`。pdf、zip、bin、hex、json 等后缀再加 `doc-file-download-link` 和 `download`。本地文件进 `pending_uploads` |
-| 步骤 | `## 步骤：烧录固件`、`## Step: Flash`、`## Step 2. Connect`、`### 1. 部署模型`、`## 第 1 步：烧录`。`title` 只留动作。`## 介绍` 这个标题丢掉，下面的段落保留 |
+| 步骤 | `## 步骤：烧录固件`、`## Step: Flash`、`## Step 2. Connect`、`### 1. 部署模型`、`## 第 1 步：烧录`。`title` 只留动作。`## 介绍`、`## Introduction` 这个标题丢掉，下面的段落保留。`## 简介`、`## Overview` 仍是普通标题 |
 | 显示预览 | 编辑器界面，CLI 不实现 |
 
 编译器不会插入 `flash-firmware` 等工具块。烧录、部署模型仍按第 7 节手写。
@@ -121,7 +121,7 @@ stdout 里的 `file_url` 才是能写进 JSON 的地址。Markdown 里的 `./ima
 
 ## 4. 正文：Markdown 语法 → 块
 
-下面这张表就是编辑器粘贴解析（`pasteMarkdownUtils.js`）的规则，再加「步骤」这一条。步骤是粘贴解析**不会**自动产生的，必须由转换的人判断。
+下面这张表以编辑器粘贴解析（`pasteMarkdownUtils.js`）为准。粘贴不会产生 `step`，也不会把围栏语言写进 `config.lang`，也不认行首 `+`。这三件是 `--from-md` 编译才做的，表里单独标出。
 
 空行结束当前段落。连续的非空普通行合并成**一个** `paragraph`，行与行之间变成空格，不是 `<br>`。
 
@@ -130,20 +130,20 @@ stdout 里的 `file_url` 才是能写进 JSON 的地址。Markdown 里的 `./ima
 | 普通段落 | `paragraph` | 行内 HTML，见第 5 节。不要带外层 `<p>` |
 | `#` … `######` 且**不是**步骤 | `h1` … `h6` | 只放标题文字的行内 HTML。`#` 本身不要写入 |
 | 用来分步骤的标题 | `step` | 见第 6 节。不要做成 `h2` |
-| `-` / `*` / `+` 开头的一行 | `bullet` | 去掉列表符之后的行内 HTML。每一行一个块 |
+| `-` / `*` 开头的一行 | `bullet` | 去掉列表符之后的行内 HTML。每一行一个块。粘贴不认 `+`；`--from-md` 认 |
 | `1.` `2.` 这种有序列表 | `number` | 去掉序号之后的行内 HTML。每一行一个块。序号编辑器会自己画，不要写进 content |
 | `- [ ]` / `- [x]` | `todo` | 未勾选：行内 HTML，**不要**写 `[ ]`。已勾选：`[x] ` 加行内 HTML（方括号后有一个空格） |
 | `>` 连续几行 | `quote` | 这几行用空格拼成一段行内 HTML |
-| ` ``` ` 围栏 | `code` | **纯文本**，保留换行。不要包 `<pre>`。语言写在 `config.lang`（可省略） |
+| ` ``` ` 围栏 | `code` | **纯文本**，保留换行。不要包 `<pre>`。粘贴不写 `config.lang`。`--from-md` 把围栏语言写进 `config.lang`（可省略） |
 | `---` / `***` / `___` 单独成行 | `divider` | `""` |
 | `![说明](url)` | 不单独成块 | 放进所在段落：`<img src="url" alt="说明" />` |
 | `[文字](url)` | 不单独成块 | `<a href="url">文字</a>` |
-| 表格 | **没有表格块** | 改成一组 `bullet`，或原样放进一个 `code`。不要指望 `|` 会画成表 |
+| 表格 | **没有表格块** | `--from-md` 不会改写，只警告并把竖线开头的行留成段落。要进编辑器就改成一组 `bullet`，或整段放进一个 `code` |
 | HTML 表格、Word 粘贴 | 不要原样抄 | 抽成段落和列表 |
 
 每个块都要有字符串 `id`，同一篇里不重复。推荐 `p1`、`h1`、`s1`、`b1`、`c1`、`ff1`。编辑器自己生成的是 `tool_<时间>_<随机>`，两种都可以。
 
-文本块建议带 `"indent": 0`。只有用户在步骤里面又缩进了一层时才用 `1`、`2`。介绍区用 `0`。
+文本块建议带 `"indent": 0`。编辑器缩进按钮最多到 `2`，手写 JSON 用 `0`、`1`、`2`。介绍区用 `0`。`--from-md` 也最多写到 `2`，更深的列表缩进会收成 `2`。
 
 `align` 只对 `paragraph` 和 `h1`–`h6` 有意义，取值 `left` / `center` / `right`。不写就是默认左对齐。
 
@@ -165,7 +165,7 @@ stdout 里的 `file_url` 才是能写进 JSON 的地址。Markdown 里的 `./ima
 | 下划线（Markdown 没有） | `<u>…</u>` |
 | 换行（很少需要） | `<br>` |
 
-允许的标签只有：`b` `strong` `i` `em` `u` `s` `strike` `code` `br` `img` `video` `a` `iframe`，以及包 YouTube 等嵌入用的 `<div class="video-embed-wrapper">`。`<span>` 只保留 `color` / `background-color`。`<script>`、`<table>`、`<div>`（除视频容器）、样式表都会被丢掉。
+允许的标签只有：`b` `strong` `i` `em` `u` `s` `strike` `code` `br` `img` `video` `a` `iframe`，以及包 YouTube 等嵌入用的 `<div class="video-embed-wrapper">`。`<span>` 只保留 `color` / `background-color`。编辑器不按色板过滤，合法颜色都会留下；`--from-md` 编译时只留色板里的值。`<script>`、`<table>`、`<div>`（除视频容器）、样式表都会被丢掉。
 
 单独成段的视频地址，以及整段只有一个 `<video src="https://…">`，会收成编辑器「插入视频」保存的 HTML。直链文件：
 
@@ -200,6 +200,8 @@ YouTube、TikTok、抖音、Bilibili、Vimeo、优酷、爱奇艺收成 `<div cl
 
 介绍区（第一个 `step` 之前）控制在一两段。不要把目录、故障排除大表、和 excerpt 重复的句子再铺一遍。一个应用通常 3–5 个步骤。某一步用户在网页上做不到（没有对应工具块），就不要写成步骤，改成说明或在提问里告诉用户。
 
+`## 介绍` 和 `## Introduction`（不区分大小写）这个标题丢掉，下面的段落保留。`## 简介`、`## Overview` 会变成普通标题，不会丢掉。
+
 文首那个当应用名的 `# 标题` 不要再做成 `h1` 块。
 
 ---
@@ -211,10 +213,10 @@ YouTube、TikTok、抖音、Bilibili、Vimeo、优酷、爱奇艺收成 `<div cl
 | 正文在说 | `type` | 配置放哪 |
 | --- | --- | --- |
 | 把固件烧进板子 | `flash-firmware` | **摊平在块上**，不要包一层 `config`。SKU、地址见 `skills/sensecraft-cli/references/tool-blocks.md` |
-| 部署视觉 / 声音模型 | `deploy-ai-model` | 放在 `config` 里 |
+| 部署视觉 / 声音模型 | `deploy-ai-model` | 放在 `config` 里。两个入口是同一个 `type`，用 `config.deploy_tool_entry`：`vision` 或 `sound`。声音会排除 reCamera Pro（`uniform_type` `53`） |
 | 异常振动 | `ai-vibration` | 放在 `config` 里 |
 | 边缘容器应用 | `deploy-container-app` | 放在 `config` 里 |
-| Node-RED 流程 | `node-red` | 放在 `config` 里；顶层还要同步 `flow_data` 字符串 |
+| Node-RED 流程 | `node-red` | 放在 `config` 里。`config.flow_data`、`config.model_data` 是对象，不要写成字符串。保存时网页把 `flow_data` `JSON.stringify` 成应用顶层的 `flow_data` 字符串，并把 `model_data` 抄到应用顶层 |
 | Aily Blockly 公开项目 | `aily-blockly` | 放在 `config` 里 |
 
 没有对应文件时，块仍然留着，缺的 URL 先空着并在回复里标明「待用户提供」，不要删掉这一步。
@@ -315,7 +317,7 @@ sensecraft-cli file upload --path ./firmware.bin --type 4 --checksum
       {
         "id": "ff1",
         "type": "flash-firmware",
-        "device_id": "113991254",
+        "device_id": "113991115",
         "device_type": "32",
         "flash_mode": "bin",
         "firmware_url": "https://files.example.com/firmware.bin",
@@ -343,7 +345,7 @@ sensecraft-cli file upload --path ./firmware.bin --type 4 --checksum
   },
   "materials": [
     {
-      "id": "113991254",
+      "id": "113991115",
       "name": "Seeed Studio XIAO ESP32S3 Sense",
       "quantity": "1",
       "note": "",
@@ -355,7 +357,7 @@ sensecraft-cli file upload --path ./firmware.bin --type 4 --checksum
 
 纯文本、没有标签的 `content` 可以不包 HTML。一旦有强调、链接、图片，就按第 5 节写成标签，不要混用 `**`。
 
-`flash-firmware` 的 `device_type` / `flash_address` 以 `skills/sensecraft-cli/references/tool-blocks.md` 里该 SKU 的那一行为准。上面的 `32` 和 `0x0` 只说明字段位置。`full_flash` 默认 `false`；只有 `muse_gadget` 为 `true` 时写成 `true`。非 Muse 设备不要写这两个字段为 `true`。
+`flash-firmware` 的 `device_type` / `flash_address` 以 `skills/sensecraft-cli/references/tool-blocks.md` 里该 SKU 的那一行为准。上面的 `32` 和 `0x0` 只说明字段位置。例子里的 `113991115` 是 XIAO ESP32S3 Sense，不要写成 `113991254`（那是另一块板）。`full_flash` 默认 `false`。`muse_gadget` 为 `true` 时 `full_flash` 必须是 `false`，编辑器打开文档会强制改掉。`full_flash: true` 只用于 Muse 设备关掉 Muse、换回普通固件。非 Muse 设备这两个字段都不要写成 `true`，编辑器会改回 `false`。
 
 ---
 

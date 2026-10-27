@@ -119,6 +119,7 @@ Unchecked `muse_gadget` keeps the single-file device table below and does not re
 | `config.model` | `null` or `{ type, model }` |
 | `config.model.type` | `"model"` \| `"upload"` \| `"defer"` |
 | `config.model.model` | Metadata: `id`, `name`, `task`, `labels`/`classes`, `uniform_types`, `isCustom`, … |
+| `config.deploy_tool_entry` | `"vision"` or `"sound"`. Both toolbar entries use this block type. `sound` excludes reCamera Pro (`uniform_type` `53`) |
 | `config.device_type` | Device `uniform_type` string (e.g. `"32"`) |
 | `config.powerMode` | 0–5, default `2` (XIAO power-on infer) |
 | `config.conf` / `config.iou` | Detection UI thresholds |
@@ -140,7 +141,22 @@ Unchecked `muse_gadget` keeps the single-file device table below and does not re
 
 ### `deploy-container-app`
 
-Used for **container / edge app** deployment UI inside the application doc.
+Used for **container / edge app** deployment UI inside the application doc. Fields live in `config`, same names as the editor's defaults:
+
+| Path | Notes |
+|------|-------|
+| `config.app_id` / `config.app_key` | Fleet app id and key |
+| `config.app_display_name` / `config.app_icon` / `config.app_description` | Card text and icon |
+| `config.architecture` | Selected architecture string |
+| `config.architectures` | Architecture list |
+| `config.version` | Selected version string. Not `app_version` |
+| `config.version_options` | Version list |
+| `config.install_form` | Install form object |
+| `config.merged_service` | Merged service snapshot |
+| `config.user_override_flags` | Which form fields the user overrode |
+| `config.form_field_values` | Form values |
+| `config.raw_by_version` | Raw detail by version |
+| `config.detail_form_fields` | Form field schema |
 
 **Agent:** configure the block for documentation. Installing the container is not a CLI command. Prefer linking users to Console preview deploy when the CLI has no container control.
 
@@ -178,7 +194,7 @@ Used for **container / edge app** deployment UI inside the application doc.
   {
     "id": "para_1",
     "type": "paragraph",
-    "content": "<p>Connect the board over USB, then flash.</p>",
+    "content": "Connect the board over USB, then flash.",
     "indent": 0
   },
   {

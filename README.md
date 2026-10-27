@@ -1,25 +1,29 @@
 # SenseCraft CLI
 
-SenseCraft CLI（`sensecraft-cli`）是 [SenseCAP](https://sensecap.seeed.cc) 与 [SenseCraft AI](https://sensecraft.seeed.cc) 的命令行工具：
+English | [中文](README-zh.md)
 
-| 能力面 | 鉴权 | 子命令 |
-|--------|------|--------|
-| SenseCAP 设备 / 分组 / 传感数据 | Access Key（`--kind sensecap`） | `device` · `group` · `data` |
-| SenseCraft AI 应用 / 模型 / 云设备 | Access Key → `{ai-host}/openapi` | `app` · `model` · `file` · `cloud` · `recamera` |
+SenseCraft CLI (`sensecraft-cli`) is the official command-line tool for [SenseCraft](https://sensecraft.seeed.cc), built for developers and AI agents. Read sensor data, create models, publish applications, and manage devices and reCamera from the terminal.
 
-适用于脚本自动化、CI/CD 与 AI Agent（Skills 见 `skills/`）。
+It covers three products:
 
-**安装与排障请先读 → [`INSTALL.md`](INSTALL.md)**（平台要求、PATH、升级卸载、离线镜像、Cursor Skills）。  
-**架构与实现细节 → [`ARCHITECTURE.md`](ARCHITECTURE.md)**（分层、鉴权、网络、业务规则、L1–L4、Skills、CI）。  
-**发版冒烟 → [`docs/sensecraft-cli-smoke.md`](docs/sensecraft-cli-smoke.md)** · **全量测试用例 → [`docs/sensecraft-cli-test-cases.md`](docs/sensecraft-cli-test-cases.md)**。
+| Product | What it manages | Commands |
+|---------|-----------------|----------|
+| [SenseCraft Data](https://sensecap.seeed.cc) | Devices, groups, and sensor data | `device` · `group` · `data` |
+| [SenseCraft AI](https://sensecraft.seeed.cc) | Model library and reCamera | `model` · `recamera` · `cloud` |
+| [CodeCraft Hub](https://codecraft.seeed.cc/hub) | Applications | `app` |
 
-## 环境要求
+All three platforms are accessed with an open Access Key. Create and manage keys in the [SenseCraft account center](https://account.seeed.cc/account/access-keys), then save one on this machine with `auth add`. Run `auth init` to authorize the CLI with the OAuth2 Device Flow.
 
-- Node.js >= 16（用于 npm 安装与分发）
-- 构建源码：Go（见 `go.mod`）
-- 可访问对应站点（SenseCAP OpenAPI / SenseCraft `{ai-host}/openapi`）
+It also runs from scripts and CI. Agent Skills live in `skills/`.
 
-## 安装
+**Install and troubleshooting → [`INSTALL.md`](INSTALL.md)** (platforms, PATH, upgrade, uninstall, offline mirror, Cursor Skills).
+
+## Requirements
+
+- Node.js >= 16 (npm install and distribution)
+- Go to build from source (see `go.mod`)
+
+## Install
 
 ```bash
 npx @seeed-studio/sensecraft-cli install
@@ -27,179 +31,195 @@ sensecraft-cli --version
 sensecraft-cli update
 ```
 
-完整步骤、Windows PATH、离线安装与 Skills 接入见 [`INSTALL.md`](INSTALL.md)。
+Full steps, Windows PATH, offline install, and Skills setup: [`INSTALL.md`](INSTALL.md).
 
 ```bash
 sensecraft-cli --help
-# 或
+# or
 npx @seeed-studio/sensecraft-cli device list
 ```
 
-## 快速开始
+## Quick start
 
-### 1. 初始化认证
+### 1. Sign in
 
 ```bash
-# SenseCAP OpenAPI Access Key（设备/数据，以及 AI 应用/模型/云部署）
-sensecraft-cli auth init --kind sensecap
-# 交互选择站点：Global / China
+# Authorize the CLI with the OAuth2 Device Flow. Choose a site: Global / China
+sensecraft-cli auth init
+
+# Key already created on the account page: write it to this machine
+sensecraft-cli auth add --key-id <Key ID> --access-key <Access Key>
 ```
 
-Access Key 用于 SenseCAP `/openapi` 与 SenseCraft `{ai-host}/openapi`（HTTP Basic）。
+Create and manage Access Keys: <https://account.seeed.cc/account/access-keys>.
 
-| `remote_type` | SenseCraft AI `/openapi` | 用途 |
-|---------------|--------------------------|------|
-| `Global` | `api-gateway.seeed.cc/openapi` | 国际生产 |
-| `China` | `api-gateway.seeed.cc/openapi`（与 Global 同 AI host；账号走 CN） | 国内生产 |
+The China site supports SenseCraft Data only. To use the CLI with SenseCraft AI and CodeCraft Hub, select the international site (Global).
 
-网页控制台仍是 `https://sensecraft.seeed.cc`。命令成功后，stderr 上可能各出现一条英文提示，同一条 24 小时内只出现一次：`Warning:` 提示新版本并建议运行 `sensecraft-cli update`；`Notice:` 写出活动名称、日期和详情链接。交互终端里会再问 `Ignore this activity? [y/N]`，回答 `y` 之后这条活动不再提醒。`SENSECRAFT_CLI_NO_UPDATE_NOTIFIER` 和 `SENSECRAFT_CLI_NO_ACTIVITY_NOTIFIER` 分别关掉这两条。
-
-### 2. 查看配置
+### 2. Show the current config
 
 ```bash
 sensecraft-cli auth info
 ```
 
-### 3. 示例
+### 3. Examples
 
 ```bash
-# SenseCAP
+# SenseCraft Data
 sensecraft-cli device list
 sensecraft-cli data latest --eui <EUI>
 
-# SenseCraft AI
-sensecraft-cli app list --public --name "vision"
-sensecraft-cli app list --public --uniform-type 40
-sensecraft-cli model list --public --task 1
+# SenseCraft AI. Look up task ids with model constants
+sensecraft-cli model constants
 sensecraft-cli model list --public --uniform-type 40
 sensecraft-cli recamera check --model-id <id>
 sensecraft-cli recamera open --model-id <id> --print-only
 sensecraft-cli cloud device list --uniform-type 26
+
+# CodeCraft Hub
+sensecraft-cli app list --public --name "vision"
+sensecraft-cli app list --public --uniform-type 40
 ```
 
-L2 写操作（publish / delete / deploy 等）须**另开一轮**向用户确认后再加 `--yes`。用户第一句（如「删这个63760」）不是确认。协议见 [`skills/confirmation.md`](skills/confirmation.md)。
+`--uniform-type`: `40` is reCamera, `32` is XIAO ESP32S3, `53` is reCamera Pro. `26` on `cloud device list` is the device type the Jetson cloud UI commonly uses.
 
-## 配置
+Delete, unbind, publish, and deploy commands require `--yes`. The agent confirmation steps are in [skills/sensecraft-cli/references/confirmation.md](skills/sensecraft-cli/references/confirmation.md).
 
-| 项 | 说明 |
-|----|------|
-| npm 安装默认 | macOS/Linux：`~/.config/sensecraft-cli/sensecraft.json`；Windows：`%APPDATA%\sensecraft-cli\sensecraft.json`（wrapper 注入 `SENSECRAFT_CLI_PATH`） |
-| 源码直接运行默认 | 当前工作目录下的 `sensecraft.json` |
-| `SENSECRAFT_CLI_PATH` | 配置目录（文件名为 `sensecraft.json`） |
-| `SENSECRAFT_CONFIG_FILE` | 配置文件完整路径（优先于上面两项） |
-| `SENSECRAFT_DATA_HOST` | SenseCAP OpenAPI 站点根。空则按 Global / China 走生产 |
-| `SENSECRAFT_AI_HOST` | SenseCraft AI 站点根。空则为 `https://api-gateway.seeed.cc`。控制台页面不跟着改 |
-| `SENSECRAFT_AUTH_HOST` | `auth init` 的账号中心站点根。空则 Global 为 `account.seeed.cc`、China 为 `account.seeed.cn`。末尾 `/authapi` 会去掉 |
+## Config
 
-## 输出格式
+| Item | Meaning |
+|------|---------|
+| npm install default | macOS/Linux: `~/.config/sensecraft-cli/sensecraft.json`; Windows: `%APPDATA%\sensecraft-cli\sensecraft.json` (the wrapper sets `SENSECRAFT_CLI_PATH`) |
+| `go build` binary default | `sensecraft.json` in the current working directory |
+| `SENSECRAFT_CLI_PATH` | Config directory (the file name is `sensecraft.json`) |
+| `SENSECRAFT_CONFIG_FILE` | Full path to the config file (wins over the two rows above) |
 
-- 业务命令成功：stdout JSON（缩进 2 空格）
-- `auth info` / `auth init`：人类可读文本（非 JSON）
-- 失败：stderr + 非 0 退出码
-- 版本：`sensecraft-cli --version`（与 npm 包版本一致）
+## Output
+
+- Successful business commands: JSON on stdout, indented by 2 spaces
+- `auth info` / `auth init`: human-readable text (not JSON)
+- Failure: stderr and a non-zero exit code
+- Version: `sensecraft-cli --version` (same as the npm package version)
+
+## Scripts and CI
+
+A non-interactive environment does not open a browser. Write the key with `auth add`, and point `SENSECRAFT_CONFIG_FILE` at a config file in the project so it does not land in `~/.config/sensecraft-cli/`.
+
+```bash
+export SENSECRAFT_CONFIG_FILE="$PWD/.sensecraft/sensecraft.json"
+sensecraft-cli auth add \
+  --key-id "$SENSECRAFT_KEY_ID" \
+  --access-key "$SENSECRAFT_ACCESS_KEY" \
+  --site Global
+sensecraft-cli device list
+```
+
+This file contains the Access Key. Do not commit it. `--site` defaults to `Global`. On success, parse the JSON on stdout. On failure, check the exit code; the error is on stderr. `auth info` prints text.
 
 ## AI Agent Skills
 
-| Skill | 路径 |
-|-------|------|
-| Meta 路由 | `skills/sensecraft-ai/SKILL.md` |
-| SenseCAP PaaS | `skills/sensecraft-data/` |
-| 应用广场 | `skills/sensecraft-apps/` |
-| 模型库 | `skills/sensecraft-models/` |
-| 经典 reCamera 40 | `skills/sensecraft-recamera/` |
-| 云设备 | `skills/sensecraft-devices-cloud/` |
+The entry is [`skills/sensecraft-cli/SKILL.md`](skills/sensecraft-cli/SKILL.md). Device, model, and app procedures are in `skills/sensecraft-cli/references/`. Turning a local project into an app uses the nested skill `skills/sensecraft-cli/create-app/`.
 
-发现说明：[`skills/README.md`](skills/README.md)。
+After install, symlink that directory into the agent skills folder. Do not copy it. A CLI upgrade updates the skill behind the link. Steps: [`INSTALL.md` §9](INSTALL.md#9-agent-skills-cursor-and-others).
 
-## 与 Console 的关系
+## Build from source
 
-CLI 调用 SenseCraft AI 的 **`{ai-host}/openapi`**（Access Key HTTP Basic，无 appid）。  
-**不做**：Cookie 登录、本地 Web Serial 伪远程烧录、Admin 审核。
-
-## 从源码构建
-
-完整说明见 [`INSTALL.md` §8](INSTALL.md#8-从源码构建)。摘要：
+Full steps: [`INSTALL.md` §8](INSTALL.md#8-build-from-source). Summary:
 
 ```bash
-# 本机调试
+# Local debug build
 go build -o sensecraft-cli .
 ./sensecraft-cli --version
 
-# 多平台发布二进制 → dist/（注入 -ldflags 版本信息）
+# Release binaries for every platform → dist/ (version injected with -ldflags)
 ./script/build.sh
-
-# AI / SenseCAP 命令 sandbox 冒烟（无需真实 Token）
-./script/smoke-ai.sh
-./script/smoke-sensecap.sh
-
-# 隔离安装冒烟（临时 HOME，不碰真实 ~/.config / 全局 npm）
-# 需要先 ./script/build.sh
-cd packages/cli && npm run test:install
 ```
 
-发版勾选与联调抽查见 [`docs/sensecraft-cli-smoke.md`](docs/sensecraft-cli-smoke.md)；功能细节用例见 [`docs/sensecraft-cli-test-cases.md`](docs/sensecraft-cli-test-cases.md)。
+Checks for people contributing to this repo: `./script/smoke-ai.sh` and `./script/smoke-sensecap.sh`. The isolated install check needs `./script/build.sh` first, then `npm run test:install` inside `packages/cli`. Projects that only use the CLI do not need these scripts.
 
-发布：在 GitHub 上为 `sensecraft-cli` 打与 `packages/cli/package.json` 一致的 tag（如 `v0.1.4`），交叉编译后上传 Release 资产，再发布 npm。npm 发布需要 `NPM_TOKEN`。
-
-## 许可证
+## License
 
 [MIT](LICENSE)
 
 ---
 
-## 命令参考（SenseCAP）
+## Command docs
 
-以下为 SenseCAP OpenAPI 命令摘要；完整细节见 `skills/sensecraft-data/commands.md`。
-SenseCraft AI 命令详见各 `skills/*/commands.md`。
+This page spells out SenseCraft Data. Flags, limits, and examples for the other commands:
 
-### auth — 认证与配置
+| Area | Doc |
+|------|-----|
+| SenseCraft Data | [data-commands.md](skills/sensecraft-cli/references/data-commands.md) |
+| Model library | [model-commands.md](skills/sensecraft-cli/references/model-commands.md) |
+| reCamera | [recamera-commands.md](skills/sensecraft-cli/references/recamera-commands.md) |
+| Cloud deploy and orders | [cloud-commands.md](skills/sensecraft-cli/references/cloud-commands.md) |
+| CodeCraft Hub apps | [app-commands.md](skills/sensecraft-cli/references/app-commands.md) |
+| File upload | [file-commands.md](skills/sensecraft-cli/references/file-commands.md) |
+
+## Command reference (SenseCraft Data)
+
+### auth — credentials and config
 
 #### `auth init`
 
-| 参数 | 说明 |
-|------|------|
-| `--kind sensecap` | 鉴权种类，可省略 |
-| `--sandbox` | 沙盒：不发真实网络请求 |
+Authorize the CLI with the OAuth2 Device Flow. Choose a site interactively: Global / China.
+
+| Flag | Meaning |
+|------|---------|
+| `--sandbox` | Sandbox: do not send real network requests |
+
+#### `auth add`
+
+Write an existing Access Key to this machine and make it the active key. A non-interactive environment must pass `--key-id` and `--access-key`.
+
+| Flag | Required | Default | Meaning |
+|------|----------|---------|---------|
+| `--key-id` | Can be omitted in an interactive terminal | — | Key ID |
+| `--access-key` | Can be omitted in an interactive terminal | — | Access Key |
+| `--site` | No | `Global` | `Global` or `China` |
+
+```bash
+sensecraft-cli auth add --key-id <Key ID> --access-key <Access Key> --site Global
+```
 
 #### `auth info`
 
-`info` 展示当前 Access Key 的站点、组织 ID 和 Key ID，不打印密钥。
+`info` prints the site, organization ID, and Key ID of the current Access Key. It does not print the secret.
 
 ---
 
-### device — 设备管理（SenseCAP）
+### device — device management (SenseCraft Data)
 
 #### `device list`
 
-获取当前账号下的设备列表。
+List devices on the current account.
 
-| 参数 | 必填 | 默认值 | 说明 |
-|------|------|--------|------|
-| `--device-type` | 否 | `2` | 设备类型：`1`=网关，`2`=节点，`3`=开发套件 |
-| `--group-uuid` | 否 | — | 按分组 UUID 筛选；不传则返回所有分组下的设备 |
+| Flag | Required | Default | Meaning |
+|------|----------|---------|---------|
+| `--device-type` | No | `2` | Device type: `1` gateway, `2` node, `3` dev kit |
+| `--group-uuid` | No | — | Filter by group UUID. Omit it to return devices in every group |
 
 ```bash
-# 列出所有节点（默认）
+# List nodes (default)
 sensecraft-cli device list
 
-# 列出网关
+# List gateways
 sensecraft-cli device list --device-type 1
 
-# 列出开发套件
+# List dev kits
 sensecraft-cli device list --device-type 3
 
-# 列出指定分组下的设备
+# List devices in one group
 sensecraft-cli device list --group-uuid <group-uuid>
 ```
 
 #### `device view`
 
-获取设备详情（最多 50 个 EUI）。
+Device details. Up to 50 EUIs.
 
-| 参数 | 必填 | 默认值 | 说明 |
-|------|------|--------|------|
-| `--eui` | 是 | — | 设备 EUI，可多次指定 |
-| `--device-type` | 否 | `2` | 设备类型：`1`=网关，`2`=节点，`3`=开发套件 |
+| Flag | Required | Default | Meaning |
+|------|----------|---------|---------|
+| `--eui` | Yes | — | Device EUI. Repeat the flag for more than one |
+| `--device-type` | No | `2` | Device type: `1` gateway, `2` node, `3` dev kit |
 
 ```bash
 sensecraft-cli device view --eui 0123456789ABCDEF
@@ -207,11 +227,11 @@ sensecraft-cli device view --eui 0123456789ABCDEF
 
 #### `device channels`
 
-查询节点通道列表（最多 50 个 EUI）。
+List channels on a node. Up to 50 EUIs.
 
-| 参数 | 必填 | 说明 |
-|------|------|------|
-| `--eui` | 是 | 设备 EUI，可多次指定 |
+| Flag | Required | Meaning |
+|------|----------|---------|
+| `--eui` | Yes | Device EUI. Repeat the flag for more than one |
 
 ```bash
 sensecraft-cli device channels --eui 0123456789ABCDEF
@@ -219,11 +239,11 @@ sensecraft-cli device channels --eui 0123456789ABCDEF
 
 #### `device status`
 
-获取设备运行状态（最多 50 个 EUI）。
+Runtime status. Up to 50 EUIs.
 
-| 参数 | 必填 | 说明 |
-|------|------|------|
-| `--eui` | 是 | 设备 EUI，可多次指定 |
+| Flag | Required | Meaning |
+|------|----------|---------|
+| `--eui` | Yes | Device EUI. Repeat the flag for more than one |
 
 ```bash
 sensecraft-cli device status --eui 0123456789ABCDEF
@@ -231,29 +251,29 @@ sensecraft-cli device status --eui 0123456789ABCDEF
 
 #### `device bind`
 
-将设备绑定到当前账号。
+Bind a device to the current account.
 
-| 参数 | 必填 | 说明 |
-|------|------|------|
-| `--eui` | 是 | 设备 EUI |
-| `--code` | 是 | 设备绑定码 |
-| `--name` | 否 | 设备名称 |
-| `--group-uuid` | 否 | 目标分组 UUID |
-| `--longitude` | 否 | 经度 |
-| `--latitude` | 否 | 纬度 |
+| Flag | Required | Meaning |
+|------|----------|---------|
+| `--eui` | Yes | Device EUI |
+| `--code` | Yes | Device bind code |
+| `--name` | No | Device name |
+| `--group-uuid` | No | Target group UUID |
+| `--longitude` | No | Longitude |
+| `--latitude` | No | Latitude |
 
 ```bash
-sensecraft-cli device bind --eui 0123456789ABCDEF --code ABCD1234 --name "我的传感器"
+sensecraft-cli device bind --eui 0123456789ABCDEF --code ABCD1234 --name "My sensor"
 ```
 
 #### `device unbind`
 
-解绑设备（最多 50 个 EUI）。**L2**：须用户确认后传 `--yes`。
+Unbind devices. Up to 50 EUIs. Requires `--yes`.
 
-| 参数 | 必填 | 说明 |
-|------|------|------|
-| `--eui` | 是 | 设备 EUI，可多次指定 |
-| `--yes` | 是（确认后） | L2 确认 |
+| Flag | Required | Meaning |
+|------|----------|---------|
+| `--eui` | Yes | Device EUI. Repeat the flag for more than one |
+| `--yes` | Yes | Confirm |
 
 ```bash
 sensecraft-cli device unbind --eui 0123456789ABCDEF --yes
@@ -261,11 +281,11 @@ sensecraft-cli device unbind --eui 0123456789ABCDEF --yes
 
 #### `device sim`
 
-查看 SIM 卡状态。
+SIM card status.
 
-| 参数 | 必填 | 说明 |
-|------|------|------|
-| `--iccid` | 是 | SIM 卡 ICCID |
+| Flag | Required | Meaning |
+|------|----------|---------|
+| `--iccid` | Yes | SIM ICCID |
 
 ```bash
 sensecraft-cli device sim --iccid 89860000000000000000
@@ -273,36 +293,36 @@ sensecraft-cli device sim --iccid 89860000000000000000
 
 ---
 
-### device devkit — 开发套件
+### device devkit — dev kits
 
 #### `device devkit create`
 
-创建开发套件设备。同一组织下每个 SKU 最多创建 5 个。
+Create a dev-kit device. Each SKU can be created at most 5 times in one organization.
 
-| 参数 | 必填 | 说明 |
-|------|------|------|
-| `--sku` | 是 | 开发套件 SKU |
-| `--name` | 否 | 设备名称 |
+| Flag | Required | Meaning |
+|------|----------|---------|
+| `--sku` | Yes | Dev-kit SKU |
+| `--name` | No | Device name |
 
-支持的 SKU：
+Supported SKUs:
 
-| SKU | 说明 |
-|-----|------|
+| SKU | Meaning |
+|-----|---------|
 | `blank_device` | Blank Device |
 | `xiao` | XIAO |
 | `grove_vision_ai` | Grove Vision AI V2 |
 
 ```bash
-sensecraft-cli device devkit create --sku xiao --name "我的 XIAO 套件"
+sensecraft-cli device devkit create --sku xiao --name "My XIAO kit"
 ```
 
 #### `device devkit key`
 
-查看开发套件设备的 `device_key` 与 `token`（仅支持开发套件设备，EUI 为 16 位字符）。
+Show `device_key` and `token` for a dev-kit device. The EUI is 16 characters. Other device types are not accepted.
 
-| 参数 | 必填 | 说明 |
-|------|------|------|
-| `--eui` | 是 | 开发套件设备 EUI（16 位） |
+| Flag | Required | Meaning |
+|------|----------|---------|
+| `--eui` | Yes | Dev-kit EUI (16 characters) |
 
 ```bash
 sensecraft-cli device devkit key --eui 0123456789ABCDEF
@@ -310,45 +330,45 @@ sensecraft-cli device devkit key --eui 0123456789ABCDEF
 
 ---
 
-### group — 设备分组
+### group — device groups
 
 #### `group list`
 
-列出当前账号下的所有设备分组。
+List every device group on the current account.
 
 #### `group create`
 
-创建设备分组（最多 50 个分组）。
+Create a device group. Up to 50 groups.
 
-| 参数 | 必填 | 说明 |
-|------|------|------|
-| `--name` | 是 | 分组名称 |
+| Flag | Required | Meaning |
+|------|----------|---------|
+| `--name` | Yes | Group name |
 
 ```bash
-sensecraft-cli group create --name "温室传感器"
+sensecraft-cli group create --name "Greenhouse sensors"
 ```
 
 #### `group update`
 
-更新设备分组名称。
+Rename a device group.
 
-| 参数 | 必填 | 说明 |
-|------|------|------|
-| `--group-uuid` | 是 | 分组 UUID |
-| `--name` | 是 | 新分组名称 |
+| Flag | Required | Meaning |
+|------|----------|---------|
+| `--group-uuid` | Yes | Group UUID |
+| `--name` | Yes | New group name |
 
 ```bash
-sensecraft-cli group update --group-uuid <uuid> --name "新名称"
+sensecraft-cli group update --group-uuid <uuid> --name "New name"
 ```
 
 #### `group delete`
 
-删除设备分组（组内设备将移至默认分组）。**L2**：须用户确认后传 `--yes`。
+Delete a device group. Devices in the group move to the default group. Requires `--yes`.
 
-| 参数 | 必填 | 说明 |
-|------|------|------|
-| `--group-uuid` | 是 | 分组 UUID |
-| `--yes` | 是（确认后） | L2 确认 |
+| Flag | Required | Meaning |
+|------|----------|---------|
+| `--group-uuid` | Yes | Group UUID |
+| `--yes` | Yes | Confirm |
 
 ```bash
 sensecraft-cli group delete --group-uuid <uuid> --yes
@@ -356,13 +376,13 @@ sensecraft-cli group delete --group-uuid <uuid> --yes
 
 #### `group move-devices`
 
-将设备移动到指定分组。**L2**：须用户确认后传 `--yes`。
+Move devices into a group. Requires `--yes`.
 
-| 参数 | 必填 | 说明 |
-|------|------|------|
-| `--group-uuid` | 是 | 目标分组 UUID |
-| `--eui` | 是 | 设备 EUI，可多次指定 |
-| `--yes` | 是（确认后） | L2 确认 |
+| Flag | Required | Meaning |
+|------|----------|---------|
+| `--group-uuid` | Yes | Target group UUID |
+| `--eui` | Yes | Device EUI. Repeat the flag for more than one |
+| `--yes` | Yes | Confirm |
 
 ```bash
 sensecraft-cli group move-devices --group-uuid <uuid> --eui 0123456789ABCDEF --yes
@@ -370,17 +390,17 @@ sensecraft-cli group move-devices --group-uuid <uuid> --eui 0123456789ABCDEF --y
 
 ---
 
-### data — 传感数据
+### data — sensor data
 
 #### `data latest`
 
-获取设备最近一年内的最新遥测数据；未指定通道时返回每个通道下最新数据点。
+Latest telemetry from the past year. When no channel is given, returns the latest point on each channel.
 
-| 参数 | 必填 | 说明 |
-|------|------|------|
-| `--eui` | 是 | 设备 EUI |
-| `--measurement-id` | 否 | 测量值 ID |
-| `--channel-index` | 否 | 通道编号 |
+| Flag | Required | Meaning |
+|------|----------|---------|
+| `--eui` | Yes | Device EUI |
+| `--measurement-id` | No | Measurement ID |
+| `--channel-index` | No | Channel index |
 
 ```bash
 sensecraft-cli data latest --eui 0123456789ABCDEF --measurement-id 4097 --channel-index 1
@@ -388,16 +408,16 @@ sensecraft-cli data latest --eui 0123456789ABCDEF --measurement-id 4097 --channe
 
 #### `data list`
 
-获取设备历史遥测数据（单次最长约一个月，且仅可查近三个月内数据）。
+Historical telemetry. One request covers about a month at most, and only the last three months can be queried.
 
-| 参数 | 必填 | 默认值 | 说明 |
-|------|------|--------|------|
-| `--eui` | 是 | — | 设备 EUI |
-| `--measurement-id` | 否 | — | 测量值 ID |
-| `--channel-index` | 否 | — | 通道编号 |
-| `--limit` | 否 | — | 返回记录数 |
-| `--time-start` | 否 | — | 起始时间戳（毫秒） |
-| `--time-end` | 否 | — | 结束时间戳（毫秒） |
+| Flag | Required | Default | Meaning |
+|------|----------|---------|---------|
+| `--eui` | Yes | — | Device EUI |
+| `--measurement-id` | No | — | Measurement ID |
+| `--channel-index` | No | — | Channel index |
+| `--limit` | No | — | Number of records |
+| `--time-start` | No | — | Start timestamp (milliseconds) |
+| `--time-end` | No | — | End timestamp (milliseconds) |
 
 ```bash
 sensecraft-cli data list --eui 0123456789ABCDEF --limit 100 --time-start 1700000000000 --time-end 1700086400000
@@ -405,16 +425,16 @@ sensecraft-cli data list --eui 0123456789ABCDEF --limit 100 --time-start 1700000
 
 #### `data chart`
 
-获取设备遥测折线聚合点（最长一年；每个测量最多约 250 个点）。
+Aggregated chart points. Up to one year, and about 250 points per measurement.
 
-| 参数 | 必填 | 默认值 | 说明 |
-|------|------|--------|------|
-| `--eui` | 是 | — | 设备 EUI |
-| `--measurement-id` | 否 | — | 测量值 ID |
-| `--channel-index` | 否 | — | 通道编号 |
-| `--interval` | 否 | `60` | 时间段长度（分钟） |
-| `--time-start` | 否 | — | 起始时间戳（毫秒） |
-| `--time-end` | 否 | — | 结束时间戳（毫秒） |
+| Flag | Required | Default | Meaning |
+|------|----------|---------|---------|
+| `--eui` | Yes | — | Device EUI |
+| `--measurement-id` | No | — | Measurement ID |
+| `--channel-index` | No | — | Channel index |
+| `--interval` | No | `60` | Bucket length (minutes) |
+| `--time-start` | No | — | Start timestamp (milliseconds) |
+| `--time-end` | No | — | End timestamp (milliseconds) |
 
 ```bash
 sensecraft-cli data chart --eui 0123456789ABCDEF --interval 60 --time-start 1700000000000 --time-end 1702592000000
@@ -422,22 +442,22 @@ sensecraft-cli data chart --eui 0123456789ABCDEF --interval 60 --time-start 1700
 
 ---
 
-## 典型工作流
+## Typical workflow
 
 ```bash
-# 安装并初始化
+# Install and sign in
 npx @seeed-studio/sensecraft-cli install
 
-# 查看分组
+# List groups
 sensecraft-cli group list
 
-# 列出节点设备
+# List node devices
 sensecraft-cli device list
 
-# 查看设备详情与通道
+# Device details and channels
 sensecraft-cli device view --eui 0123456789ABCDEF
 sensecraft-cli device channels --eui 0123456789ABCDEF
 
-# 查询最新数据
+# Latest data
 sensecraft-cli data latest --eui 0123456789ABCDEF
 ```

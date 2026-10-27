@@ -39,7 +39,7 @@ func AppFieldsSchema() json.RawMessage {
 				{"field": "price", "supported": false, "notes": "no price input; preview counts custom rows as 0"},
 			},
 		},
-		"reference": "skills/sensecraft-apps/reference-app-fields.md",
+		"reference": "skills/sensecraft-cli/references/app-fields.md",
 	})
 	return raw
 }
@@ -112,7 +112,7 @@ func AppBlocksCatalog() json.RawMessage {
 				"config_keys": []string{"project_id", "device_id", "config"},
 			},
 		},
-		"reference": "skills/sensecraft-apps/reference-tool-blocks.md",
+		"reference": "skills/sensecraft-cli/references/tool-blocks.md",
 	})
 	return raw
 }

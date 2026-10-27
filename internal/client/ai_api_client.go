@@ -80,7 +80,7 @@ func (c *AIApiClient) ensureAccessKey() error {
 	if c.accessKeyOK {
 		return nil
 	}
-	return fmt.Errorf("this command uses Access Key HTTP Basic → {ai-host}/openapi; run: sensecraft-cli auth init --kind sensecap")
+	return fmt.Errorf("this command uses Access Key HTTP Basic → {ai-host}/openapi; run: sensecraft-cli auth init")
 }
 
 func (c *AIApiClient) Base() *BaseClient {

@@ -56,7 +56,7 @@ func BuildAccessProfile(remoteType, orgID, keyID, accessKey string) AccessApiCon
 // FormatCliConfigInfo 格式化配置文件核心信息，便于 auth info 展示。
 func FormatCliConfigInfo(cli *CliConfig, configPath string) string {
 	if cli == nil || len(cli.AppConfigList) == 0 {
-		return fmt.Sprintf("Config file: %s\n\nNo profiles configured yet.\n  Run: sensecraft-cli auth init --kind sensecap\n", configPath)
+		return fmt.Sprintf("Config file: %s\n\nNo profiles configured yet.\n  Run: sensecraft-cli auth init\n", configPath)
 	}
 
 	var b strings.Builder

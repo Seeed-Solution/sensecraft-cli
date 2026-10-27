@@ -104,7 +104,7 @@ function main() {
   }
 
   // Skills must be present in the package (synced by prepack / sync script).
-  const skillsIndex = path.join(packageRoot, 'skills', 'sensecraft-ai', 'SKILL.md');
+  const skillsIndex = path.join(packageRoot, 'skills', 'sensecraft-cli', 'SKILL.md');
   if (!fs.existsSync(skillsIndex)) {
     console.warn(
       `WARN: ${skillsIndex} missing — run ./script/sync-skills-to-npm.sh before publish`

@@ -15,7 +15,7 @@ sensecraft-cli app update --id <app_id> --from-md ./README.md --yes
 
 `--from-json` 不会把 Markdown 重新编译。正文里还留着 `**粗体**`、`` `代码` ``、行首 `#`、行首列表符时会拒绝。`code` 块是源码原文，不在此列。JSON 里已经是 HTML 的文本块会补齐编辑器缺的属性：整段只有一个远程视频地址或裸 `<video>` 时收成播放器；文件链接补上下载标记；普通链接补上 `target` 和样式；图片补上 `draggable="false"` 和默认宽度。句子中间的视频地址保持原样。已经带齐这些属性的标签不再改写。
 
-块类型和工具块字段以编辑器为准。工具块每个字段怎么填，见 `skills/sensecraft-apps/reference-tool-blocks.md`。资料字段和物料见 `skills/sensecraft-apps/reference-app-fields.md`。
+块类型和工具块字段以编辑器为准。工具块每个字段怎么填，见 `skills/sensecraft-cli/references/tool-blocks.md`。资料字段和物料见 `skills/sensecraft-cli/references/app-fields.md`。
 
 ---
 
@@ -210,7 +210,7 @@ YouTube、TikTok、抖音、Bilibili、Vimeo、优酷、爱奇艺收成 `<div cl
 
 | 正文在说 | `type` | 配置放哪 |
 | --- | --- | --- |
-| 把固件烧进板子 | `flash-firmware` | **摊平在块上**，不要包一层 `config`。SKU、地址见 reference-tool-blocks |
+| 把固件烧进板子 | `flash-firmware` | **摊平在块上**，不要包一层 `config`。SKU、地址见 `skills/sensecraft-cli/references/tool-blocks.md` |
 | 部署视觉 / 声音模型 | `deploy-ai-model` | 放在 `config` 里 |
 | 异常振动 | `ai-vibration` | 放在 `config` 里 |
 | 边缘容器应用 | `deploy-container-app` | 放在 `config` 里 |
@@ -355,7 +355,7 @@ sensecraft-cli file upload --path ./firmware.bin --type 4 --checksum
 
 纯文本、没有标签的 `content` 可以不包 HTML。一旦有强调、链接、图片，就按第 5 节写成标签，不要混用 `**`。
 
-`flash-firmware` 的 `device_type` / `flash_address` 以 `reference-tool-blocks.md` 里该 SKU 的那一行为准。上面的 `32` 和 `0x0` 只说明字段位置。`full_flash` 默认 `false`；只有 `muse_gadget` 为 `true` 时写成 `true`。非 Muse 设备不要写这两个字段为 `true`。
+`flash-firmware` 的 `device_type` / `flash_address` 以 `skills/sensecraft-cli/references/tool-blocks.md` 里该 SKU 的那一行为准。上面的 `32` 和 `0x0` 只说明字段位置。`full_flash` 默认 `false`；只有 `muse_gadget` 为 `true` 时写成 `true`。非 Muse 设备不要写这两个字段为 `true`。
 
 ---
 

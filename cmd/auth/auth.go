@@ -23,13 +23,13 @@ func NewAuthCmd() *cobra.Command {
 
 func newInitCmd() *cobra.Command {
 	var sandbox bool
-	var kind string
 	cmd := &cobra.Command{
 		Use:   "init",
 		Short: "Interactive CLI setup (OAuth Device Flow)",
 		Long: `Guides you through browser authorization via OAuth Device Flow and saves an Access Key.
 
-The key is used for SenseCAP device/group/data and for SenseCraft AI app/model/file/cloud.
+The key is used for SenseCraft Data, SenseCraft AI, and CodeCraft Hub.
+The China site supports SenseCraft Data only. Use Global for SenseCraft AI and CodeCraft Hub.
 
 Use --sandbox to try the full interactive flow without network access.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -38,10 +38,9 @@ Use --sandbox to try the full interactive flow without network access.`,
 			ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 			defer cancel()
 
-			return task.RunInitFlow(ctx, console, sandbox, kind)
+			return task.RunInitFlow(ctx, console, sandbox)
 		},
 	}
 	cmd.Flags().BoolVar(&sandbox, "sandbox", false, "Sandbox mode: simulate Device Flow without sending real requests")
-	cmd.Flags().StringVar(&kind, "kind", "sensecap", "Auth kind: sensecap")
 	return cmd
 }

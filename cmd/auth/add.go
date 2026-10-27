@@ -24,6 +24,7 @@ func newAddCmd() *cobra.Command {
 (view_organization), save it to the local config, and set it as the active profile.
 
 Site defaults to Global (International) when omitted.
+The China site supports SenseCraft Data only. Use Global for SenseCraft AI and CodeCraft Hub.
 In an interactive terminal, missing Key ID / Access Key will be prompted.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			console := ui.DefaultConsole()

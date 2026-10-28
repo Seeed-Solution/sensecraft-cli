@@ -77,17 +77,19 @@ func AppEditConsoleURL(remoteType, appID string) string {
 	return appSiteOrigin(remoteType) + "/application/edit?" + q.Encode()
 }
 
-// AppDetailConsoleURL is the owner detail route. from=user-center loads the sketch
-// and the detail back button returns to the creator center.
-// from=my-apps is the older plaza "my apps" list; do not use it for new links.
+// AppDetailConsoleURL is the owner detail route. from=user-center loads the sketch.
+// section=works and state=all match the creator center, so the page back button
+// returns to 我的应用 / 全部. Do not add tab=custom or from=my-apps; those were
+// the old plaza "my apps" list.
 func AppDetailConsoleURL(remoteType, appID, appName string) string {
 	id := strings.TrimSpace(appID)
 	if id == "" {
 		return ""
 	}
 	q := url.Values{}
-	q.Set("tab", "custom")
 	q.Set("from", "user-center")
+	q.Set("section", "works")
+	q.Set("state", "all")
 	return appSiteOrigin(remoteType) + appViewPath(id, appName) + "?" + q.Encode()
 }
 

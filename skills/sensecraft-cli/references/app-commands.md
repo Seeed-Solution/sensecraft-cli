@@ -115,9 +115,9 @@ Rejects `be_public=1` / `privacy=1`. Do **not** confuse with `app update` (exist
 **Success output:** CLI always prints `app_id`, `console_url`, and `detail_url` on CodeCraft Hub (`https://codecraft.seeed.cc/hub`, or `https://test-codecraft.seeed.cc/hub` when the AI host contains `test-`, including `remote_type=Develop`):
 
 - edit: `/application/edit?id=<app_id>`
-- my app detail: `/view-application/<app_id>-<slug>?from=user-center&tab=custom`
+- my app detail: `/view-application/<app_id>-<slug>?from=user-center&section=works&state=all`
 
-`from=user-center` loads the sketch (cover/`images`) and the page back button returns to the creator center. A public link uses `tab=public&from=application-store` and must not include `from=user-center` or `from=my-apps`. If a list item has a non-empty `web_link`, give the user that URL instead of `view-application`. Model and legal pages stay on `sensecraft.seeed.cc`.
+`from=user-center` loads the sketch (cover/`images`). `section=works` and `state=all` send the back button to the creator center works list. A public link uses `tab=public&from=application-store` and must not include `from=user-center`, `section`, `state`, or `from=my-apps`. If a list item has a non-empty `web_link`, give the user that URL instead of `view-application`. Model and legal pages stay on `sensecraft.seeed.cc`.
 
 **Do not retry create blindly:**
 

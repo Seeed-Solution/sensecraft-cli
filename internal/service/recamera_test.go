@@ -130,7 +130,7 @@ func TestRecameraConsoleURLs(t *testing.T) {
 		t.Fatalf("model url=%s", model)
 	}
 	mine := RecameraAppDeployURL("Global", "app-1", "Demo", true)
-	if mine != "https://codecraft.seeed.cc/hub/view-application/app-1-demo?from=user-center&tab=custom" {
+	if mine != "https://codecraft.seeed.cc/hub/view-application/app-1-demo?from=user-center&section=works&state=all" {
 		t.Fatalf("mine url=%s", mine)
 	}
 	plaza := RecameraAppDeployURL("China", "app-1", "Demo", false)

@@ -2,6 +2,12 @@
 
 Help the Agent choose the right block and fill `config` safely. Execution on hardware is **L3** unless noted.
 
+## Plan before writing blocks
+
+Read this entire reference before drafting a deployment plan or tool config. Inspect `sensecraft-cli app blocks` as the static catalog, then map the real project journey to supported actions. For each action identify prerequisites, the suitable tool, actual artifact/config sources, and the observable result. Select only tools the project needs, and place each immediately after its instructions in the flat array.
+
+Check the exact hardware variant, artifact target/architecture, deployment inputs, and device rules below. A local file awaiting upload is a planned upload; a missing artifact or unknown target is an unresolved deployment gap. Preserve a needed tool in the local draft while resolving its inputs. Do not substitute a prose-only instruction that makes an unsupported action appear executable. Report such gaps and agree on a supported path or an explicitly incomplete draft. A format-valid block is not evidence that deployment will work.
+
 ## Content format
 
 The editor does **not** render Markdown on read. Preview wraps each block by `type` and treats `content` as HTML or plain text. Raw `**bold**`, `# heading`, or `- item` inside `content` shows up as those characters.
@@ -56,7 +62,7 @@ Write these as **flat fields** on the block. The editor wraps them into `config`
 
 | Field | How to write |
 |-------|----------------|
-| `device_id` | Material SKU string, e.g. `"100017057"`. Not a production type id (`"29"`) and not the material row `id` |
+| `device_id` | Material SKU string, e.g. `"100017057"`, matching the BOM row's SKU in `id`. Not a production type (`"29"`) or an internal catalog product id |
 | `device_type` | `uniform_type` string. Use `""` when the board has none (Wio / Grove may) |
 | `flash_mode` | `"bin"` when a firmware URL is set. `"zip"` for a project zip |
 | `firmware_url` / `firmware_name` / `firmware_size` | Bin mode. `firmware_size` is a string, not a number. Empty `firmware_name` is filled from the URL by the editor |

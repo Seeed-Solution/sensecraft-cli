@@ -14,7 +14,7 @@ Commands: [recamera-commands.md](recamera-commands.md).
    ```bash
    sensecraft-cli auth info
    ```
-   Need **SenseCAP Access Key** (`auth init`) for `app` / `model` / `recamera`. Never run init for them.
+   Need **SenseCAP Access Key** (`auth init`) for `app` / `model` / `recamera`. If missing, the agent runs `auth init` in a PTY/TTY session and handles prompts per the [parent auth workflow](../SKILL.md#auth); the user completes browser authorization. Recheck auth, then continue without asking the user to run CLI commands.
 2. **Classic reCamera only (`40`)**. Do **not** treat Pro `53`, XIAO `32`, or Grove `36` as the same device. `/ai/recamera` redirects to Grove `36` — do not send users there.
 3. Filter **only** with API `--uniform-type 40`. Do not guess from local materials, SKU strings, or adapteds-only. Public **and** mine:
    ```bash

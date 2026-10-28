@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Validate a sensecraft-app manifest (create-app skill).
+"""Validate a CodeCraft Hub app manifest (create-app skill).
 
 Mechanical checks only — structure, field limits, image constraints, BOM and
 block shape. This validates FORMAT, never content truth: image content,
-licensing, and factual accuracy remain the agent's job (see SKILL.md,
-Workflow A).
+licensing, and factual accuracy remain the agent's job (see SKILL.md and
+references/content-review.md). A pass with pending inputs is not deployability.
 
 Usage: python3 validate_manifest.py [manifest-path] [--scene-ids 1,5,...]
        (both "--scene-ids 1,5" and "--scene-ids=1,5" work; a bare or
@@ -17,30 +17,72 @@ import json
 import os
 import re
 import sys
+from datetime import datetime
+from urllib.parse import urlsplit
 
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
 IMAGE_MAX_BYTES = 5 * 1024 * 1024
 IMAGES_MAX = 16
 NAME_MAX = 60      # UTF-16 code units, Console-aligned
 EXCERPT_MAX = 300  # UTF-16 code units
-SCENE_RE = re.compile(r"^\d+$")
+SCENE_RE = re.compile(r"^[0-9]+$")
+TEXT_BLOCK_TYPES = {"step", "paragraph", "h1", "h2", "h3", "h4", "h5", "h6",
+                    "bullet", "number", "todo", "quote", "code", "divider"}
+CONFIG_TOOL_TYPES = {"deploy-ai-model", "ai-vibration", "deploy-container-app",
+                     "node-red", "aily-blockly"}
+FLASH_ADDRESSES = {"0x0", "0x4000", "0x10000", "0x90000"}
+SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
+QUANTITY_RE = re.compile(r"^[1-9][0-9]*$")
 # Shapes that must never appear in fields that get published. Matches
 # credential VALUES (known prefixes, key=value assignments), never the mere
 # words "token"/"password" — instructions about creating a token are legit.
 SECRET_VALUE_RE = re.compile(
     r"(mgst_[A-Za-z0-9_-]{6,}|sk-[A-Za-z0-9_-]{8,}|bearer\s+[A-Za-z0-9._-]{8,}"
-    r"|(?i:access[_-]?key|password|passwd|secret|api[_-]?key)\s*[:=]\s*\S{6,})"
+    r"|(?:access[_-]?key|password|passwd|secret|api[_-]?key)\s*[:=]\s*\S{6,})",
+    re.IGNORECASE,
 )
 LONG_HEX_RE = re.compile(r"\b[0-9a-f]{40,}\b")
+SECRET_FIELDS = {"access_key", "api_key", "password", "passwd", "secret",
+                 "device_key", "sdk_token", "access_token", "refresh_token"}
+INPUT_PLACEHOLDER_RE = re.compile(r"^(?:<[^>]+>|\$\{[^}]+\}|YOUR_[A-Z0-9_]+)$")
+# Keep these aligned with rawMarkdownPatterns in internal/service/app_doc.go.
+RAW_MARKDOWN_RE = re.compile(
+    r"\*\*[^*\n]+\*\*|__[^_\n]+__|~~[^~\n]+~~|`[^`\n]+`"
+    r"|^#{1,6}[ \t]|^[ \t]*[-*+][ \t]|^[ \t]*[0-9]+\.[ \t]",
+    re.MULTILINE,
+)
 
 
 def utf16_len(s):
     return len(s.encode("utf-16-le")) // 2
 
 
+def http_url(value):
+    if not isinstance(value, str) or any(character.isspace() for character in value):
+        return False
+    try:
+        parsed = urlsplit(value)
+        return parsed.scheme in ("http", "https") and bool(parsed.hostname)
+    except ValueError:
+        return False
+
+
+def timestamp(value):
+    if not isinstance(value, str) or "T" not in value:
+        return False
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00")).utcoffset() is not None
+    except ValueError:
+        return False
+
+
+def reject_nonfinite(_value):
+    raise ValueError("non-finite numbers are not valid JSON")
+
+
 def main():
     argv = sys.argv[1:]
-    path, scene_ids = "sensecraft-app.json", set()
+    path, scene_ids = "codecraft-app.json", set()
     i = 0
     while i < len(argv):
         a = argv[i]
@@ -60,6 +102,11 @@ def main():
             path = a
             i += 1
 
+    if any(a == "--scene-ids" or a.startswith("--scene-ids=") for a in argv):
+        if not scene_ids or any(not SCENE_RE.fullmatch(value) for value in scene_ids):
+            print("ERROR: --scene-ids needs a non-empty comma-separated list of numeric ids")
+            return 2
+
     violations, warnings = [], []
 
     def vio(msg):
@@ -70,9 +117,12 @@ def main():
 
     try:
         with open(path, encoding="utf-8") as f:
-            m = json.load(f)
-    except (OSError, json.JSONDecodeError) as e:
+            m = json.load(f, parse_constant=reject_nonfinite)
+    except (OSError, ValueError) as e:
         print(f"VIOLATION cannot read/parse {path}: {e}")
+        return 1
+    if not isinstance(m, dict):
+        print("VIOLATION manifest must be a JSON object")
         return 1
     base = os.path.dirname(os.path.abspath(path))
 
@@ -80,32 +130,58 @@ def main():
         if key not in m:
             vio(f"missing top-level section: {key}")
 
+    if type(m.get("manifest_version")) is not int or m["manifest_version"] != 1:
+        vio("manifest_version must be integer 1")
+    if set(m) - {"manifest_version", "identity", "info", "images", "deployment", "bom", "sync"}:
+        vio("unsupported top-level fields for manifest version 1")
+    for key in ("identity", "info", "deployment", "bom", "sync"):
+        if not isinstance(m.get(key), dict):
+            vio(f"{key} must be an object")
+            m[key] = {}
+    for key in ("be_public", "privacy"):
+        if key in m or key in m["info"]:
+            vio(f"{key} must not appear in the manifest or app info; use the parent lifecycle workflow")
+
     ident = m.get("identity", {})
     rt = ident.get("remote_type")
     if rt is not None and rt not in ("Global", "China", "Private"):
-        vio(f"identity.remote_type must be Global|China|Private, got {rt!r}")
-    if ident.get("app_id") is not None and not str(ident["app_id"]).strip():
-        vio("identity.app_id is set but empty")
+        vio("identity.remote_type must be Global|China|Private or null")
+    app_id = ident.get("app_id")
+    if app_id is not None and (not isinstance(app_id, str) or not app_id.strip()):
+        vio("identity.app_id must be a non-empty string or null")
+    for key in ("org_id", "account"):
+        if ident.get(key) is not None and not isinstance(ident[key], str):
+            vio(f"identity.{key} must be a string or null")
+    if ident.get("created_at") is not None and not timestamp(ident["created_at"]):
+        vio("identity.created_at must be an RFC3339 timestamp with timezone or null")
 
     info = m.get("info", {})
+    if set(info) - {"app_name", "excerpt", "scene", "allow_clone", "allow_commerce", "license", "author", "activity_id"}:
+        vio("info contains unsupported fields; use the documented app info keys")
     name = info.get("app_name", "")
-    if not name.strip():
-        vio("info.app_name is empty")
+    if not isinstance(name, str) or not name.strip():
+        vio("info.app_name must be a non-empty string")
     elif utf16_len(name) > NAME_MAX:
         vio(f"info.app_name is {utf16_len(name)} UTF-16 code units (max {NAME_MAX})")
     excerpt = info.get("excerpt", "")
-    if not excerpt.strip():
-        vio("info.excerpt is empty")
+    if not isinstance(excerpt, str) or not excerpt.strip():
+        vio("info.excerpt must be a non-empty string")
     elif utf16_len(excerpt) > EXCERPT_MAX:
         vio(f"info.excerpt is {utf16_len(excerpt)} UTF-16 code units (max {EXCERPT_MAX})")
-    scene = str(info.get("scene", ""))
-    if not SCENE_RE.match(scene):
-        vio(f"info.scene must be a string id from app_scenarios_array, got {scene!r}")
+    scene = info.get("scene", "")
+    if not isinstance(scene, str) or not SCENE_RE.fullmatch(scene):
+        vio("info.scene must be a numeric string id from app_scenarios_array")
     elif scene_ids and scene not in scene_ids:
-        vio(f"info.scene {scene} not in known ids {{{', '.join(sorted(scene_ids))}}}")
+        vio("info.scene is not in the supplied app_scenarios_array ids")
     for flag in ("allow_clone", "allow_commerce"):
-        if info.get(flag) not in (0, 1):
-            vio(f"info.{flag} must be 0 or 1, got {info.get(flag)!r}")
+        if type(info.get(flag)) is not int or info[flag] not in (0, 1):
+            vio(f"info.{flag} must be integer 0 or 1")
+    for key in ("license", "author"):
+        if not isinstance(info.get(key), str):
+            vio(f"info.{key} must be a string (empty is allowed)")
+    activity_id = info.get("activity_id")
+    if activity_id is not None and (type(activity_id) is not int or not 0 < activity_id <= 2**63 - 1):
+        vio("info.activity_id must be a positive integer within the CLI's int64 range, or null/omitted for no activity")
 
     images = m.get("images", [])
     if not isinstance(images, list):
@@ -117,7 +193,13 @@ def main():
         warn("no images — fine for a private draft (omit the `images` key in the payload; the CLI rejects an empty array); a cover is required before publishing")
     if isinstance(images, list):
         for i, img in enumerate(images):
+            if not isinstance(img, dict):
+                vio(f"images[{i}] must be an object")
+                continue
             p, role = img.get("path", ""), img.get("role", "")
+            if not isinstance(p, str) or not p.strip():
+                vio(f"images[{i}].path must be a non-empty local path string")
+                continue
             if i == 0 and role != "cover":
                 vio("images[0].role must be 'cover'")
             if i > 0 and role != "gallery":
@@ -134,71 +216,156 @@ def main():
                     vio(f"images[{i}] {p!r}: zero-byte file")
                 elif size > IMAGE_MAX_BYTES:
                     vio(f"images[{i}] {p!r}: {size} bytes exceeds 5 MB")
-                if img.get("sha256"):
-                    digest = hashlib.sha256(open(full, "rb").read()).hexdigest()
-                    if digest != img["sha256"]:
+                sha = img.get("sha256")
+                if sha is not None:
+                    if not isinstance(sha, str) or not SHA256_RE.fullmatch(sha):
+                        vio(f"images[{i}].sha256 must be a complete lowercase SHA-256 hex digest or null")
+                    with open(full, "rb") as image_file:
+                        digest = hashlib.sha256(image_file.read()).hexdigest()
+                    if digest != sha:
                         vio(f"images[{i}] {p!r}: sha256 mismatch (file changed since hash)")
                 else:
                     warn(f"images[{i}] {p!r}: sha256 not computed yet")
             url = img.get("file_url")
-            if url is not None and not re.match(r"^https?://", str(url)):
-                vio(f"images[{i}].file_url must be http(s), got {url!r}")
+            if url is not None and not http_url(url):
+                vio(f"images[{i}].file_url must be a valid http(s) URL or null")
             elif url is None:
                 warn(f"images[{i}] {p!r}: not uploaded yet (file_url null)")
 
     blocks = m.get("deployment", {}).get("blocks", [])
     if not isinstance(blocks, list):
         vio("deployment.blocks must be an array")
+        blocks = []
     else:
+        if not blocks:
+            warn("no deployment blocks — author and review the deployment journey before claiming deployability")
         seen = set()
-        for b in blocks:
+        for index, b in enumerate(blocks):
+            label = f"deployment.blocks[{index}]"
+            if not isinstance(b, dict):
+                vio(f"deployment.blocks[{index}]: must be an object")
+                continue
             bid = b.get("id")
-            if bid in seen:
-                vio(f"deployment.blocks: duplicate id {bid!r}")
-            seen.add(bid)
-            if b.get("type") == "step" and not b.get("title"):
-                vio(f"deployment.blocks[{bid}]: step block missing title")
-            if b.get("type") not in ("step", "paragraph", "h1", "h2", "h3", "h4", "h5", "h6",
-                                     "bullet", "number", "todo", "quote", "code", "divider") \
-                    and "config" not in b:
-                vio(f"deployment.blocks[{bid}]: tool block {b.get('type')!r} missing config")
+            if not isinstance(bid, str) or not bid.strip():
+                vio(f"deployment.blocks[{index}]: needs a non-empty string id")
+            elif bid in seen:
+                vio(f"{label}: duplicate block id")
+            else:
+                seen.add(bid)
+            block_type = b.get("type")
+            if not isinstance(block_type, str):
+                vio(f"{label}: type must be a supported block type string")
+                continue
+            if block_type in TEXT_BLOCK_TYPES:
+                if not isinstance(b.get("content"), str):
+                    vio(f"{label}: text/code content must be a string")
+                elif block_type not in ("code", "divider") and RAW_MARKDOWN_RE.search(b["content"]):
+                    vio(f"{label}: content contains raw Markdown; compile it with app doc compile before inserting tool blocks")
+            if block_type == "step" and (not isinstance(b.get("title"), str) or not b["title"].strip()):
+                vio(f"{label}: step block needs a non-empty title string")
             cfg = b.get("config")
+            if block_type == "flash-firmware":
+                if "config" in b:
+                    vio(f"{label}: flash-firmware fields must be flat on the block, not nested in config")
+                cfg = b
+                if not b.get("device_id"):
+                    warn(f"{label}: device_id is pending — resolve the exact device SKU")
+                elif not isinstance(b["device_id"], str):
+                    vio(f"{label}: device_id must be a SKU string")
+                mode = b.get("flash_mode")
+                if mode is None or mode == "":
+                    warn(f"{label}: flash_mode is pending")
+                elif mode not in ("bin", "zip"):
+                    vio(f"{label}: flash_mode must be bin or zip")
+                else:
+                    prefix = "firmware" if mode == "bin" else "project_zip"
+                    if not b.get(prefix + "_url"):
+                        warn(f"{label}: {prefix}_url is pending — deployment input incomplete")
+                for size_key in ("firmware_size", "project_zip_size"):
+                    if size_key in b and not isinstance(b[size_key], str):
+                        vio(f"{label}: {size_key} must be a string")
+                    elif b.get(size_key) and not QUANTITY_RE.fullmatch(b[size_key]):
+                        vio(f"{label}: {size_key} must be a positive byte count string or pending empty string")
+                address = b.get("flash_address")
+                if address is not None and address != "" and (not isinstance(address, str) or address not in FLASH_ADDRESSES):
+                    vio(f"{label}: unsupported flash_address; read tool-blocks.md for device defaults")
+            elif block_type in CONFIG_TOOL_TYPES:
+                if not isinstance(cfg, dict):
+                    vio(f"{label}: tool block {block_type!r} needs a config object")
+            elif block_type not in TEXT_BLOCK_TYPES:
+                vio(f"{label}: unsupported block type")
             if isinstance(cfg, dict):
                 for k, val in cfg.items():
-                    if k.endswith("_url") and isinstance(val, str) and not val.strip():
-                        warn(f"deployment.blocks[{bid}]: config.{k} is empty — pending value, fill before publishing")
+                    if not k.endswith("_url"):
+                        continue
+                    location = k if block_type == "flash-firmware" else "config." + k
+                    if val is None or val == "":
+                        warn(f"{label}: {location} is empty — pending deployment input")
+                    elif not http_url(val):
+                        vio(f"{label}: {location} must be a valid http(s) URL or a pending empty value")
 
     materials = m.get("bom", {}).get("materials", [])
     if not isinstance(materials, list):
         vio("bom.materials must be an array")
+        materials = []
     else:
         for i, row in enumerate(materials):
+            if not isinstance(row, dict):
+                vio(f"bom.materials[{i}] must be an object")
+                continue
+            if set(row) - {"id", "name", "quantity", "note", "buy_url", "price", "pic_url", "image"}:
+                vio(f"bom.materials[{i}] contains unsupported fields; project catalog sku into id rather than copying a raw catalog result")
             for forbidden in ("price", "pic_url", "image"):
                 if forbidden in row:
                     vio(f"bom.materials[{i}]: {forbidden!r} is not a persistable field (dropped server-side)")
             if "id" in row:  # Seeed catalog row
+                if not isinstance(row["id"], str) or not row["id"].strip():
+                    vio(f"bom.materials[{i}].id must be a non-empty SKU string; omit id for custom rows")
                 for req in ("name", "quantity", "note", "buy_url"):
                     if req not in row:
                         vio(f"bom.materials[{i}] (catalog row): missing {req!r}")
-            else:  # custom row
-                if not row.get("name") or not row.get("quantity"):
-                    vio(f"bom.materials[{i}] (custom row): needs at least name + quantity")
+            if not isinstance(row.get("name"), str) or not row["name"].strip():
+                vio(f"bom.materials[{i}].name must be a non-empty string")
+            if not isinstance(row.get("quantity"), str) or not QUANTITY_RE.fullmatch(row["quantity"]):
+                vio(f"bom.materials[{i}].quantity must be a positive integer string")
+            if "note" in row and not isinstance(row["note"], str):
+                vio(f"bom.materials[{i}].note must be a string")
+            if "buy_url" in row and row["buy_url"] != "" and not http_url(row["buy_url"]):
+                vio(f"bom.materials[{i}].buy_url must be an http(s) URL or an empty string")
 
     sync = m.get("sync", {})
     lr, lpr = sync.get("local_revision"), sync.get("last_pushed_revision")
-    if not isinstance(lr, int) or lr < 1:
-        vio(f"sync.local_revision must be an integer >= 1, got {lr!r}")
-    if not isinstance(lpr, int) or lpr < 0 or (isinstance(lr, int) and lpr > lr):
-        vio(f"sync.last_pushed_revision must be 0..local_revision, got {lpr!r}")
+    if type(lr) is not int or lr < 1:
+        vio("sync.local_revision must be an integer >= 1")
+    if type(lpr) is not int or lpr < 0 or (type(lr) is int and lpr > lr):
+        vio("sync.last_pushed_revision must be 0..local_revision")
+    pushed_hash = sync.get("last_pushed_hash")
+    if pushed_hash is not None and (not isinstance(pushed_hash, str) or not re.fullmatch(r"sha256:[0-9a-f]{64}", pushed_hash)):
+        vio("sync.last_pushed_hash must be a full sha256:<64 lowercase hex digits> digest or null")
+    if sync.get("last_pushed_at") is not None and not timestamp(sync["last_pushed_at"]):
+        vio("sync.last_pushed_at must be an RFC3339 timestamp with timezone or null")
+    if type(lpr) is int and lpr > 0 and (not app_id or pushed_hash is None or sync.get("last_pushed_at") is None):
+        vio("a pushed revision needs app_id, last_pushed_hash, and last_pushed_at")
 
-    prose_fields = [info.get("app_name", ""), info.get("excerpt", "")]
-    prose_fields += [str(b.get("content", "")) + str(b.get("title", "")) for b in blocks if isinstance(b, dict)]
-    prose_fields += [str(r.get("note", "")) for r in materials if isinstance(r, dict)]
-    for text in prose_fields:
-        if text and SECRET_VALUE_RE.search(text):
-            vio(f"secret-shaped value in publishable text: {text[:60]!r}…")
-        elif text and LONG_HEX_RE.search(text):
-            warn(f"long hex literal in publishable text (key/hash?): {text[:60]!r}…")
+    def check_public_values(value, location):
+        if isinstance(value, dict):
+            for key, child in value.items():
+                if key.lower() in SECRET_FIELDS and isinstance(child, str) and child.strip() and not INPUT_PLACEHOLDER_RE.fullmatch(child):
+                    vio(f"{location}.{key}: credential value must not be distributed (value redacted)")
+                check_public_values(child, f"{location}.{key}")
+        elif isinstance(value, list):
+            for index, child in enumerate(value):
+                check_public_values(child, f"{location}[{index}]")
+        elif isinstance(value, str):
+            if SECRET_VALUE_RE.search(value):
+                vio(f"{location}: secret-shaped value in publishable data (value redacted)")
+            elif LONG_HEX_RE.search(value):
+                warn(f"{location}: long hex literal in publishable data; review whether it is a public hash")
+
+    for section in ("info", "deployment"):
+        check_public_values(m[section], section)
+    check_public_values(materials, "bom.materials")
+    check_public_values([img.get("file_url") for img in images if isinstance(img, dict)], "images.file_url")
 
     for w in warnings:
         print(f"WARNING   {w}")

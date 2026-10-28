@@ -8,8 +8,10 @@ Target binary: `sensecraft-cli` (this repo). Auth: active **SenseCAP Access Key*
 
 ```bash
 sensecraft-cli auth info
-sensecraft-cli auth init   # user only, interactive
+sensecraft-cli auth init   # if needed: agent runs in a PTY/TTY session
 ```
+
+Follow the [parent auth workflow](../SKILL.md#auth): the agent handles terminal prompts, the user completes browser authorization, then the agent rechecks auth. Do not ask the user to run CLI commands.
 
 ## List (existing commands)
 

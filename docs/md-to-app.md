@@ -212,7 +212,7 @@ YouTube、TikTok、抖音、Bilibili、Vimeo、优酷、爱奇艺收成 `<div cl
 
 | 正文在说 | `type` | 配置放哪 |
 | --- | --- | --- |
-| 把固件烧进板子 | `flash-firmware` | **摊平在块上**，不要包一层 `config`。SKU、地址见 `skills/sensecraft-cli/references/tool-blocks.md` |
+| 把固件烧进板子 | `flash-firmware` | 放在 **`config` 对象里**；扁平的是 `blocks` 数组，不是工具配置。SKU、地址见 `skills/sensecraft-cli/references/tool-blocks.md` |
 | 部署视觉 / 声音模型 | `deploy-ai-model` | 放在 `config` 里。两个入口是同一个 `type`，用 `config.deploy_tool_entry`：`vision` 或 `sound`。声音会排除 reCamera Pro（`uniform_type` `53`） |
 | 异常振动 | `ai-vibration` | 放在 `config` 里 |
 | 边缘容器应用 | `deploy-container-app` | 放在 `config` 里 |
@@ -278,7 +278,9 @@ sensecraft-cli file upload --path ./firmware.bin --type 4 --checksum
   "allow_commerce": 0,
   "license": "",
   "author": "maker@example.com",
-  "images": ["https://files.example.com/cover.png"],
+  "images": [
+    "https://files.example.com/cover.png"
+  ],
   "pic_url": "https://files.example.com/cover.png",
   "deployment": {
     "blocks": [
@@ -317,15 +319,17 @@ sensecraft-cli file upload --path ./firmware.bin --type 4 --checksum
       {
         "id": "ff1",
         "type": "flash-firmware",
-        "device_id": "113991115",
-        "device_type": "32",
-        "flash_mode": "bin",
-        "firmware_url": "https://files.example.com/firmware.bin",
-        "firmware_name": "firmware.bin",
-        "firmware_size": "412316",
-        "flash_address": "0x0",
-        "muse_gadget": false,
-        "full_flash": false
+        "config": {
+          "device_id": "113991115",
+          "device_type": "32",
+          "flash_mode": "bin",
+          "firmware_url": "https://files.example.com/firmware.bin",
+          "firmware_name": "firmware.bin",
+          "firmware_size": "412316",
+          "flash_address": "0x0",
+          "muse_gadget": false,
+          "full_flash": false
+        }
       },
       {
         "id": "s2",

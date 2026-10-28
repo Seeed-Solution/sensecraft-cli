@@ -55,7 +55,7 @@ SenseCraft Data: [`references/data.md`](references/data.md).
 | User intent | Use | Notes |
 |-------------|-----|--------|
 | SenseCraft Data: list/bind device, groups, telemetry | [`sensecraft-data`](references/data.md) | Shipped today |
-| Browse / search App Plaza, view app | [`sensecraft-apps`](references/apps.md) + `app list` / `app view` | **CLI shipped** (list/view) |
+| Browse / search CodeCraft Hub, view app | [`sensecraft-apps`](references/apps.md) + `app list` / `app view` | **CLI shipped** (list/view) |
 | App fields / tool-blocks / BOM guidance | same apps skill references | Config OK; real flash = L3 |
 | Author a new app (create + info + images + BOM + blocks) | [`sensecraft-apps/create-app`](create-app/SKILL.md) | One batch confirmation; stops before publish |
 | Create / update / publish / unpublish / delete / bom app | same + `app …` / `app bom …` | **CLI shipped** (L2 `--yes`; publish also `--agree-declaration`; bare `create --name` not L2) |

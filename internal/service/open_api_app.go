@@ -39,7 +39,6 @@ type AppListParams struct {
 	MarkType           string
 	Sort               string
 	PriorityActivityID string
-	TagID              string
 	Likes              bool
 	Collections        bool
 }
@@ -198,9 +197,6 @@ func buildAppListQuery(p AppListParams) url.Values {
 	if id := strings.TrimSpace(p.PriorityActivityID); id != "" {
 		q.Set("priority_activity_id", id)
 	}
-	if tag := strings.TrimSpace(p.TagID); tag != "" {
-		q.Set("tag_id", tag)
-	}
 	// Mine: omit be_public (Console custom tab). Public and Mine both false → same as mine/all-owned depending on backend.
 	_ = p.Mine
 	return q
@@ -248,7 +244,6 @@ func prepareAppListQuery(p AppListParams, activities []ongoingActivity, activiti
 		}
 	}
 	p.PriorityActivityID = priority
-	p.TagID = strings.TrimSpace(p.TagID)
 	return buildAppListQuery(p), nil
 }
 

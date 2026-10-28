@@ -21,14 +21,13 @@ List apps.
 
 | Flag                  | Default                 | Notes                                                        |
 | --------------------- | ----------------------- | ------------------------------------------------------------ |
-| `--public`            |                         | Plaza (`be_public=1`). Required for the store; not the default |
+| `--public`            |                         | CodeCraft Hub (`be_public=1`). Required for the store; not the default |
 | `--mine`              | default if neither flag | My apps. Omit both visibility flags for the same result     |
 | `--name`              |                         | Search keyword → API `app_name` (Console app list)           |
 | `--scene`             |                         | Scene id                                                     |
 | `--uniform-type`      |                         | Device type → API `uniform_type` (`40` reCamera, `32` XIAO ESP32S3, `53` reCamera Pro) |
 | `--sort`              |                         | `popular`, `newest`, or `likes` → `sort_by`. Omit to leave the API unordered |
 | `--priority-activity-id` |                    | Positive integer. Only with `--sort popular`. If omitted on popular, CLI fills the first ongoing activity |
-| `--tag-id`            |                         | Competition filter → `tag_id`                                |
 | `--mark-type`         |                         | `1` = my likes, `0` = my collections                         |
 | `--likes`             |                         | `mark_type=1` and `be_public=1`. Not with `--mine`           |
 | `--collections`       |                         | `mark_type=0` and `be_public=1`. Not with `--mine`           |
@@ -36,10 +35,9 @@ List apps.
 | `--sandbox`           |                         | Sample JSON, no network. Includes `sandbox_query`           |
 
 ```bash
-# Application Plaza. Omit visibility flags for my apps. Hot sort is explicit.
+# CodeCraft Hub. Omit visibility flags for my apps. Hot sort is explicit.
 sensecraft-cli app list --public --name "vision" --scene <scene_id> --page 1 --length 20
 sensecraft-cli app list --public --sort popular --length 12
-sensecraft-cli app list --public --sort popular --tag-id 1
 sensecraft-cli app list --public --sort newest
 sensecraft-cli app list --public --likes
 sensecraft-cli app list --public --collections
@@ -171,7 +169,7 @@ sensecraft-cli app update --id <app_id> --activity-id 1 --yes
 sensecraft-cli app update --id <app_id> --cancel-activity-id 1 --yes
 ```
 
-`activity_id` must be a positive integer. List ongoing ids with `app activity list` first. If that list succeeds and does not contain the id, CLI does not POST. The server still rejects a bad id with `11202` and a missing or expired activity with `25000` `Activity does not exist or has expired` (the whole edit is discarded). Omitting `activity_id` does not change existing activity tags. `tags` is not read by the server.
+`activity_id` must be a positive integer. List activities in progress with `app activity list` first. Before POST, CLI loads the server activity list (activities that have not ended, which can include ones that have not started). If that request succeeds and does not contain the id, CLI does not POST. A failed list request is ignored. The server still rejects a bad id with `11202` and a missing or expired activity with `25000` `Activity does not exist or has expired` (the whole edit is discarded). Omitting `activity_id` does not change existing activity tags. `tags` is not read by the server.
 
 `cancel_activity_id` must be a positive integer. CLI sends it as a JSON number and does not check the ongoing list or change `allow_clone`. Omitting it leaves participation unchanged. The same id cannot be both `activity_id` and `cancel_activity_id`.
 
@@ -202,7 +200,7 @@ sensecraft-cli app delete --id <app_id> --yes
 
 ### `app activity list`
 
-**Status: implemented.** Read-only. `GET /activity/list` with no `time` query. stdout is `{ "list": [...] }` with numeric `activity_id`, `name`, `tag_ids`, and unix `start_time` / `end_time` when present. Rows without a positive id or a name are dropped.
+**Status: implemented.** Read-only. No Access Key. `GET /activity/list` with no `time` query. stdout is `{ "list": [...] }` for activities in progress now: numeric `activity_id`, `name`, `guide_url`, and `start_time` / `end_time` as UTC timestamps (`2026-10-18T16:00:00Z`). Rows outside that window, or missing an id, name, or either time, are dropped. Tag ids are not shown.
 
 ```bash
 sensecraft-cli app activity list

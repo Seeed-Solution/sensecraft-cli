@@ -8,6 +8,24 @@ import (
 	"sensecraft-cloud-terminal/internal/utils"
 )
 
+// RemoteTypeOf is the selected profile's remote_type.
+// No config, no selection, or an unknown key returns "" so callers use the default host.
+func RemoteTypeOf(cli *CliConfig) string {
+	if cli == nil {
+		return ""
+	}
+	id := strings.TrimSpace(cli.UseApi)
+	if id == "" {
+		return ""
+	}
+	for _, item := range cli.AppConfigList {
+		if item.KeyId == id {
+			return strings.TrimSpace(item.RemoteType)
+		}
+	}
+	return ""
+}
+
 // ResolveActiveAPIConfig 从 CLI 配置中解析当前使用的 SenseCAP OpenAPI 凭证。
 func ResolveActiveAPIConfig(cli *CliConfig) (AccessApiConfig, error) {
 	if cli == nil || len(cli.AppConfigList) == 0 {

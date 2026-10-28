@@ -1,6 +1,7 @@
 package app
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -8,6 +9,7 @@ import (
 	"strings"
 
 	cmdctx "sensecraft-cloud-terminal/internal/app"
+	"sensecraft-cloud-terminal/internal/config"
 	"sensecraft-cloud-terminal/internal/output"
 	"sensecraft-cloud-terminal/internal/service"
 
@@ -17,7 +19,7 @@ import (
 func NewAppCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "app",
-		Short: "SenseCraft Application Plaza (requires Access Key /openapi)",
+		Short: "CodeCraft Hub (requires Access Key /openapi)",
 	}
 	cmd.AddCommand(newAppListCmd())
 	cmd.AddCommand(newAppActivityCmd())
@@ -53,26 +55,24 @@ func newAppListCmd() *cobra.Command {
 		markType           string
 		sort               string
 		priorityActivityID string
-		tagID              string
 		likes              bool
 		collections        bool
 		sandbox            bool
 	)
 	cmd := &cobra.Command{
 		Use:   "list",
-		Short: "List applications (plaza or my apps)",
-		Long: `List SenseCraft apps via {ai-host}/openapi (Access Key Basic).
+		Short: "List applications (CodeCraft Hub)",
+		Long: `List apps via {ai-host}/openapi (Access Key Basic).
 
-  Plaza:            --public
-  My apps:          --mine, or omit both visibility flags
-  Plaza hot sort:   --public --sort popular
+  CodeCraft Hub:          --public
+  My apps:                --mine, or omit both visibility flags
+  CodeCraft Hub hot sort: --public --sort popular
   --name            Filter by app_name
   --scene           Scene id
   --uniform-type    Device type (list_app uniform_type: reCamera=40, XIAO ESP32S3=32)
   --sort            popular | newest | likes. Omitted: do not send sort_by
   --priority-activity-id
                     Only with --sort popular. Omitted on popular: first ongoing activity
-  --tag-id          Competition filter (activity tag id)
   --mark-type       1 = my likes, 0 = my collections
   --likes           mark_type=1 and be_public=1. Not with --mine
   --collections     mark_type=0 and be_public=1. Not with --mine
@@ -100,7 +100,6 @@ func newAppListCmd() *cobra.Command {
 				MarkType:           markType,
 				Sort:               sort,
 				PriorityActivityID: priorityActivityID,
-				TagID:              tagID,
 				Likes:              likes,
 				Collections:        collections,
 			})
@@ -110,7 +109,7 @@ func newAppListCmd() *cobra.Command {
 			return ctx.PrintRawData(data)
 		},
 	}
-	cmd.Flags().BoolVar(&public, "public", false, "List public Application Plaza apps (be_public=1)")
+	cmd.Flags().BoolVar(&public, "public", false, "List public CodeCraft Hub apps (be_public=1)")
 	cmd.Flags().BoolVar(&mine, "mine", false, "List my apps")
 	cmd.Flags().StringVar(&name, "name", "", "Filter by app name")
 	cmd.Flags().StringVar(&scene, "scene", "", "Filter by scene id")
@@ -120,7 +119,6 @@ func newAppListCmd() *cobra.Command {
 	cmd.Flags().StringVar(&markType, "mark-type", "", "1 = my likes, 0 = my collections")
 	cmd.Flags().StringVar(&sort, "sort", "", "Sort: popular, newest, or likes")
 	cmd.Flags().StringVar(&priorityActivityID, "priority-activity-id", "", "With --sort popular, pin this activity first (positive integer)")
-	cmd.Flags().StringVar(&tagID, "tag-id", "", "Competition tag id (list_app tag_id)")
 	cmd.Flags().BoolVar(&likes, "likes", false, "My likes (mark_type=1, be_public=1). Not with --mine")
 	cmd.Flags().BoolVar(&collections, "collections", false, "My collections (mark_type=0, be_public=1). Not with --mine")
 	cmd.Flags().BoolVar(&sandbox, "sandbox", false, "Sandbox mode: no real network; return sample JSON")
@@ -130,7 +128,7 @@ func newAppListCmd() *cobra.Command {
 func newAppActivityCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "activity",
-		Short: "Ongoing SenseCraft activities",
+		Short: "Activities in progress (no Access Key)",
 	}
 	cmd.AddCommand(newAppActivityListCmd())
 	return cmd
@@ -140,26 +138,43 @@ func newAppActivityListCmd() *cobra.Command {
 	var sandbox bool
 	cmd := &cobra.Command{
 		Use:   "list",
-		Short: "List ongoing activities (read-only)",
-		Long: `GET /activity/list with no time filter.
+		Short: "List activities in progress",
+		Long: `GET /openapi/activity/list. No Access Key.
 
-Prints { "list": [ { activity_id, name, tag_ids, start_time, end_time } ] }.
-Rows missing a positive activity_id or a name are dropped. No --yes.`,
+Prints activities whose current time is between start and end.
+start_time and end_time are UTC, for example 2026-10-18T16:00:00Z.
+
+{ "list": [ { activity_id, name, guide_url, start_time, end_time } ] }
+
+An empty result is { "list": [] }.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx, err := cmdctx.GetAICmdContext()
+			remoteType := ""
+			if !sandbox {
+				cli, err := config.LoadConfig()
+				if err != nil {
+					return err
+				}
+				remoteType = config.RemoteTypeOf(cli)
+			}
+			data, err := service.ListPublicActivities(remoteType, sandbox)
 			if err != nil {
 				return err
 			}
-			ctx.SandBox = sandbox
-			data, err := service.GetAppService(ctx).ListActivities()
-			if err != nil {
-				return err
-			}
-			return ctx.PrintRawData(data)
+			return printRawJSON(os.Stdout, data)
 		},
 	}
 	cmd.Flags().BoolVar(&sandbox, "sandbox", false, "Sandbox mode: no real network; return sample JSON")
 	return cmd
+}
+
+func printRawJSON(w io.Writer, raw json.RawMessage) error {
+	var buf bytes.Buffer
+	if err := json.Indent(&buf, raw, "", "  "); err != nil {
+		_, err = fmt.Fprintln(w, string(raw))
+		return err
+	}
+	_, err := fmt.Fprintln(w, buf.String())
+	return err
 }
 
 func newAppViewCmd() *cobra.Command {
@@ -395,7 +410,8 @@ Rejects user JSON be_public=1 / privacy=1.
 
 --activity-id joins an activity (positive integer, sent as a JSON number).
 Omit it, or pass an empty value, to leave existing activity tags unchanged.
-If the activity is not in app activity list, update_app is not sent.
+If a successful activity list does not include the id, update_app is not sent.
+That check uses the server list of activities that have not ended.
 When --activity-id is set and the JSON omits allow_clone, CLI sets allow_clone
 to 1 unless the sketch is already 1.
 --cancel-activity-id leaves an activity (positive integer, sent as a JSON number).
@@ -406,7 +422,7 @@ tags in JSON is ignored and is not sent.
 Lifecycle (matches Console edit.vue / list.vue):
   owner only (user_id == profile) — another user's app cannot be edited
   be_public=0  private — edit/delete/publish allowed
-  be_public=1  published — owner may edit (saved as sketch; CLI sends be_public=1). Plaza unchanged until app publish (draft).
+  be_public=1  published — owner may edit (saved as sketch; CLI sends be_public=1). CodeCraft Hub unchanged until app publish (draft).
   be_public=2  under review — locked; no update/cover/BOM. Unpublish to unlock.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx, err := cmdctx.GetAICmdContext()

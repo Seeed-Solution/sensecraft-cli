@@ -1,11 +1,11 @@
 ---
 name: create-app
-description: Create a SenseCraft Application Plaza app from a finished local project using a versioned local manifest (sensecraft-app.json) as the single source of truth — mine the project for app info, create the app in one go, then keep later edits local-first and push updates safely with drift detection. Use whenever the user wants to turn a finished or current project into a SenseCraft app, "publish my project" to SenseCraft, make an app from this repo/codebase, or update an app that has a sensecraft-app.json manifest — even if they only say "make this project an app" or "push my app changes". Publishing, unpublishing, deleting, and cloning stay with the parent sensecraft-cli skill.
+description: Create a CodeCraft Hub app from a finished local project using a versioned local manifest (sensecraft-app.json) as the single source of truth — mine the project for app info, create the app in one go, then keep later edits local-first and push updates safely with drift detection. Use whenever the user wants to turn a finished or current project into a SenseCraft app, "publish my project" to SenseCraft, make an app from this repo/codebase, or update an app that has a sensecraft-app.json manifest — even if they only say "make this project an app" or "push my app changes". Publishing, unpublishing, deleting, and cloning stay with the parent sensecraft-cli skill.
 ---
 
 # create-app
 
-Turn a finished local project into a SenseCraft Application Plaza app through a local manifest: gather → write manifest → one-go create → local-first updates.
+Turn a finished local project into a CodeCraft Hub app through a local manifest: gather → write manifest → one-go create → local-first updates.
 
 Entry skill: [`../SKILL.md`](../SKILL.md). App lifecycle (publish / unpublish / delete / clone): [`../references/apps.md`](../references/apps.md).
 

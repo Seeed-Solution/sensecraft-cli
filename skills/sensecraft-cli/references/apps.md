@@ -29,7 +29,7 @@ Child skill: [`../create-app/SKILL.md`](../create-app/SKILL.md) — manifest-dri
 | Area                                                                   | Status                                                                                                                                                                                 |
 | ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Access Key                                                         | **Implemented** (`auth init` or `auth add`; `app` uses `{ai-host}/openapi` Basic)                                                                                      |
-| `app list` / `app view` / `app fields` / `app blocks` / `app activity list` | **Implemented**. Plaza hot list is `--public --sort popular` |
+| `app list` / `app view` / `app fields` / `app blocks` / `app activity list` | **Implemented**. CodeCraft Hub hot list is `--public --sort popular` |
 | `app doc compile` | **Implemented**. Markdown → editor `deployment.blocks`. No auth, no network. `app create --from-md` / `app update --from-md` compile then write. `--from-json` fills video, file-link, and image HTML, and rejects raw Markdown in text-block `content` |
 | `app create` / `update` / `publish` / `unpublish` / `withdraw` / `delete` | **Implemented** (L2 = `--yes`; publish also `--agree-declaration`; **`create` never needs `--yes`**, even with full `--from-json`). `withdraw` is review-only (`be_public=2`); `unpublish` is for an already public app |
 | `app like` / `unlike` / `collect` / `uncollect` / `mark-deploy` / `clone` | **Implemented** (L2 = `--yes`) |
@@ -182,7 +182,7 @@ Base: `{host}/openapi` with HTTP Basic (`key_id`:`access_key`).
 
 | Action  | Method | Path                                                             |
 | ------- | ------ | ---------------------------------------------------------------- |
-| List    | GET    | `/flow/app/v2/list_app` (`be_public`, `sort_by`, `priority_activity_id`, `tag_id`, `mark_type` `1`/`0`) |
+| List    | GET    | `/flow/app/v2/list_app` (`be_public`, `sort_by`, `priority_activity_id`, `mark_type` `1`/`0`) |
 | Activities | GET | `/activity/list` (no `time`) |
 | View    | GET    | `/flow/app/v3/view_app`                                          |
 | Create  | POST   | `/flow/app/v3/create_app`                                        |

@@ -349,12 +349,14 @@ ln -s "$PWD/skills/sensecraft-cli" ~/.claude/skills/sensecraft-cli
 1. 若支持 `SKILL.md` 自动发现，把 `skills/*/` 原样放入其项目级或用户级 skills 目录；具体目录以宿主文档为准。
 2. 若不支持 Skills，把 `skills/sensecraft-cli/SKILL.md` 作为系统/项目上下文加载。
 3. Agent 必须具有本机命令执行能力，才能调用 `sensecraft-cli`；纯聊天宿主只能读取说明，不能声称命令已执行。
-4. 写入 Access Key、本地 USB/IP 部署与烧录仍由用户自己完成。
+4. 没有 Access Key 时走分步 `auth init`（`--no-wait`，把验证链接交给用户）。本地 USB/IP 部署与烧录仍由用户自己完成。
 
 使用约定：
 
 - 先读 **`sensecraft-cli`**。它覆盖 SenseCraft Data、SenseCraft AI 和 CodeCraft Hub。
-- 确保机器上 `sensecraft-cli` 在 PATH 中，且已用 `auth add` 写入 Access Key。
+- 确保机器上 `sensecraft-cli` 在 PATH 中。没有 Access Key 时运行 `sensecraft-cli auth init --site Global --no-wait`，把验证链接交给用户后结束本轮；用户授权后再跑 `--device-code`。不要在非交互终端里跑不带参数的 `auth init`。已有钥匙时用 `auth add`。
+- Agent 必须能在本机执行命令。纯聊天宿主只能读说明，不能声称命令已经跑过。
+- 本地 USB/IP 部署和烧录仍在浏览器或设备侧完成。
 
 ---
 

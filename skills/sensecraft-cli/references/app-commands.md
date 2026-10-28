@@ -11,6 +11,8 @@ sensecraft-cli auth info
 sensecraft-cli auth init --site Global --no-wait   # split flow; see SKILL.md
 ```
 
+Follow the [parent auth workflow](../SKILL.md#auth): the agent handles terminal prompts, the user completes browser authorization, then the agent rechecks auth. Do not ask the user to run CLI commands.
+
 ## Commands
 
 ### `app list`
@@ -206,6 +208,8 @@ sensecraft-cli app delete --id <app_id> --yes
 sensecraft-cli app activity list
 ```
 
+The returned `guide_url` is the source for requirements and official rules; requirements are not included as a structured CLI field. Read candidate guides and compare them with the project before selecting an activity. Follow [activity selection during authoring](app-fields.md#activity-selection-during-app-authoring) for choosing a match, choosing none, or asking the user with options. Do not confuse `priority_activity_id` (list ordering) with `activity_id` (joining).
+
 ### `app like` / `app unlike` / `app collect` / `app uncollect` / `app mark-deploy` (L2)
 
 **Status: implemented.** `POST /flow/app/v2/mark_app`.
@@ -241,7 +245,7 @@ sensecraft-cli app clone --id <source_app_id> --name "New name" --yes
 | Subcommand                   | Notes                                                |
 | ---------------------------- | ---------------------------------------------------- |
 | `search [--name]`            | `get_production_options` → filter `material_options` |
-| `list --id`                  | materials from `view_app`                            |
+| `list --id [--sketch]`       | materials from `view_app`; use `--sketch` to verify saved draft rows |
 | `set --id --from-json --yes` | `update_app` materials[] (L2)                        |
 
 ```bash

@@ -6,7 +6,7 @@ Domain skill for **CodeCraft Hub applications**. Auth: **Access Key** (HTTP Basi
 
 Parent router: [`../SKILL.md`](../SKILL.md).  
 SenseCAP IoT: [`data.md`](data.md).  
-Child skill: [`../create-app/SKILL.md`](../create-app/SKILL.md) — manifest-driven app lifecycle: mine a finished local project into a versioned `sensecraft-app.json` manifest (source of truth), create the app in one go, then local-first updates with drift detection (one batch confirmation per push). Publish / unpublish / delete stay in this file.
+Child skill: [`../create-app/SKILL.md`](../create-app/SKILL.md) — turn a local project into a deployable app: discover project facts, resolve uncertain decisions, write and review human-facing copy, configure tool-block deployment, confirm BOM catalog matches through the API, and build the versioned `codecraft-app.json` before upload. Read each related reference before authoring its information. Later updates follow the manifest with drift detection and one batch confirmation per push. Publish / unpublish / delete stay in this file.
 
 ## Agent rules
 
@@ -104,6 +104,8 @@ sensecraft-cli app bom set --id <app_id> --from-json ./materials.json --yes
 Seeed rows need `id`(=SKU). Custom rows omit `id`. No manual custom image upload.
 
 ### Author path
+
+For a local project/repository or an existing `codecraft-app.json`, use [create-app](../create-app/SKILL.md) for the full discovery, writing review, BOM verification, and manifest workflow. The abbreviated commands below apply to content that is already authored and reviewed; do not bypass that workflow by uploading a developer README directly.
 
 0. Resolve `scene`, inspect fields, and inspect block layouts:
    ```bash

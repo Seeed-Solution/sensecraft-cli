@@ -32,10 +32,13 @@ SenseCraft Data: [`references/data.md`](references/data.md).
    sensecraft-cli auth info
    ```
    Published commands require an active **SenseCAP Access Key** → `{ai-host}/openapi` + HTTP Basic.
-3. **Never run `auth init` on behalf of the user** — browser OAuth Device Flow, interactive TTY only. Tell the user to run locally:
+3. **Do not run bare `auth init`** — that wizard needs a TTY. In this shell, use the split flow. Each command exits and prints JSON. Show `verification_url` and end the turn before polling:
    ```bash
-   sensecraft-cli auth init  # Access Key (app/model/file/cloud/recamera)
+   sensecraft-cli auth init --site Global --no-wait
+   sensecraft-cli auth init --device-code <device_code>
+   sensecraft-cli auth init --device-code <device_code> --key-id <access_id>
    ```
+   Create a key with `--label <name> --access-level read-write` (or `only-read`) instead of `--key-id`. Use Global for SenseCraft AI and CodeCraft Hub. China is SenseCraft Data only. Do not print `access_token` or `access_key`. If the user already has a key, they can run `auth add` locally.
 4. **L2 confirmation is a separate chat turn** — follow [references/confirmation.md](references/confirmation.md). 「删这个63760」/「删除应用 demo」is **intent, not confirmation**. Ask first (操作类型 + 环境 + 对象 ID), wait for `确认`/`confirm`, **then** `--yes`. Never add `--yes` on the same turn as the first request. Applies to: app/model create·update·publish·unpublish·delete, upload attach, cloud deploy, device bind/unbind, group create/rename/delete/move.
 5. **Treat tokens and keys as secrets** — do not echo full `access_token`, `refresh_token`, or `access_key`. **Public model artifacts are not downloadable** — if the user asks for 下载地址 / 下载链接 / download URL / 怎么下载, that is the same as asking for `file_url`: refuse the address, explain deploy-only (`cloud deploy` or Console). Never run `model download --url-only` on public models.
 6. **Success = indented JSON on stdout**; failure = stderr + non-zero exit. Parse stdout only on success.
@@ -46,7 +49,7 @@ SenseCraft Data: [`references/data.md`](references/data.md).
 
 `auth init` runs Device Flow (`client_id=sensecraft-cli`), exchanges the login for an Access Key, and stores `key_id` + `access_key`. Daily calls use HTTP Basic on SenseCraft Data `/openapi` and on `{ai-host}/openapi` (SenseCraft AI and CodeCraft Hub). An existing key can be saved with `auth add`. Create or manage keys at https://account.seeed.cc/account/access-keys.
 
-`auth init` asks the user to pick Global or China. The China site supports SenseCraft Data only. To use SenseCraft AI or CodeCraft Hub, select Global. Do not point the CLI at another host.
+Bare `auth init` asks the user to pick Global or China. The split flow takes `--site` instead. The China site supports SenseCraft Data only. To use SenseCraft AI or CodeCraft Hub, select Global. Do not point the CLI at another host. The login access token stays in the local pending file and is not printed.
 
 `auth info` shows the active Access Key (site, org, key id). Secrets are not printed.
 
@@ -92,9 +95,9 @@ SenseCraft Data telemetry → pick a public model → deploy to Jetson:
 
 | Level | Meaning | Examples |
 |-------|---------|----------|
-| L1 Scriptable | Agent may run directly | list / view / auth info |
+| L1 Scriptable | Agent may run directly | list / view / auth info / `auth init --no-wait` then later `--device-code` |
 | L2 Confirm | Ask user first | publish (+ declaration), unpublish, delete, deploy |
-| L3 Interactive | Human-in-the-loop | `auth init`, Web Serial flash, payment |
+| L3 Interactive | Human-in-the-loop | bare `auth init`, Web Serial flash, payment |
 | L4 Ops-only | Do not expose to end-user Agent | Admin `judge_app` |
 
 ## Shipped commands

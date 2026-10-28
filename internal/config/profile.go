@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"sensecraft-cloud-terminal/internal/authhint"
 )
 
 // ResetConfigCache clears the in-memory config cache. Call it after a save.
@@ -56,7 +58,7 @@ func BuildAccessProfile(remoteType, orgID, keyID, accessKey string) AccessApiCon
 // FormatCliConfigInfo formats the config summary printed by auth info.
 func FormatCliConfigInfo(cli *CliConfig, configPath string) string {
 	if cli == nil || len(cli.AppConfigList) == 0 {
-		return fmt.Sprintf("Config file: %s\n\nNo profiles configured yet.\n  Run: sensecraft-cli auth init\n", configPath)
+		return fmt.Sprintf("Config file: %s\n\n%s\n", configPath, authhint.NeedLogin())
 	}
 
 	var b strings.Builder

@@ -30,7 +30,7 @@ type step func(*InitContext) (step, error)
 // RunInitFlow runs the auth init wizard. The wizard saves an Access Key.
 func RunInitFlow(ctx context.Context, console *ui.Console, sandbox bool) error {
 	if !console.IsInteractive() && !sandbox {
-		return fmt.Errorf("auth init requires an interactive terminal, or use --sandbox to try the flow")
+		return errAuthInitNonInteractive()
 	}
 
 	configPath, err := config.ResolveConfigPath()

@@ -2,12 +2,14 @@ package client
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
 
+	"sensecraft-cloud-terminal/internal/authhint"
 	"sensecraft-cloud-terminal/internal/config"
 	"sensecraft-cloud-terminal/internal/enum"
 )
@@ -92,7 +94,7 @@ func (c *AIApiClient) ensureAccessKey() error {
 	if c.accessKeyOK {
 		return nil
 	}
-	return fmt.Errorf("this command uses Access Key HTTP Basic → {ai-host}/openapi; run: sensecraft-cli auth init")
+	return errors.New(authhint.NeedLogin())
 }
 
 func (c *AIApiClient) Base() *BaseClient {

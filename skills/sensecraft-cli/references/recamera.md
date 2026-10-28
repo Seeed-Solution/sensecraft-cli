@@ -14,7 +14,7 @@ Commands: [recamera-commands.md](recamera-commands.md).
    ```bash
    sensecraft-cli auth info
    ```
-   Need **SenseCAP Access Key** (`auth init`) for `app` / `model` / `recamera`. Never run init for them.
+   Need **SenseCAP Access Key** (`auth init`) for `app` / `model` / `recamera`. Missing key → split flow in [`../SKILL.md`](../SKILL.md). Do not run bare `auth init`.
 2. **Classic reCamera only (`40`)**. Do **not** treat Pro `53`, XIAO `32`, or Grove `36` as the same device. `/ai/recamera` redirects to Grove `36` — do not send users there.
 3. Filter **only** with API `--uniform-type 40`. Do not guess from local materials, SKU strings, or adapteds-only. Public **and** mine:
    ```bash

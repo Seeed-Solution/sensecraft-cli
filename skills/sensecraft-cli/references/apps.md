@@ -14,7 +14,7 @@ Child skill: [`../create-app/SKILL.md`](../create-app/SKILL.md) — manifest-dri
    ```bash
    sensecraft-cli auth info
    ```
-   Need an active **SenseCAP Access Key**. If missing, ask the user to run `sensecraft-cli auth init` locally. **Never** run `auth init` for them.
+   Need an active **SenseCAP Access Key**. If missing, use the split `auth init` flow in [`../SKILL.md`](../SKILL.md). Do not run bare `auth init`.
 2. **L2 confirm is a separate chat turn** ([confirmation.md](confirmation.md)) before: `publish` (`--agree-declaration`), `unpublish`, `withdraw`, `delete`, `like`, `unlike`, `collect`, `uncollect`, `mark-deploy`, `clone`, **`app update` / `bom set`**. 「删除应用 demo」is **not** confirmation — ask `将从{环境}环境删除应用 demo（ID: …）。删除后可能无法恢复。是否确认执行？`, wait for `确认`, then `--yes`. Never pass `--yes` on the same turn as the first request. **Exception — batch authoring:** [`create-app`](../create-app/SKILL.md) confirms a whole push batch (fields + images + BOM + blocks) in one turn instead of per write; its one-go `app create` needs no confirmation at all.  
    **`app create` is not L2** — including `--from-json` with full fields (create + internal follow-up `update_app` on the **new** `app_id` only). Prefer one-shot create when the payload is ready. Still tell the user what will be created before running create.
 3. **Privacy values**: submit review → `privacy` / flow uses **`2`** (pending); unpublish/private → **`0`**. **Never send `1`** (ops-approved public; Admin only).

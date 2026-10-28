@@ -53,7 +53,8 @@ CodeCraft Hub:   applications (app)
                  https://codecraft.seeed.cc/hub
 
 All three platforms are accessed with an open Access Key.
-  sensecraft-cli auth init
+  sensecraft-cli auth init --site Global --no-wait
+Show the verification URL and end the turn. In a terminal, sensecraft-cli auth init runs the wizard.
 Create or manage a key: https://account.seeed.cc/account/access-keys
 
 The China site supports SenseCraft Data only. Use Global for SenseCraft AI and CodeCraft Hub.`,

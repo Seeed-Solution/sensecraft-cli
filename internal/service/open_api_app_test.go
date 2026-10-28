@@ -310,7 +310,7 @@ func TestCloneNameAndRefuse(t *testing.T) {
 		t.Fatalf("id=%v", m["app_id"])
 	}
 	detail, _ := m["detail_url"].(string)
-	if !strings.Contains(detail, "/view-application/sandbox-cloned-app-clone_sandbox-vision-app") || !strings.Contains(detail, "from=user-center") {
+	if !strings.Contains(detail, "/view-application/sandbox-cloned-app-clone_sandbox-vision-app") || strings.Contains(detail, "?") {
 		t.Fatalf("detail=%s", detail)
 	}
 	if _, ok := m["be_public"]; ok {

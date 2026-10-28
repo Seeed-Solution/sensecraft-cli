@@ -115,9 +115,9 @@ Rejects `be_public=1` / `privacy=1`. Do **not** confuse with `app update` (exist
 **Success output:** CLI always prints `app_id`, `console_url`, and `detail_url` on CodeCraft Hub (`https://codecraft.seeed.cc/hub`, or `https://test-codecraft.seeed.cc/hub` when the AI host contains `test-`, including `remote_type=Develop`):
 
 - edit: `/application/edit?id=<app_id>`
-- my app detail: `/view-application/<app_id>-<slug>?from=user-center&section=works&state=all`
+- app detail: `/view-application/<app_id>-<slug>`
 
-`from=user-center` loads the sketch (cover/`images`). `section=works` and `state=all` send the back button to the creator center works list. A public link uses `tab=public&from=application-store` and must not include `from=user-center`, `section`, `state`, or `from=my-apps`. If a list item has a non-empty `web_link`, give the user that URL instead of `view-application`. Model and legal pages stay on `sensecraft.seeed.cc`.
+Owner and plaza links are the same path. Do not append `from`, `section`, `state`, or `tab`. The site shows the author's draft when they are logged in, and the published page to everyone else. If a list item has a non-empty `web_link`, give the user that URL instead of `view-application`. Model and legal pages stay on `sensecraft.seeed.cc`.
 
 **Do not retry create blindly:**
 
@@ -181,7 +181,7 @@ When `--activity-id` is set and this JSON does not include `allow_clone`, CLI se
 
 **Status: implemented.**
 
-- `publish` → `privacy=2` (submit review). Same path as Console **发布草稿** when the app is already public (`is_sketch` + `be_public=1`). Result may include `draft_publish`. Refused if already `be_public=2` or not owner. stdout `detail_url` is the creator-center page (`from=user-center`). Give the user that URL. Do not replace it with `/application/detail/<id>` (plaza page, no private draft).
+- `publish` → `privacy=2` (submit review). Same path as Console **发布草稿** when the app is already public (`is_sketch` + `be_public=1`). Result may include `draft_publish`. Refused if already `be_public=2` or not owner. stdout `detail_url` is `/view-application/<id>-<slug>` with no query. Give the user that URL. Do not append navigation params or replace it with `/application/detail/<id>`.
 - **Publish Declaration (required for `publish` only):** matches Console 「发布确认」`warrantyAccepted`. Before passing `--agree-declaration`, show the user:
   - Review will lock editing until approval (or `unpublish`)
   - Declaration URL: https://sensecraft.seeed.cc/legal/en/declaration

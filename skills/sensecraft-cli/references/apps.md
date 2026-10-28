@@ -88,7 +88,7 @@ sensecraft-cli app unpublish --id <app_id> --yes    # privacy=0 private / withdr
 sensecraft-cli app delete --id <app_id> --yes       # private only (be_public=0)
 ```
 
-`app publish` matches Console 「发布确认」: show https://sensecraft.seeed.cc/legal/en/declaration and warn that review locks editing; only then pass `--agree-declaration --yes`. Missing either flag → non-zero. API body is still only `{app_id, privacy:2}` (agreement is client-side, like Console `warrantyAccepted`). stdout includes `detail_url`: the creator-center page (`https://codecraft.seeed.cc/hub/view-application/<id>-<slug>?from=user-center&section=works&state=all`). Give the user that URL. Do **not** invent `/application/detail/<id>` — that is the plaza page and does not open the private draft.
+`app publish` matches Console 「发布确认」: show https://sensecraft.seeed.cc/legal/en/declaration and warn that review locks editing; only then pass `--agree-declaration --yes`. Missing either flag → non-zero. API body is still only `{app_id, privacy:2}` (agreement is client-side, like Console `warrantyAccepted`). stdout includes `detail_url`: `https://codecraft.seeed.cc/hub/view-application/<id>-<slug>`. Give the user that URL as printed. Do not append `from`, `section`, `state`, or `tab`. Do **not** invent `/application/detail/<id>`.
 
 **Never** send `privacy=1` (ops-approved public). After editing a **published** app, tell the user plaza is unchanged until they confirm `app publish --agree-declaration --yes`.
 
@@ -121,8 +121,8 @@ For a local project/repository or an existing `codecraft-app.json`, use [create-
    ```bash
    sensecraft-cli app create --from-json ./app.json
    # CLI returns app_id + console_url + detail_url (even if update_app body was {}).
-   # detail_url is https://codecraft.seeed.cc/hub/view-application/<id>-<slug>?from=user-center&section=works&state=all
-   # (test AI host or remote_type Develop → https://test-codecraft.seeed.cc/hub). from=user-center loads the sketch. section=works&state=all returns to 我的应用 / 全部.
+   # detail_url is https://codecraft.seeed.cc/hub/view-application/<id>-<slug>
+   # (test AI host or remote_type Develop → https://test-codecraft.seeed.cc/hub). No query. The site shows the author's draft when they are logged in.
    # A non-empty web_link on a list item is the link to give the user.
    # Restore JSON may have pic_url (list) or images[] (view); CLI writes both.
    # Show links to the user. NEVER re-run create because stdout looked empty —

@@ -225,7 +225,7 @@ func TestListActivitiesPrintsCurrentWindow(t *testing.T) {
 	if item["activity_id"] != float64(1) || item["name"] != "Muse Gadget" {
 		t.Fatalf("item=%#v", item)
 	}
-	if item["guide_url"] != "https://test-app.seeed.cc/application/?tab=public" {
+	if item["guide_url"] != "https://test-codecraft.seeed.cc/hub/application?tab=public" {
 		t.Fatalf("guide=%v", item["guide_url"])
 	}
 	if item["start_time"] != "2026-10-18T16:00:00Z" || item["end_time"] != "2026-11-20T15:59:59Z" {
@@ -327,7 +327,7 @@ func TestCloneNameAndRefuse(t *testing.T) {
 		t.Fatalf("id=%v", m["app_id"])
 	}
 	detail, _ := m["detail_url"].(string)
-	if !strings.Contains(detail, "/view-application/sandbox-cloned-app-clone_sandbox-vision-app") || !strings.Contains(detail, "from=user-center") {
+	if !strings.Contains(detail, "/view-application/sandbox-cloned-app-clone_sandbox-vision-app") || strings.Contains(detail, "?") {
 		t.Fatalf("detail=%s", detail)
 	}
 	if _, ok := m["be_public"]; ok {

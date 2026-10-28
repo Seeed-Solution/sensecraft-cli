@@ -12,7 +12,7 @@ Check the exact hardware variant, artifact target/architecture, deployment input
 
 The editor does **not** render Markdown on read. Preview wraps each block by `type` and treats `content` as HTML or plain text. Raw `**bold**`, `# heading`, or `- item` inside `content` shows up as those characters.
 
-Write inline formatting as HTML the editor stores: `<strong>`, `<em>`, `<code>`, `<s>`, links with `target="_blank"`, file links (pdf/zip/bin/…) also with `download` and `doc-file-download-link`, images with `draggable="false"`. A paragraph that is only a video URL becomes `<video controls>` or a `video-embed-wrapper` iframe (YouTube, TikTok, Douyin, Bilibili, Vimeo, Youku, iQiyi). Prefer `app create --from-md` / `app update --from-md` instead of writing that HTML by hand. `--from-json` fills those video, link, and image attributes when they are missing. Do not wrap a `paragraph` in an extra `<p>`. `code` block `content` is plain source, not HTML.
+Write inline formatting as HTML the editor stores: `<strong>`, `<em>`, `<code>`, `<s>`, links with `target="_blank"`, file links (pdf/zip/bin/…) also with `download` and `doc-file-download-link`, images with `draggable="false"`. A paragraph that is only a video URL becomes `<video controls>` or a `video-embed-wrapper` iframe (YouTube, TikTok, Douyin, Bilibili, Vimeo, Youku, iQiyi). Compile Markdown rather than writing that HTML by hand. For interleaved prose/tools, compile locally, insert tools at their intended positions, and send the final blocks through `--from-json`. Combining `--from-md` with JSON tool blocks appends those tools after the entire compiled document; it does not place them into earlier steps. `--from-json` fills video, link, and image attributes when they are missing. Do not wrap a `paragraph` in an extra `<p>`. `code` block `content` is plain source, not HTML.
 
 Compile a Markdown file with `sensecraft-cli app doc compile --from-md <file>` when you only want the JSON (no network). `app create --from-md` and `app update --from-md` run that compile and then write. JSON text blocks that still contain Markdown markers are rejected. How the toolbar maps onto blocks: [../../../docs/md-to-app.md](../../../docs/md-to-app.md).
 
@@ -21,6 +21,8 @@ Host binaries (images, videos, firmware) via `file upload` first. A relative pat
 ## Document layout
 
 `deployment.blocks` is a **flat** ordered array.
+
+“Flat” describes the array of blocks, not a tool's settings. Every tool block stores its settings inside one `config` object. The page reads `block.config.*` directly for this format; it does not wrap fields from the block root on read. Flattened settings belong to the separate legacy `deployment[].tools[]` format and must not be copied into modern `deployment.blocks[]`.
 
 ```text
 [ intro text blocks... ] [ step ][ text|tools... ] [ step ][ text|tools... ] ...
@@ -58,7 +60,7 @@ Multiple tool-blocks may appear in one step (e.g. paragraph → flash → paragr
 
 ### `flash-firmware`
 
-Write these as **flat fields** on the block. The editor wraps them into `config` when it reloads the doc. Do not nest them under `config` in `app create` / `app update`.
+Write every field below inside **`block.config`**, just like other tool blocks, for `app create` / `app update`. Keep `id`, `type`, and layout metadata on the block itself. Reject flat or mixed root/config settings and an extra `config.config` wrapper; do not rely on opening the editor to repair them. Existing flat blocks need an explicit migration that preserves all their settings.
 
 | Field | How to write |
 |-------|----------------|
@@ -68,8 +70,8 @@ Write these as **flat fields** on the block. The editor wraps them into `config`
 | `firmware_url` / `firmware_name` / `firmware_size` | Bin mode. `firmware_size` is a string, not a number. Empty `firmware_name` is filled from the URL by the editor |
 | `flash_address` | Only `"0x0"`, `"0x4000"`, `"0x10000"`, `"0x90000"`. Use the device default below. The editor resets a non-default address the first time the doc is opened. Do not write `0x20000` here |
 | `project_zip_url` / `project_zip_name` / `project_zip_size` / `precheck_fields` | Zip mode only. Sizes are strings. `precheck_fields` is `[{ key, name, info, type, default }]` from `sensecraft_config.h`, or omit / `[]` |
-| `muse_gadget` | Boolean, default `false`. A missing field is `false`. `"true"` and `1` are read as `true`. `true` shows the Muse SDK token input under the flash button in preview |
-| `full_flash` | Boolean, default `false`. Same true/false reading as `muse_gadget`. Kept only on the Muse SKUs below; any other device is reset to `false`. `true` erases the whole flash before the write. When `muse_gadget` is `true`, set `full_flash` to `false`. The editor hides the checkbox while Muse is on |
+| `muse_gadget` | JSON boolean, default `false`; write `true`/`false`, never strings or numbers. Some read paths coerce non-booleans by truthiness, so `"false"` can enable the option. `true` shows the Muse SDK token input under the flash button in preview |
+| `full_flash` | JSON boolean, default `false`. Kept only on the Muse SKUs below; any other device is reset to `false`. `true` erases the whole flash before the write. When `muse_gadget` is `true`, set `full_flash` to `false`. The editor hides the checkbox while Muse is on |
 
 `muse_gadget: true` is kept only for these SKUs. Any other device written `true` is reset to `false` by the editor. `full_flash` uses the same SKU list:
 
@@ -173,7 +175,7 @@ Used for **container / edge app** deployment UI inside the application doc. Fiel
 | Path | Notes |
 |------|-------|
 | `config.flow_data_url` | Flow file URL |
-| `config.flow_data` | Parsed flow; also sync top-level `flow_data` as **JSON string** |
+| `config.flow_data` | Parsed flow object **or array**, not a JSON string; also sync top-level `flow_data` as **JSON string** |
 | `config.model_id` | Cascade pair; `['3', id]` = my model |
 | `config.model_data` | Snapshot; sync top-level `model_data` |
 
@@ -206,15 +208,23 @@ Used for **container / edge app** deployment UI inside the application doc. Fiel
   {
     "id": "ff_1",
     "type": "flash-firmware",
-    "device_id": "100017057",
-    "device_type": "",
-    "flash_mode": "bin",
-    "firmware_url": "https://example.com/e1002-app.bin",
-    "firmware_name": "e1002-app.bin",
-    "firmware_size": "1234567",
-    "flash_address": "0x90000",
-    "muse_gadget": false,
-    "full_flash": false
+    "config": {
+      "device_id": "100017057",
+      "device_type": "",
+      "flash_mode": "bin",
+      "firmware_url": "https://example.com/e1002-app.bin",
+      "firmware_name": "e1002-app.bin",
+      "firmware_size": "1234567",
+      "flash_address": "0x90000",
+      "muse_gadget": false,
+      "full_flash": false
+    }
   }
 ]
 ```
+
+## Repair an existing malformed block
+
+Read the latest owner sketch, clone its **complete** `deployment`, and move the affected block's settings into `config`, preserving its ID, all values, order, and every other block. If flat and nested values disagree, resolve that conflict before writing. An update containing only a one-element `deployment.blocks` array replaces the document; it is not a patch of that one block.
+
+Validate the corrected document and follow the parent's existing-app write protocol. Re-read the sketch afterward and check the saved `config` and unchanged surrounding blocks. Reconcile the project's local manifest and sync baseline too, so a later push does not restore the malformed shape. A successful API response only proves storage; verify the consumer-visible field paths as well.

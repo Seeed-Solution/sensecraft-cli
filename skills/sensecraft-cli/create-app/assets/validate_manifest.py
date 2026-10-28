@@ -28,8 +28,16 @@ EXCERPT_MAX = 300  # UTF-16 code units
 SCENE_RE = re.compile(r"^[0-9]+$")
 TEXT_BLOCK_TYPES = {"step", "paragraph", "h1", "h2", "h3", "h4", "h5", "h6",
                     "bullet", "number", "todo", "quote", "code", "divider"}
-CONFIG_TOOL_TYPES = {"deploy-ai-model", "ai-vibration", "deploy-container-app",
-                     "node-red", "aily-blockly"}
+# Modern deployment.blocks uses one config envelope for every tool. Keep these
+# config-relative fields aligned with internal/service/app_tool_blocks.go.
+TOOL_CONFIG_FIELDS = {
+    "flash-firmware": {"device_id", "device_type", "flash_mode", "firmware_url", "firmware_name", "firmware_size", "flash_address", "project_zip_url", "project_zip_name", "project_zip_size", "precheck_fields", "muse_gadget", "full_flash"},
+    "deploy-ai-model": {"model", "device_type", "powerMode", "conf", "iou", "threshold", "triggerAction", "deploy_tool_entry", "firmware_url"},
+    "ai-vibration": {"detectionType", "deviceType", "windowSize", "isPower", "gpio", "dStatus"},
+    "deploy-container-app": {"app_id", "app_key", "app_display_name", "app_icon", "app_description", "architecture", "architectures", "version", "version_options", "install_form", "merged_service", "user_override_flags", "form_field_values", "raw_by_version", "detail_form_fields"},
+    "node-red": {"flow_data_url", "flow_data", "model_id", "model_data"},
+    "aily-blockly": {"project_id", "device_id"},
+}
 FLASH_ADDRESSES = {"0x0", "0x4000", "0x10000", "0x90000"}
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 QUANTITY_RE = re.compile(r"^[1-9][0-9]*$")
@@ -264,45 +272,59 @@ def main():
             if block_type == "step" and (not isinstance(b.get("title"), str) or not b["title"].strip()):
                 vio(f"{label}: step block needs a non-empty title string")
             cfg = b.get("config")
-            if block_type == "flash-firmware":
-                if "config" in b:
-                    vio(f"{label}: flash-firmware fields must be flat on the block, not nested in config")
-                cfg = b
-                if not b.get("device_id"):
-                    warn(f"{label}: device_id is pending — resolve the exact device SKU")
-                elif not isinstance(b["device_id"], str):
-                    vio(f"{label}: device_id must be a SKU string")
-                mode = b.get("flash_mode")
-                if mode is None or mode == "":
-                    warn(f"{label}: flash_mode is pending")
-                elif mode not in ("bin", "zip"):
-                    vio(f"{label}: flash_mode must be bin or zip")
-                else:
-                    prefix = "firmware" if mode == "bin" else "project_zip"
-                    if not b.get(prefix + "_url"):
-                        warn(f"{label}: {prefix}_url is pending — deployment input incomplete")
-                for size_key in ("firmware_size", "project_zip_size"):
-                    if size_key in b and not isinstance(b[size_key], str):
-                        vio(f"{label}: {size_key} must be a string")
-                    elif b.get(size_key) and not QUANTITY_RE.fullmatch(b[size_key]):
-                        vio(f"{label}: {size_key} must be a positive byte count string or pending empty string")
-                address = b.get("flash_address")
-                if address is not None and address != "" and (not isinstance(address, str) or address not in FLASH_ADDRESSES):
-                    vio(f"{label}: unsupported flash_address; read tool-blocks.md for device defaults")
-            elif block_type in CONFIG_TOOL_TYPES:
+            if block_type in TOOL_CONFIG_FIELDS:
                 if not isinstance(cfg, dict):
-                    vio(f"{label}: tool block {block_type!r} needs a config object")
+                    vio(f"{label}: tool block needs a config object; flat legacy fields are not rendered")
+                    continue
+                if TOOL_CONFIG_FIELDS[block_type].intersection(b):
+                    vio(f"{label}: tool settings belong inside config; remove flat or duplicated settings")
+                if isinstance(cfg.get("config"), (dict, list)):
+                    vio(f"{label}: remove the extra config.config wrapper")
             elif block_type not in TEXT_BLOCK_TYPES:
                 vio(f"{label}: unsupported block type")
+            if block_type == "flash-firmware":
+                if "device_id" in cfg and not isinstance(cfg["device_id"], str):
+                    vio(f"{label}: config.device_id must be a SKU string")
+                elif not cfg.get("device_id"):
+                    warn(f"{label}: config.device_id is pending — resolve the exact device SKU")
+                for key in ("device_type", "firmware_name", "project_zip_name", "flash_mode", "flash_address", "firmware_url", "project_zip_url"):
+                    if key in cfg and not isinstance(cfg[key], str):
+                        vio(f"{label}: config.{key} must be a string (empty is allowed for a pending value)")
+                mode = cfg.get("flash_mode")
+                if mode is None or mode == "":
+                    warn(f"{label}: config.flash_mode is pending")
+                elif mode not in ("bin", "zip"):
+                    vio(f"{label}: config.flash_mode must be bin or zip")
+                else:
+                    prefix = "firmware" if mode == "bin" else "project_zip"
+                    if not cfg.get(prefix + "_url"):
+                        warn(f"{label}: config.{prefix}_url is pending — deployment input incomplete")
+                for size_key in ("firmware_size", "project_zip_size"):
+                    if size_key in cfg and not isinstance(cfg[size_key], str):
+                        vio(f"{label}: config.{size_key} must be a string")
+                    elif cfg.get(size_key) and not QUANTITY_RE.fullmatch(cfg[size_key]):
+                        vio(f"{label}: config.{size_key} must be a positive byte count string or pending empty string")
+                address = cfg.get("flash_address")
+                if address is not None and address != "" and (not isinstance(address, str) or address not in FLASH_ADDRESSES):
+                    vio(f"{label}: unsupported config.flash_address; read tool-blocks.md for device defaults")
+                for key in ("muse_gadget", "full_flash"):
+                    if key in cfg and type(cfg[key]) is not bool:
+                        vio(f"{label}: config.{key} must be a JSON boolean")
+                if cfg.get("muse_gadget") is True and cfg.get("full_flash") is True:
+                    vio(f"{label}: config.full_flash must be false when config.muse_gadget is true")
+            if block_type == "node-red":
+                if cfg.get("flow_data") is not None and not isinstance(cfg["flow_data"], (dict, list)):
+                    vio(f"{label}: config.flow_data must be an object or array, not a JSON string")
+                if cfg.get("model_data") is not None and not isinstance(cfg["model_data"], dict):
+                    vio(f"{label}: config.model_data must be an object or null")
             if isinstance(cfg, dict):
-                for k, val in cfg.items():
-                    if not k.endswith("_url"):
+                for key, val in cfg.items():
+                    if not key.endswith("_url"):
                         continue
-                    location = k if block_type == "flash-firmware" else "config." + k
                     if val is None or val == "":
-                        warn(f"{label}: {location} is empty — pending deployment input")
+                        warn(f"{label}: config.{key} is empty — pending deployment input")
                     elif not http_url(val):
-                        vio(f"{label}: {location} must be a valid http(s) URL or a pending empty value")
+                        vio(f"{label}: config.{key} must be a valid http(s) URL or a pending empty value")
 
     materials = m.get("bom", {}).get("materials", [])
     if not isinstance(materials, list):

@@ -77,30 +77,21 @@ func AppEditConsoleURL(remoteType, appID string) string {
 	return appSiteOrigin(remoteType) + "/application/edit?" + q.Encode()
 }
 
-// AppDetailConsoleURL is the owner detail route. from=user-center loads the sketch
-// and the detail back button returns to the creator center.
-// from=my-apps is the older plaza "my apps" list; do not use it for new links.
+// AppDetailConsoleURL is the canonical app page:
+// /hub/view-application/{id}-{slug}. No from, section, state, or tab.
+// The site decides draft versus published, and where Back goes.
 func AppDetailConsoleURL(remoteType, appID, appName string) string {
 	id := strings.TrimSpace(appID)
 	if id == "" {
 		return ""
 	}
-	q := url.Values{}
-	q.Set("tab", "custom")
-	q.Set("from", "user-center")
-	return appSiteOrigin(remoteType) + appViewPath(id, appName) + "?" + q.Encode()
+	return appSiteOrigin(remoteType) + appViewPath(id, appName)
 }
 
-// AppPlazaDetailConsoleURL is the public plaza snapshot (no from=my-apps).
+// AppPlazaDetailConsoleURL is the same canonical page. Plaza query params
+// stay on the website so a navigation change there does not require a CLI update.
 func AppPlazaDetailConsoleURL(remoteType, appID, appName string) string {
-	id := strings.TrimSpace(appID)
-	if id == "" {
-		return ""
-	}
-	q := url.Values{}
-	q.Set("tab", "public")
-	q.Set("from", "application-store")
-	return appSiteOrigin(remoteType) + appViewPath(id, appName) + "?" + q.Encode()
+	return AppDetailConsoleURL(remoteType, appID, appName)
 }
 
 // RecameraModelDeployURL is the AI deploy page for classic reCamera (uniform_type 40).

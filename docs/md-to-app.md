@@ -212,7 +212,7 @@ YouTube、TikTok、抖音、Bilibili、Vimeo、优酷、爱奇艺收成 `<div cl
 
 | 正文在说 | `type` | 配置放哪 |
 | --- | --- | --- |
-| 把固件烧进板子 | `flash-firmware` | **摊平在块上**，不要包一层 `config`。SKU、地址见 `skills/sensecraft-cli/references/tool-blocks.md` |
+| 把固件烧进板子 | `flash-firmware` | 放在 **`config` 对象里**；扁平的是 `blocks` 数组，不是工具配置。SKU、地址见 `skills/sensecraft-cli/references/tool-blocks.md` |
 | 部署视觉 / 声音模型 | `deploy-ai-model` | 放在 `config` 里。两个入口是同一个 `type`，用 `config.deploy_tool_entry`：`vision` 或 `sound`。声音会排除 reCamera Pro（`uniform_type` `53`） |
 | 异常振动 | `ai-vibration` | 放在 `config` 里 |
 | 边缘容器应用 | `deploy-container-app` | 放在 `config` 里 |
@@ -278,7 +278,9 @@ sensecraft-cli file upload --path ./firmware.bin --type 4 --checksum
   "allow_commerce": 0,
   "license": "",
   "author": "maker@example.com",
-  "images": ["https://files.example.com/cover.png"],
+  "images": [
+    "https://files.example.com/cover.png"
+  ],
   "pic_url": "https://files.example.com/cover.png",
   "deployment": {
     "blocks": [
@@ -317,15 +319,17 @@ sensecraft-cli file upload --path ./firmware.bin --type 4 --checksum
       {
         "id": "ff1",
         "type": "flash-firmware",
-        "device_id": "113991115",
-        "device_type": "32",
-        "flash_mode": "bin",
-        "firmware_url": "https://files.example.com/firmware.bin",
-        "firmware_name": "firmware.bin",
-        "firmware_size": "412316",
-        "flash_address": "0x0",
-        "muse_gadget": false,
-        "full_flash": false
+        "config": {
+          "device_id": "113991115",
+          "device_type": "32",
+          "flash_mode": "bin",
+          "firmware_url": "https://files.example.com/firmware.bin",
+          "firmware_name": "firmware.bin",
+          "firmware_size": "412316",
+          "flash_address": "0x0",
+          "muse_gadget": false,
+          "full_flash": false
+        }
       },
       {
         "id": "s2",
@@ -401,7 +405,7 @@ sensecraft-cli app publish --id <app_id> --agree-declaration --yes
 
 发布前网页和 CLI 都会卡这四项：名称、简介、场景、至少一张封面。缺一项就先补，不要发。
 
-成功后告诉用户：应用仍是「审核中」，不是已经出现在广场上。把 stdout 里的 `detail_url` 给用户自己打开核对，那是创作中心详情（`from=user-center`）。不要改成 `/application/detail/<id>`，那是应用广场页，看不到这份私有草稿。有 `web_link` 的应用卡片会跳外链，那种不是这个编辑器文档。
+成功后告诉用户：应用仍是「审核中」，不是已经出现在广场上。把 stdout 里的 `detail_url` 原样给用户，形式是 `/view-application/{id}-{名称}`，不要再加 `from`、`section`、`state`。作者登录后打开就能看到自己的草稿。不要改成 `/application/detail/<id>`。有 `web_link` 的应用卡片会跳外链，那种不是这个编辑器文档。
 
 结构是否写对，可以在无网络时对照：
 

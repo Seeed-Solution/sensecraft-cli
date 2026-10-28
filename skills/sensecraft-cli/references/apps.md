@@ -6,7 +6,7 @@ Domain skill for **CodeCraft Hub applications**. Auth: **Access Key** (HTTP Basi
 
 Parent router: [`../SKILL.md`](../SKILL.md).  
 SenseCAP IoT: [`data.md`](data.md).  
-Child skill: [`../create-app/SKILL.md`](../create-app/SKILL.md) — manifest-driven app lifecycle: mine a finished local project into a versioned `sensecraft-app.json` manifest (source of truth), create the app in one go, then local-first updates with drift detection (one batch confirmation per push). Publish / unpublish / delete stay in this file.
+Child skill: [`../create-app/SKILL.md`](../create-app/SKILL.md) — turn a local project into a deployable app: discover project facts, resolve uncertain decisions, write and review human-facing copy, configure tool-block deployment, confirm BOM catalog matches through the API, and build the versioned `codecraft-app.json` before upload. Read each related reference before authoring its information. Later updates follow the manifest with drift detection and one batch confirmation per push. Publish / unpublish / delete stay in this file.
 
 ## Agent rules
 
@@ -14,7 +14,7 @@ Child skill: [`../create-app/SKILL.md`](../create-app/SKILL.md) — manifest-dri
    ```bash
    sensecraft-cli auth info
    ```
-   Need an active **SenseCAP Access Key**. If missing, ask the user to run `sensecraft-cli auth init` locally. **Never** run `auth init` for them.
+   Need an active **SenseCAP Access Key**. If missing, the agent runs `sensecraft-cli auth init` in a PTY/TTY session and handles terminal prompts per the [parent auth workflow](../SKILL.md#auth). The user completes browser authorization; do not hand CLI commands to them. Recheck auth before continuing.
 2. **L2 confirm is a separate chat turn** ([confirmation.md](confirmation.md)) before: `publish` (`--agree-declaration`), `unpublish`, `withdraw`, `delete`, `like`, `unlike`, `collect`, `uncollect`, `mark-deploy`, `clone`, **`app update` / `bom set`**. 「删除应用 demo」is **not** confirmation — ask `将从{环境}环境删除应用 demo（ID: …）。删除后可能无法恢复。是否确认执行？`, wait for `确认`, then `--yes`. Never pass `--yes` on the same turn as the first request. **Exception — batch authoring:** [`create-app`](../create-app/SKILL.md) confirms a whole push batch (fields + images + BOM + blocks) in one turn instead of per write; its one-go `app create` needs no confirmation at all.  
    **`app create` is not L2** — including `--from-json` with full fields (create + internal follow-up `update_app` on the **new** `app_id` only). Prefer one-shot create when the payload is ready. Still tell the user what will be created before running create.
 3. **Privacy values**: submit review → `privacy` / flow uses **`2`** (pending); unpublish/private → **`0`**. **Never send `1`** (ops-approved public; Admin only).
@@ -104,6 +104,8 @@ sensecraft-cli app bom set --id <app_id> --from-json ./materials.json --yes
 Seeed rows need `id`(=SKU). Custom rows omit `id`. No manual custom image upload.
 
 ### Author path
+
+For a local project/repository or an existing `codecraft-app.json`, use [create-app](../create-app/SKILL.md) for the full discovery, writing review, BOM verification, and manifest workflow. The abbreviated commands below apply to content that is already authored and reviewed; do not bypass that workflow by uploading a developer README directly.
 
 0. Resolve `scene`, inspect fields, and inspect block layouts:
    ```bash

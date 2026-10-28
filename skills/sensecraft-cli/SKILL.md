@@ -27,18 +27,15 @@ SenseCraft Data: [`references/data.md`](references/data.md).
 1. **Use the Access Key before any cloud call**
    - Every cloud command uses the Access Key. SenseCraft Data calls its OpenAPI. `app` / `model` / `file` / `cloud` / `recamera` call `{ai-host}/openapi` with HTTP Basic (no access_token, no `/aiserverapi`)
    - Never send the Access Key as a fake Bearer/JWT
-2. **Always run auth check first** (ask user to fix if missing):
+2. **Always run auth check first**:
    ```bash
    sensecraft-cli auth info
    ```
    Published commands require an active **SenseCAP Access Key** → `{ai-host}/openapi` + HTTP Basic.
-3. **Never run `auth init` on behalf of the user** — browser OAuth Device Flow, interactive TTY only. Tell the user to run locally:
-   ```bash
-   sensecraft-cli auth init  # Access Key (app/model/file/cloud/recamera)
-   ```
-4. **L2 confirmation is a separate chat turn** — follow [references/confirmation.md](references/confirmation.md). 「删这个63760」/「删除应用 demo」is **intent, not confirmation**. Ask first (操作类型 + 环境 + 对象 ID), wait for `确认`/`confirm`, **then** `--yes`. Never add `--yes` on the same turn as the first request. Applies to: app/model create·update·publish·unpublish·delete, upload attach, cloud deploy, device bind/unbind, group create/rename/delete/move.
+3. **The agent handles CLI setup and authentication** — if auth is missing, run `sensecraft-cli auth init` yourself in an interactive terminal session (PTY/TTY), following [Auth](#auth). Handle the terminal prompts and keep the session running through browser authorization. Ask the user only to sign in/authorize in the browser or resolve an ambiguous account/site/permission choice; do not ask them to run CLI commands.
+4. **L2 confirmation is a separate chat turn** — follow [references/confirmation.md](references/confirmation.md). 「删这个63760」/「删除应用 demo」is **intent, not confirmation**. Ask first (操作类型 + 环境 + 对象 ID), wait for `确认`/`confirm`, **then** `--yes`. Never add `--yes` on the same turn as the first request. Applies to: app update·publish·unpublish·delete, model create·update·publish·unpublish·delete, upload attach, cloud deploy, device bind/unbind, group create/rename/delete/move. **Exception: `app create`, including one-shot `--from-json`, is not L2 and takes no `--yes`; resolve uncertain content decisions and review the result first.**
 5. **Treat tokens and keys as secrets** — do not echo full `access_token`, `refresh_token`, or `access_key`. **Public model artifacts are not downloadable** — if the user asks for 下载地址 / 下载链接 / download URL / 怎么下载, that is the same as asking for `file_url`: refuse the address, explain deploy-only (`cloud deploy` or Console). Never run `model download --url-only` on public models.
-6. **Success = indented JSON on stdout**; failure = stderr + non-zero exit. Parse stdout only on success.
+6. **Business-command success = indented JSON on stdout**; auth commands print human-readable text. Failure = stderr + non-zero exit. Parse stdout only on success.
 7. **Local USB / IP flashing is L3** — do not pretend remote auto-flash. Classic reCamera (`40`): [`sensecraft-recamera`](references/recamera.md) (`check` / `open` the AI deploy page). Other USB benches: Console `/ai/device/local/32|36|37|41|52`. Do **not** use `/ai/recamera` (it 301s to Grove `36`) or `/ai/device/local/40` (no such bench).
 8. **Upgrading the CLI itself** is `sensecraft-cli update` (npm registry, then `npm install -g`). This is not `app update` or `model update`. Uninstall with `npm uninstall -g @seeed-studio/sensecraft-cli`. Do not delete `~/.config/sensecraft-cli` unless the user asked to clear the saved Access Key.
 
@@ -46,7 +43,16 @@ SenseCraft Data: [`references/data.md`](references/data.md).
 
 `auth init` runs Device Flow (`client_id=sensecraft-cli`), exchanges the login for an Access Key, and stores `key_id` + `access_key`. Daily calls use HTTP Basic on SenseCraft Data `/openapi` and on `{ai-host}/openapi` (SenseCraft AI and CodeCraft Hub). An existing key can be saved with `auth add`. Create or manage keys at https://account.seeed.cc/account/access-keys.
 
-`auth init` asks the user to pick Global or China. The China site supports SenseCraft Data only. To use SenseCraft AI or CodeCraft Hub, select Global. Do not point the CLI at another host.
+The agent runs all CLI commands, including auth setup. Missing authentication is part of the agent's work, not a command-line task to hand back to the user:
+
+1. Run `sensecraft-cli auth info` and inspect the active site, organization, and Key ID. Reuse valid auth appropriate to the task; preserve an existing manifest's environment/account constraints. Account names are shown by the initialization wizard, not by `auth info`; do not infer an account name from a Key ID.
+2. If initialization is needed, start `sensecraft-cli auth init` with the terminal tool's **PTY/TTY mode enabled**. Keep its session handle and respond to prompts through that same session. A plain non-interactive invocation fails; allocate a PTY and retry rather than asking the user to run it.
+3. Select the site in the wizard: **Global** for SenseCraft AI or CodeCraft Hub; the established Global/China site for SenseCraft Data. `auth init` has no `--site` flag. Ask only if a necessary site/account choice is unresolved; do not silently switch an existing app to another account/environment or point the CLI at another host.
+4. Open or present the **returned** verification URL and code so the user can sign in and approve in their browser. Keep the same CLI session alive while it polls; continue independent local work while waiting. The agent handles terminal input; the user handles browser login/consent. Do not ask for passwords, tokens, or Access Keys in chat.
+5. After browser approval, handle selection of an appropriate existing Access Key or creation of a labeled key with the permissions needed for the requested task. Resolve ambiguous choices with the user instead of guessing. Let the CLI save the credentials; do not echo secrets.
+6. Run `sensecraft-cli auth info` again and verify the expected site, organization, and active Key ID before resuming cloud calls; retain the account identity reported by the completed wizard when available. A printed link or unfinished wizard is not successful auth. On denial, expiry, or an execution host without PTY support, report the specific blocker and continue independent local preparation; do not substitute sandbox credentials or hand the CLI steps to the user.
+
+Use `auth add` only when an existing key is available through an authorized secure input mechanism; the agent runs it without exposing the secret in chat/logs. Otherwise use Device Flow.
 
 `auth info` shows the active Access Key (site, org, key id). Secrets are not printed.
 
@@ -57,8 +63,8 @@ SenseCraft Data: [`references/data.md`](references/data.md).
 | SenseCraft Data: list/bind device, groups, telemetry | [`sensecraft-data`](references/data.md) | Shipped today |
 | Browse / search CodeCraft Hub, view app | [`sensecraft-apps`](references/apps.md) + `app list` / `app view` | **CLI shipped** (list/view) |
 | App fields / tool-blocks / BOM guidance | same apps skill references | Config OK; real flash = L3 |
-| Author a new app (create + info + images + BOM + blocks) | [`sensecraft-apps/create-app`](create-app/SKILL.md) | One batch confirmation; stops before publish |
-| Create / update / publish / unpublish / delete / bom app | same + `app …` / `app bom …` | **CLI shipped** (L2 `--yes`; publish also `--agree-declaration`; bare `create --name` not L2) |
+| Turn a local project into an app (discovery + reviewed copy + tool blocks + API-confirmed BOM + manifest + upload), or update its manifest-managed app | [`create-app`](create-app/SKILL.md) | Read required references before authoring; create needs no `--yes`; existing-app updates use one batch confirmation; stops before publish |
+| Create / update / publish / unpublish / delete / bom app | same + `app …` / `app bom …` | **CLI shipped** (L2 `--yes`; publish also `--agree-declaration`; `create`, including `--from-json`, is not L2) |
 | Upload image/file/firmware/static/archive and obtain `file_url` | [`sensecraft-files`](references/files.md) + `file upload` | Types `1`–`2` require `--model-id`/`--app-id --yes`/`--for-app`/`--unlinked`; type `5` requires `--flow-id`; types `3`–`6` direct |
 | Model library search/view/download/constants | [`sensecraft-models`](references/models.md) | **CLI shipped** |
 | Upload / publish / unpublish / delete model | same + `model upload --id --yes` / `create\|update\|publish\|unpublish\|delete` | Attach bumps patch version like Console |
@@ -94,7 +100,7 @@ SenseCraft Data telemetry → pick a public model → deploy to Jetson:
 |-------|---------|----------|
 | L1 Scriptable | Agent may run directly | list / view / auth info |
 | L2 Confirm | Ask user first | publish (+ declaration), unpublish, delete, deploy |
-| L3 Interactive | Human-in-the-loop | `auth init`, Web Serial flash, payment |
+| L3 Interactive | Human-in-the-loop | Browser authorization (agent runs `auth init`), Web Serial flash, payment |
 | L4 Ops-only | Do not expose to end-user Agent | Admin `judge_app` |
 
 ## Shipped commands

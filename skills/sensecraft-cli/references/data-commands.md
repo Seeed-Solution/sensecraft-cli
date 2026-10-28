@@ -19,10 +19,10 @@ Interactive setup wizard (OAuth Device Flow). Obtains an Access Key and writes `
 ### Wizard steps
 
 1. Select site: Global (International) or China. China supports SenseCraft Data only. SenseCraft AI and CodeCraft Hub require Global.
-2. Browser OAuth Device Flow authorization
-3. Organization selection
-4. Access Key creation
-5. Save to local config and set as active profile
+2. Request a device authorization code and show the verification URL/code.
+3. Wait for the user to approve in the browser; the CLI polls automatically.
+4. Resolve account/organization, then select an existing Access Key or create one with a label and permission level.
+5. Save to local config and set as active profile.
 
 ### Output
 
@@ -30,8 +30,9 @@ Human-readable progress on stdout/stderr. No JSON payload.
 
 ### Agent notes
 
-- Do **not** run on behalf of the user in non-interactive environments.
-- In sandbox mode, simulated credentials are written locally for testing.
+- The agent runs this in the terminal tool's PTY/TTY mode and handles prompts per the [parent auth workflow](../SKILL.md#auth). Keep the session alive during browser authorization; do not ask the user to run commands.
+- If invoked without a TTY, retry with PTY mode. If the execution host cannot provide one, report that capability gap and continue independent local work.
+- In sandbox mode, simulated credentials are written locally for testing. Use an isolated test config; sandbox credentials do not authorize real cloud calls.
 
 ---
 

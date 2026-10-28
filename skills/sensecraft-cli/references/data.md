@@ -26,9 +26,7 @@ Requires Node.js >= 16.
    ```bash
    sensecraft-cli auth info
    ```
-2. **Never run `auth init` on behalf of the user** — it requires browser OAuth in an interactive terminal.
-   - SenseCAP Access Key: `sensecraft-cli auth init`
-   - If the user already has Key ID / Access Key, guide them to run `auth add` locally instead (do not pass secrets into the agent context).
+2. **The agent handles authentication** — follow the [parent auth workflow](../SKILL.md#auth). Run `sensecraft-cli auth init` in a PTY/TTY session when needed, handle site/key prompts, and keep the session running while the user approves in the browser. Do not ask the user to run CLI commands or paste secrets into chat. Use `auth add` only with an existing key available through authorized secure input; recheck auth before continuing.
 3. **L2 confirm is a separate chat turn** ([confirmation.md](confirmation.md)) before write ops: `device bind` / `unbind`, `group create` / rename / `delete` / `move-devices`, `device devkit create`. 「解绑这台设备」is **not** confirmation — ask (操作类型 + 环境 + EUI/组), wait for `确认`, then `--yes` where the command has it (`unbind` / `group delete` / `group move-devices`). Never pass `--yes` on the same turn as the first request.
 4. **Treat dev kit credentials as secrets** — `device_key` and `token` must not be logged or echoed unnecessarily.
 5. **Parse stdout JSON** on success; on failure read stderr and check exit code != 0.
@@ -43,7 +41,7 @@ sensecraft-cli auth info
 | State | Indicator | Action |
 |-------|-----------|--------|
 | Initialized (SenseCAP) | Output shows SenseCAP `[active]`, Key ID, Site, Organization ID | Proceed with `device` / `group` / `data` |
-| Not initialized | Prompts to run `auth init` | Ask the user to run `auth init` locally; for existing Access Key use `auth add` |
+| Not initialized | Prompts to run `auth init` | Agent runs `auth init` in a PTY/TTY session per the parent auth workflow; user completes browser authorization |
 
 ## Configuration
 

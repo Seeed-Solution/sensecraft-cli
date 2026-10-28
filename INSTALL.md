@@ -338,9 +338,9 @@ While developing this repository, link the repo's `skills/sensecraft-cli` into t
 Usage:
 
 - Read `sensecraft-cli` first. It opens the matching file under `references/`.
-- `sensecraft-cli` must be on PATH, and the user must already be signed in.
+- `sensecraft-cli` must be on PATH. The agent checks `auth info` and, when needed, runs `auth init` in an interactive PTY/TTY session.
 - The agent must be able to run commands on this machine. A chat-only host can read the notes and cannot claim a command ran.
-- `auth init`, local USB or IP deploy, and flashing stay with the user.
+- The agent handles auth CLI prompts and keeps the session running; the user completes browser sign-in/authorization. Do not ask the user to run auth commands. Local USB or IP deploy and flashing stay in the browser/device workflow.
 
 ---
 

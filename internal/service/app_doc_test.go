@@ -437,7 +437,7 @@ func TestApplyCompiledMarkdownFillsNameAndAppendsToolBlock(t *testing.T) {
 	body := map[string]any{
 		"scene": "1",
 		"deployment": map[string]any{
-			"blocks": []any{map[string]any{"id": "t1", "type": "flash-firmware"}},
+			"blocks": []any{map[string]any{"id": "t1", "type": "flash-firmware", "config": map[string]any{}}},
 		},
 	}
 	applyCompiledMarkdown(body, &notes)

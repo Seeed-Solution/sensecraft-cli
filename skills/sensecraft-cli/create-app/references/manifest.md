@@ -62,7 +62,7 @@ Formats JPG/JPEG/PNG/GIF/WebP, ≤ 5 MB each, prefer 4:3. SVG is rejected by the
 
 ## `deployment.blocks`
 
-Flat ordered array, copied through to the payload unchanged. Blocks before the first `step` = introduction; each `step` starts a deploy step. Read [../../references/tool-blocks.md](../../references/tool-blocks.md) before selecting or configuring tools. After `file upload --type 4`, put the URL on the `flash-firmware` block as flat `firmware_url` (plus `firmware_name` and string `firmware_size`). Do not nest those fields under `config`. The editor wraps them into `config` when the doc is opened. A needed block with missing inputs may stay in a local draft, but the app is not deployment-ready until those inputs have a usable path; mark gaps in review notes rather than inventing URLs or IDs.
+Flat ordered array, copied through to the payload unchanged. Blocks before the first `step` = introduction; each `step` starts a deploy step. Read [../../references/tool-blocks.md](../../references/tool-blocks.md) before selecting or configuring tools. After `file upload --type 4`, write `config.firmware_url`, `config.firmware_name`, and string `config.firmware_size` inside the `flash-firmware` block. Every tool uses one nested `config` object. The flat array layout does not permit flat tool settings; modern blocks are not wrapped on read. A needed block with missing inputs may stay in a local draft, but the app is not deployment-ready until those inputs have a usable path; mark gaps in review notes rather than inventing URLs or IDs.
 
 ## `bom.materials`
 
@@ -90,7 +90,7 @@ Build that object as `{"info": {...}, "images": ["<URL>", ...], "deployment": {.
 ### Compare on update or resume
 
 1. Load the retained baseline and check its digest against `sync.last_pushed_hash`. Compare it with the current local projection and the latest remote sketch/BOM to identify local changes, remote changes, and real conflicts.
-2. Normalize equivalent representations consistently: numeric scene/SKU/device-type/size/quantity values to their canonical strings; clone/commercial flags to integers; image objects to URL strings. For `flash-firmware` only, flatten editor-wrapped `config` back onto the block, retaining its fields. Keep other tool configs nested. Treat missing optional empty note/URL strings consistently. Preserve block, image, and BOM order and every substantive tool field.
+2. Normalize equivalent representations consistently: numeric scene/SKU/device-type/size/quantity values to their canonical strings; clone/commercial flags to integers; image objects to URL strings. Keep every tool config nested. When comparing historical malformed firmware blocks, move their flat settings into `config` without losing fields; do not flatten valid nested blocks. Verify the original retained hash before comparison normalization, and advance the baseline only after a verified push. Conflicting flat/nested values require reconciliation. Treat missing optional empty note/URL strings consistently. Preserve block, image, and BOM order and every substantive tool field.
 3. Exclude the `activity_id` join instruction, derived duplicates (`pic_url`, top-level Node-RED mirrors), and unrelated identity/lifecycle/timestamp fields from all content-drift projections. Assess any intentional participation change separately, using review evidence and the current activity rules. Do not drop a non-empty stable managed field from both sides merely because a remote response omitted it; that is a verification gap to resolve. Do not normalize away a new/deleted/reordered block, a changed URL, or an unknown substantive field.
 4. If an old manifest has only a hash and no retained baseline, recover it from a trusted last-pushed snapshot when possible. Otherwise inspect the remote and present the concrete differences for reconciliation before writing. Do not use the already-edited local manifest as an assumed old baseline.
 
@@ -171,15 +171,17 @@ The template is a blank scaffold; the snapshot below illustrates a filled, cover
       {
         "id": "ff_1",
         "type": "flash-firmware",
-        "device_id": "102991299",
-        "device_type": "",
-        "flash_mode": "bin",
-        "firmware_url": "https://files.example.invalid/lap-timer.bin",
-        "firmware_name": "lap-timer.bin",
-        "firmware_size": "412316",
-        "flash_address": "0x4000",
-        "muse_gadget": false,
-        "full_flash": false
+        "config": {
+          "device_id": "102991299",
+          "device_type": "",
+          "flash_mode": "bin",
+          "firmware_url": "https://files.example.invalid/lap-timer.bin",
+          "firmware_name": "lap-timer.bin",
+          "firmware_size": "412316",
+          "flash_address": "0x4000",
+          "muse_gadget": false,
+          "full_flash": false
+        }
       },
       {
         "id": "step_2",
@@ -212,7 +214,7 @@ The template is a blank scaffold; the snapshot below illustrates a filled, cover
     "local_revision": 1,
     "last_pushed_revision": 1,
     "last_pushed_at": "2026-10-28T08:01:00Z",
-    "last_pushed_hash": "sha256:880e59411f09e0e462e0bc10e160fe344b91c576bf8fe886d44eb6cce5f31261"
+    "last_pushed_hash": "sha256:5921b86fb5500da24a24b2aeb33fd251213d195ee8c96634f0866045b1153d82"
   }
 }
 ```

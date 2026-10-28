@@ -29,10 +29,12 @@ class ManifestValidationTests(unittest.TestCase):
             allow_clone=1, allow_commerce=0,
         )
         self.manifest["deployment"]["blocks"] = [{
-            "id": "flash", "type": "flash-firmware", "device_id": "102991299",
-            "device_type": "", "flash_mode": "bin", "flash_address": "0x4000",
-            "firmware_url": "https://files.example.invalid/timer.bin",
-            "firmware_name": "timer.bin", "firmware_size": "1024",
+            "id": "flash", "type": "flash-firmware", "config": {
+                "device_id": "102991299", "device_type": "", "flash_mode": "bin", "flash_address": "0x4000",
+                "firmware_url": "https://files.example.invalid/timer.bin",
+                "firmware_name": "timer.bin", "firmware_size": "1024",
+                "muse_gadget": False, "full_flash": False,
+            },
         }]
 
     def validate(self, manifest=None, extra=None):
@@ -48,7 +50,7 @@ class ManifestValidationTests(unittest.TestCase):
         self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
         self.assertNotIn("Traceback", result.stderr)
 
-    def test_default_name_and_flat_firmware(self):
+    def test_default_name_and_renderer_readable_firmware(self):
         result = self.validate()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
@@ -132,23 +134,59 @@ class ManifestValidationTests(unittest.TestCase):
                 self.manifest["deployment"]["blocks"] = [block]
                 self.assert_invalid(self.manifest)
 
-    def test_nested_firmware_rejected_pending_flat_firmware_allowed(self):
+    def test_nested_firmware_allowed_flat_or_mixed_firmware_rejected(self):
         block = self.manifest["deployment"]["blocks"][0]
-        block["firmware_url"] = ""
+        block["config"]["firmware_url"] = ""
         self.assertEqual(self.validate().returncode, 0)
-        self.manifest["deployment"]["blocks"] = [{"id": "f", "type": "flash-firmware", "config": block}]
+        block["firmware_url"] = "https://files.example.invalid/flat.bin"
+        self.assert_invalid(self.manifest)
+        block.pop("config")
         self.assert_invalid(self.manifest)
 
+    def test_all_tools_use_one_config_object(self):
+        for kind in ("flash-firmware", "deploy-ai-model", "ai-vibration", "deploy-container-app", "node-red", "aily-blockly"):
+            with self.subTest(kind=kind):
+                block = {"id":"tool", "type":kind, "config":{}}
+                self.manifest["deployment"]["blocks"] = [block]
+                self.assertEqual(self.validate().returncode, 0)
+                block["config"] = {"config": {"firmware_url":"https://files.example.invalid/image.bin"}}
+                self.assert_invalid(self.manifest)
+
+    def test_node_red_flow_arrays_and_aily_extension_string(self):
+        block = {"id":"flow", "type":"node-red", "config":{"flow_data":[{"id":"node-1"}], "model_data":None}}
+        self.manifest["deployment"]["blocks"] = [block]
+        self.assertEqual(self.validate().returncode, 0)
+        block["config"]["flow_data"] = "[]"
+        self.assert_invalid(self.manifest)
+        block.update(type="aily-blockly", config={"project_id":"123", "config":""})
+        self.assertEqual(self.validate().returncode, 0)
+
+    def test_firmware_flags_are_booleans_and_muse_disables_full_flash(self):
+        cfg = self.manifest["deployment"]["blocks"][0]["config"]
+        cfg.update(device_id="113991315",device_type="37",flash_address="0x0")
+        for key in ("muse_gadget", "full_flash"):
+            for value in ("false", "true", 0, 1):
+                with self.subTest(key=key,value=value):
+                    cfg[key] = value
+                    self.assert_invalid(self.manifest)
+            cfg[key] = False
+        cfg.update(muse_gadget=True,full_flash=True)
+        self.assert_invalid(self.manifest)
+        cfg["full_flash"] = False
+        self.assertEqual(self.validate().returncode, 0)
+
     def test_firmware_modes_sizes_and_addresses(self):
-        block = self.manifest["deployment"]["blocks"][0]
+        block = self.manifest["deployment"]["blocks"][0]["config"]
+        block.update(device_id="113991115",device_type="32",flash_address="0x0")
         block.update(flash_mode="zip", project_zip_url="https://files.example.invalid/project.zip", project_zip_size="2048")
         self.assertEqual(self.validate().returncode, 0)
         for key, value in (("flash_mode", 0), ("flash_address", []), ("flash_address", "0x20000"),
+                           ("device_id", 0), ("device_id", False), ("device_id", None),
                            ("firmware_size", 1024), ("project_zip_size", "large"),
                            ("project_zip_url", "file:///tmp/project.zip"), ("project_zip_url", "https://")):
             with self.subTest(key=key, value=value):
                 manifest = copy.deepcopy(self.manifest)
-                manifest["deployment"]["blocks"][0][key] = value
+                manifest["deployment"]["blocks"][0]["config"][key] = value
                 self.assert_invalid(manifest)
 
     def test_markdown_is_compiled_but_source_code_is_preserved(self):

@@ -9,9 +9,11 @@ import (
 func TestFlashFirmwareCatalogKeys(t *testing.T) {
 	var catalog struct {
 		ToolBlocks []struct {
-			Type       string   `json:"type"`
-			ConfigKeys []string `json:"config_keys"`
-			Notes      string   `json:"notes"`
+			Type       string         `json:"type"`
+			ConfigKeys []string       `json:"config_keys"`
+			Notes      string         `json:"notes"`
+			ConfigPath string         `json:"config_path"`
+			Example    map[string]any `json:"example"`
 		} `json:"tool_blocks"`
 	}
 	if err := json.Unmarshal(AppBlocksCatalog(), &catalog); err != nil {
@@ -20,10 +22,15 @@ func TestFlashFirmwareCatalogKeys(t *testing.T) {
 	var keys []string
 	var notes string
 	for _, block := range catalog.ToolBlocks {
+		if block.ConfigPath != "config" {
+			t.Fatalf("%s must declare its renderer config path", block.Type)
+		}
 		if block.Type == "flash-firmware" {
 			keys = block.ConfigKeys
 			notes = block.Notes
-			break
+			if err := ValidateDeploymentBlocks(toolBlockBody(block.Example)); err != nil {
+				t.Fatalf("catalog example must be writable: %v", err)
+			}
 		}
 	}
 	want := []string{

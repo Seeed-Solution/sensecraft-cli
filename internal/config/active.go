@@ -1,9 +1,11 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
+	"sensecraft-cloud-terminal/internal/authhint"
 	"sensecraft-cloud-terminal/internal/enum"
 	"sensecraft-cloud-terminal/internal/utils"
 )
@@ -29,11 +31,11 @@ func RemoteTypeOf(cli *CliConfig) string {
 // ResolveActiveAPIConfig 从 CLI 配置中解析当前使用的 SenseCAP OpenAPI 凭证。
 func ResolveActiveAPIConfig(cli *CliConfig) (AccessApiConfig, error) {
 	if cli == nil || len(cli.AppConfigList) == 0 {
-		return AccessApiConfig{}, fmt.Errorf("no SenseCAP API config found; run: sensecraft-cli auth init")
+		return AccessApiConfig{}, errors.New(authhint.NeedLogin())
 	}
 
 	if cli.UseApi == "" {
-		return AccessApiConfig{}, fmt.Errorf("no SenseCAP API config found; run: sensecraft-cli auth init")
+		return AccessApiConfig{}, errors.New(authhint.NeedLogin())
 	}
 
 	var selected = AccessApiConfig{}

@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"sensecraft-cloud-terminal/internal/authhint"
 )
 
 // ResetConfigCache 清除内存中的配置缓存（保存后应调用）。
@@ -56,7 +58,7 @@ func BuildAccessProfile(remoteType, orgID, keyID, accessKey string) AccessApiCon
 // FormatCliConfigInfo 格式化配置文件核心信息，便于 auth info 展示。
 func FormatCliConfigInfo(cli *CliConfig, configPath string) string {
 	if cli == nil || len(cli.AppConfigList) == 0 {
-		return fmt.Sprintf("Config file: %s\n\nNo profiles configured yet.\n  Run: sensecraft-cli auth init\n", configPath)
+		return fmt.Sprintf("Config file: %s\n\n%s\n", configPath, authhint.NeedLogin())
 	}
 
 	var b strings.Builder

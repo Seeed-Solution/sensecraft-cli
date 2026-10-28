@@ -8,7 +8,7 @@ Target binary: `sensecraft-cli` (this repo). Auth: active **SenseCAP Access Key*
 
 ```bash
 sensecraft-cli auth info
-sensecraft-cli auth init   # user only, interactive
+sensecraft-cli auth init --site Global --no-wait   # split flow; see SKILL.md
 ```
 
 ## Commands

@@ -8,8 +8,7 @@ Binary: `sensecraft-cli`. Auth: **Access Key** (`auth init`) → `{ai-host}/open
 
 ```bash
 sensecraft-cli auth info
-# user-only:
-sensecraft-cli auth init
+sensecraft-cli auth init --site Global --no-wait   # split flow; see SKILL.md
 ```
 
 ## Commands

@@ -12,7 +12,7 @@ Library `model download` is the published model file, not a training-job export.
    ```bash
    sensecraft-cli auth info
    ```
-   Prefer **SenseCAP Access Key** (`auth init`) → `{ai-host}/openapi` Basic. Missing key → user runs `auth init`. **Never** run init for them.
+   Prefer **SenseCAP Access Key** (`auth init`) → `{ai-host}/openapi` Basic. Missing key → split `auth init` flow in [`../SKILL.md`](../SKILL.md). Do not run bare `auth init`.
 2. **L2 confirm is a separate chat turn** ([confirmation.md](confirmation.md)) before: `publish` / `unpublish` / `delete` / `create` / `model update` / attach-upload. 「删这个63760」is **not** confirmation — ask `将从{环境}环境删除模型 63760。删除后可能无法恢复。是否确认执行？`, wait for `确认`, then `--yes`. Never pass `--yes` on the same turn as the first request.
 3. When the user **attaches a model file** ("上传这个模型文件" / "更新模型"):
    - **Own My Models** (including already published `be_public=1`): after chat confirm, `model update --id <model_id> --path <file> --yes`. Same as Console 编辑模型. If it is **already public**, the confirm question must say 模型信息更新后将重新进入审核流程. CLI sends `be_public=1` like Console `requestConfirmFn`. JSON includes `re_review: true`.

@@ -30,7 +30,7 @@ type step func(*InitContext) (step, error)
 // RunInitFlow 执行 auth init 向导。向导只保存 Access Key。
 func RunInitFlow(ctx context.Context, console *ui.Console, sandbox bool) error {
 	if !console.IsInteractive() && !sandbox {
-		return fmt.Errorf("auth init requires an interactive terminal, or use --sandbox to try the flow")
+		return errAuthInitNonInteractive()
 	}
 
 	configPath, err := config.ResolveConfigPath()

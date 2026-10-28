@@ -75,7 +75,7 @@ Published text is what plaza users actually read — mine it from the project, b
 
 ## Workflow B — create (one-go)
 
-1. **Preflight**: Run `sensecraft-cli auth info`. Need an active SenseCAP Access Key. If missing, ask the user to run `sensecraft-cli auth init` locally. Never run `auth init` for them.
+1. **Preflight**: Run `sensecraft-cli auth info`. Need an active SenseCAP Access Key. If missing, use the split `auth init` flow in [`../SKILL.md`](../SKILL.md). Do not run bare `auth init`.
 2. **Upload assets**, writing each returned `file_url` back into the manifest entry:
    
    - Images: `sensecraft-cli file upload --path <img> --type 1 --for-app` (unlinked, 5 MB cap). Keep manifest order; index 0 = cover.

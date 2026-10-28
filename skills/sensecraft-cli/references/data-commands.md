@@ -6,31 +6,52 @@ Complete reference for AI agents. All paths are relative to the OpenAPI base URL
 
 ## auth init
 
-Interactive setup wizard (OAuth Device Flow). Obtains an Access Key and writes `sensecraft.json`.
+OAuth Device Flow. Obtains an Access Key and writes `sensecraft.json`.
 
-**Not an OpenAPI call.** Requires interactive terminal (TTY) unless using sandbox mode.
+**Not an OpenAPI call.** Bare `auth init` is a TTY wizard. The split flags below are for a one-shot shell: each command prints JSON and exits. `--sandbox` simulates the wizard, or the one split step it is combined with, without network access.
 
 ### Flags
 
 | Flag | Required | Default | Description |
 |------|----------|---------|-------------|
-| `--sandbox` | No | `false` | Simulate the full wizard without sending real network requests |
+| `--sandbox` | No | `false` | Simulate this step without sending real requests |
+| `--site` | With `--no-wait` | — | `Global` or `China`. China is SenseCraft Data only |
+| `--no-wait` | No | `false` | Request a device code and return immediately |
+| `--device-code` | No | — | Continue a previous `--no-wait` login |
+| `--key-id` | No | — | Save this existing Access Key id after authorization |
+| `--label` | No | — | Create an Access Key with this label after authorization |
+| `--access-level` | No | `read-write` | With `--label`: `read-write` or `only-read` |
+| `--json` | No | `false` | Accepted for agents. The split flow always prints JSON |
 
-### Wizard steps
+### Wizard
 
-1. Select site: Global (International) or China. China supports SenseCraft Data only. SenseCraft AI and CodeCraft Hub require Global.
+With no split flags, in a terminal:
+
+1. Select site: Global (International) or China
 2. Browser OAuth Device Flow authorization
-3. Organization selection
-4. Access Key creation
-5. Save to local config and set as active profile
+3. Select an existing Access Key, or create one
+4. Save to local config and set it active
 
-### Output
+### Split flow
 
-Human-readable progress on stdout/stderr. No JSON payload.
+```bash
+sensecraft-cli auth init --site Global --no-wait
+sensecraft-cli auth init --device-code <device_code>
+sensecraft-cli auth init --device-code <device_code> --key-id <access_id>
+sensecraft-cli auth init --device-code <device_code> --label <name> --access-level read-write
+```
+
+1. `--no-wait` prints `verification_url`, `user_code`, `device_code`, `expires_in`, and `site`, then exits. It does not read stdin.
+2. Show `verification_url` to the user and end the turn. Do not poll in that same turn.
+3. After the user authorizes, `--device-code` polls, then prints the account and Access Key list (`label`, `access_id`, `access_level`).
+4. A later command with `--key-id` or `--label` saves the key and sets it active.
+
+The login access token is written to `sensecraft-auth-pending.json` next to the config file (mode `0600`) and is removed after the key is saved. It is not printed. Key secrets are not printed.
 
 ### Agent notes
 
-- Do **not** run on behalf of the user in non-interactive environments.
+- Do **not** run bare `auth init` in a non-interactive shell.
+- Run the split commands above. Do not echo `access_token` or `access_key`.
 - In sandbox mode, simulated credentials are written locally for testing.
 
 ---
@@ -95,7 +116,7 @@ When uninitialized:
 ```
 Config file: /path/to/sensecraft.json
 
-No Access Key configured yet. Run: sensecraft-cli auth init
+No Access Key configured. Run: sensecraft-cli auth init --site Global --no-wait. Show verification_url to the user unchanged and end this turn. After they authorize, run the --device-code command from that command's hint.
 ```
 
 ---

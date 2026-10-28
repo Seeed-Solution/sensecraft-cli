@@ -112,7 +112,7 @@ Use stdout `deployment` in `app create` / `app update`, or skip this step and pa
 
 Rejects `be_public=1` / `privacy=1`. Do **not** confuse with `app update` (existing app → L2).
 
-**Success output:** CLI always prints `app_id`, `console_url`, and `detail_url` on the app site (`https://app.seeed.cc`, or `https://test-app.seeed.cc` when the AI host contains `test-`):
+**Success output:** CLI always prints `app_id`, `console_url`, and `detail_url` on CodeCraft Hub (`https://codecraft.seeed.cc/hub`, or `https://test-codecraft.seeed.cc/hub` when the AI host contains `test-`, including `remote_type=Develop`):
 
 - edit: `/application/edit?id=<app_id>`
 - my app detail: `/view-application/<app_id>-<slug>?from=user-center&tab=custom`

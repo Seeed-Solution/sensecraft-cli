@@ -57,7 +57,9 @@ func resolveAPIHost(cfg AccessApiConfig) (string, error) {
 		return origin, err
 	}
 	switch cfg.RemoteType {
-	case enum.RemoteTypeGlobal, "":
+	case enum.RemoteTypeGlobal, enum.RemoteTypeDevelop, "":
+		// Develop is a CodeCraft test label on a Global Access Key. Data OpenAPI
+		// stays on the global host; app calls use the test AI gateway instead.
 		return enum.DomainNameOpenApiGlobal, nil
 	case enum.RemoteTypeChina:
 		return enum.DomainNameOpenApiChina, nil

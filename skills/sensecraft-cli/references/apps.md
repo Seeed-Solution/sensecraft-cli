@@ -88,7 +88,7 @@ sensecraft-cli app unpublish --id <app_id> --yes    # privacy=0 private / withdr
 sensecraft-cli app delete --id <app_id> --yes       # private only (be_public=0)
 ```
 
-`app publish` matches Console 「发布确认」: show https://sensecraft.seeed.cc/legal/en/declaration and warn that review locks editing; only then pass `--agree-declaration --yes`. Missing either flag → non-zero. API body is still only `{app_id, privacy:2}` (agreement is client-side, like Console `warrantyAccepted`). stdout includes `detail_url`: the creator-center page (`/view-application/<id>-<slug>?from=user-center&tab=custom`). Give the user that URL. Do **not** invent `https://test-app.seeed.cc/application/detail/<id>` — that is the plaza page and does not open the private draft.
+`app publish` matches Console 「发布确认」: show https://sensecraft.seeed.cc/legal/en/declaration and warn that review locks editing; only then pass `--agree-declaration --yes`. Missing either flag → non-zero. API body is still only `{app_id, privacy:2}` (agreement is client-side, like Console `warrantyAccepted`). stdout includes `detail_url`: the creator-center page (`https://codecraft.seeed.cc/hub/view-application/<id>-<slug>?from=user-center&tab=custom`). Give the user that URL. Do **not** invent `/application/detail/<id>` — that is the plaza page and does not open the private draft.
 
 **Never** send `privacy=1` (ops-approved public). After editing a **published** app, tell the user plaza is unchanged until they confirm `app publish --agree-declaration --yes`.
 
@@ -119,8 +119,8 @@ Seeed rows need `id`(=SKU). Custom rows omit `id`. No manual custom image upload
    ```bash
    sensecraft-cli app create --from-json ./app.json
    # CLI returns app_id + console_url + detail_url (even if update_app body was {}).
-   # detail_url is https://app.seeed.cc/view-application/<id>-<slug>?from=user-center&tab=custom
-   # (test AI host → https://test-app.seeed.cc). from=user-center loads the sketch cover.
+   # detail_url is https://codecraft.seeed.cc/hub/view-application/<id>-<slug>?from=user-center&tab=custom
+   # (test AI host or remote_type Develop → https://test-codecraft.seeed.cc/hub). from=user-center loads the sketch cover.
    # A non-empty web_link on a list item is the link to give the user.
    # Restore JSON may have pic_url (list) or images[] (view); CLI writes both.
    # Show links to the user. NEVER re-run create because stdout looked empty —

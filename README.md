@@ -17,7 +17,7 @@ Command-line tool for [SenseCAP](https://sensecap.seeed.cc) devices and [SenseCr
 | Devices | List, view, bind, and unbind gateways, nodes, and development kits |
 | Groups | Create groups and move devices |
 | Telemetry | Latest values, history, and chart points |
-| Apps | Browse the plaza, manage your apps, materials, and activities |
+| Apps | CodeCraft Hub: browse apps, manage your apps, materials, and activities |
 | Models | Search the library, upload, and publish models |
 | Files | Upload a local file and receive a `file_url` |
 | Cloud devices | List Jetson and other cloud kits, deploy a model |
@@ -71,7 +71,7 @@ sensecraft-cli auth info
 ```
 
 4. Run a read command, for example `sensecraft-cli device list` or `sensecraft-cli app list --public`.
-5. Load [`skills/sensecraft-ai/SKILL.md`](skills/sensecraft-ai/SKILL.md) first. It routes to the domain skill.
+5. Load [`skills/sensecraft-cli/SKILL.md`](skills/sensecraft-cli/SKILL.md) first. It routes to the product reference.
 
 Write commands (`unbind`, `delete`, `publish`, `deploy`, and similar) need `--yes` only after the user has confirmed that exact action.
 
@@ -79,13 +79,8 @@ Write commands (`unbind`, `delete`, `publish`, `deploy`, and similar) need `--ye
 
 | Skill | Description |
 |-------|-------------|
-| [`sensecraft-ai`](skills/sensecraft-ai/SKILL.md) | Routes a request to the skill below |
-| [`sensecraft-data`](skills/sensecraft-data/SKILL.md) | Devices, groups, telemetry |
-| [`sensecraft-apps`](skills/sensecraft-apps/SKILL.md) | Application Plaza. New apps from a manifest: [`create-app`](skills/sensecraft-apps/create-app/SKILL.md) |
-| [`sensecraft-models`](skills/sensecraft-models/SKILL.md) | Model library |
-| [`sensecraft-files`](skills/sensecraft-files/SKILL.md) | File upload |
-| [`sensecraft-devices-cloud`](skills/sensecraft-devices-cloud/SKILL.md) | Cloud devices and deploy |
-| [`sensecraft-recamera`](skills/sensecraft-recamera/SKILL.md) | Classic reCamera (uniform type 40) |
+| [`sensecraft-cli`](skills/sensecraft-cli/SKILL.md) | SenseCraft Data, SenseCraft AI, and CodeCraft Hub |
+| [`create-app`](skills/sensecraft-cli/create-app/SKILL.md) | Turn a local project into a CodeCraft Hub app |
 
 After a global npm install:
 
@@ -110,7 +105,7 @@ sensecraft-cli auth info
 | `Global` | `https://sensecap.seeed.cc/openapi` | `https://api-gateway.seeed.cc/openapi` |
 | `China` | `https://sensecap.seeed.cn/openapi` | `https://api-gateway.seeed.cc/openapi` |
 
-China and Global share the AI host. The same Access Key calls both APIs over HTTP Basic (Key ID as the username, Access Key as the password).
+The China site supports SenseCraft Data only. Use Global for SenseCraft AI and CodeCraft Hub. The same Access Key calls the APIs over HTTP Basic (Key ID as the username, Access Key as the password).
 
 ## Commands
 
@@ -132,7 +127,7 @@ sensecraft-cli recamera check --model-id <id>
 | `device` | Gateways (`--device-type 1`), nodes (`2`, default), development kits (`3`) |
 | `group` | Device groups |
 | `data` | Latest telemetry, history, chart points |
-| `app` | Plaza and your apps. Omit `--public` to list your own apps |
+| `app` | CodeCraft Hub and your apps. Omit `--public` to list your own apps |
 | `model` | Model library. Omit `--mine` to list public models |
 | `file` | Upload. `--type` `1` image, `2` model, `3` app, `4` firmware, `5` static resource (`--flow-id` required), `6` archive |
 | `cloud` | Cloud devices and model deploy |

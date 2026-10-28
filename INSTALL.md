@@ -300,20 +300,15 @@ Skills 是给 Agent 读的 Markdown 能力说明，**不是** CLI 子命令。
 
 ```bash
 npm root -g
-# 例如 …/node_modules/@seeed-studio/sensecraft-cli/skills/sensecraft-ai/SKILL.md
+# 例如 …/node_modules/@seeed-studio/sensecraft-cli/skills/sensecraft-cli/SKILL.md
 ```
 
 ### 推荐布局
 
 | Skill | 路径 | 鉴权 |
 |-------|------|------|
-| Meta 路由（优先加载） | `skills/sensecraft-ai/SKILL.md` | — |
-| SenseCAP PaaS | `skills/sensecraft-data/` | SenseCAP |
-| 应用广场 | `skills/sensecraft-apps/` | Access Key |
-| 文件上传 | `skills/sensecraft-files/` | Access Key |
-| 模型库 | `skills/sensecraft-models/` | Access Key |
-| 经典 reCamera 40 | `skills/sensecraft-recamera/` | Access Key |
-| 云设备 | `skills/sensecraft-devices-cloud/` | Access Key |
+| 入口 | `skills/sensecraft-cli/SKILL.md` | Access Key |
+| 从本地项目创建应用 | `skills/sensecraft-cli/create-app/` | Access Key |
 
 更细的发现说明：[`skills/README.md`](skills/README.md)。
 
@@ -327,10 +322,7 @@ npm root -g
 2. **拷贝 / 软链到 Cursor skills 目录**（路径以你本机 Cursor 版本为准，常见为用户目录下的 skills 配置）：
 
    ```bash
-   # 示例：软链 meta + 各域 skill（按需调整目标目录）
-   ln -s "$PWD/skills/sensecraft-ai"   ~/.cursor/skills/sensecraft-ai
-   ln -s "$PWD/skills/sensecraft-apps" ~/.cursor/skills/sensecraft-apps
-   # …
+   ln -s "$PWD/skills/sensecraft-cli" ~/.cursor/skills/sensecraft-cli
    ```
 
 3. **只用 npm 包里的 skills**  
@@ -349,19 +341,19 @@ done
 
 # Claude Code：用户级（可选）
 mkdir -p ~/.claude/skills
-ln -s "$PWD/skills/sensecraft-ai" ~/.claude/skills/sensecraft-ai
+ln -s "$PWD/skills/sensecraft-cli" ~/.claude/skills/sensecraft-cli
 ```
 
 其他 Agent：
 
 1. 若支持 `SKILL.md` 自动发现，把 `skills/*/` 原样放入其项目级或用户级 skills 目录；具体目录以宿主文档为准。
-2. 若不支持 Skills，把 `skills/sensecraft-ai/SKILL.md` 和命中的领域 skill 作为系统/项目上下文加载。
+2. 若不支持 Skills，把 `skills/sensecraft-cli/SKILL.md` 作为系统/项目上下文加载。
 3. Agent 必须具有本机命令执行能力，才能调用 `sensecraft-cli`；纯聊天宿主只能读取说明，不能声称命令已执行。
 4. 写入 Access Key、本地 USB/IP 部署与烧录仍由用户自己完成。
 
 使用约定：
 
-- SenseCraft AI 相关问题先走 **`sensecraft-ai`** 路由 skill。  
+- 先读 **`sensecraft-cli`**。它覆盖 SenseCraft Data、SenseCraft AI 和 CodeCraft Hub。
 - 确保机器上 `sensecraft-cli` 在 PATH 中，且已用 `auth add` 写入 Access Key。
 
 ---

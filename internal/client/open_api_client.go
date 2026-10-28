@@ -39,16 +39,16 @@ func (e APIError) Error() string {
 
 func accessKeyPermissionDeniedMessage(code string) string {
 	return fmt.Sprintf(
-		"Access Key lacks write permission (API code=%s); create or switch to a read-write key via: sensecraft-cli auth init --kind sensecap",
+		"Access Key lacks write permission (API code=%s); create or switch to a read-write key via: sensecraft-cli auth init",
 		code,
 	)
 }
 
 func accessKeyRejectedMessage(e APIError) string {
 	if e.Msg != "" {
-		return fmt.Sprintf("Access Key was rejected (API code=%s: %s). Check the Key ID, Access Key, and site, then run: sensecraft-cli auth init --kind sensecap", e.Code, e.Msg)
+		return fmt.Sprintf("Access Key was rejected (API code=%s: %s). Check the Key ID, Access Key, and site, then run: sensecraft-cli auth init", e.Code, e.Msg)
 	}
-	return fmt.Sprintf("Access Key was rejected (API code=%s). Check the Key ID, Access Key, and site, then run: sensecraft-cli auth init --kind sensecap", e.Code)
+	return fmt.Sprintf("Access Key was rejected (API code=%s). Check the Key ID, Access Key, and site, then run: sensecraft-cli auth init", e.Code)
 }
 
 // DecodeError is a 2xx response the CLI could not turn into its expected value.

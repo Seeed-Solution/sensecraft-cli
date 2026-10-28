@@ -148,7 +148,7 @@ func filterMaterialOptions(raw json.RawMessage, keyword string) (json.RawMessage
 func sandboxBOMCatalog(keyword string) json.RawMessage {
 	items := []map[string]any{
 		{
-			"sku":      "113991254",
+			"sku":      "113991115",
 			"name":     "Seeed Studio XIAO ESP32S3 Sense",
 			"classify": "XIAO",
 			"price":    "15.99",

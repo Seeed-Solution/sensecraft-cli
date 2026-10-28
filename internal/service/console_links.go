@@ -29,14 +29,14 @@ func ModelDetailConsoleURL(remoteType, modelID string) string {
 	return fmt.Sprintf("%s%s/model/detail?%s", consoleAIOrigin(remoteType), consoleAIPathPrefix, q.Encode())
 }
 
-// appSiteOrigin is the standalone app site. API calls stay on the AI host.
-// A test AI host (SENSECRAFT_AI_HOST containing "test-") maps to the test app site.
+// appSiteOrigin is the CodeCraft Hub app site. API calls stay on the AI host.
+// A test AI host (name containing "test-", including remote_type Develop) maps to the test hub.
 func appSiteOrigin(remoteType string) string {
 	host, err := enum.EffectiveAIHost(remoteType)
 	if err == nil && strings.Contains(strings.ToLower(host), "test-") {
-		return "https://test-app.seeed.cc"
+		return "https://test-codecraft.seeed.cc/hub"
 	}
-	return "https://app.seeed.cc"
+	return "https://codecraft.seeed.cc/hub"
 }
 
 // appTitleSlug matches the app site formatToTitleCase used in /view-application/{id}-{slug}.

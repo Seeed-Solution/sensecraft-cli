@@ -1,6 +1,6 @@
 {
   "name": "@seeed-studio/sensecraft-cli",
-  "version": "0.3.2",
+  "version": "0.4.0",
   "description": "SenseCAP / SenseCraft AI cloud CLI (devices, apps, models, files, cloud deploy)",
   "license": "MIT",
   "repository": {
@@ -26,6 +26,7 @@
     "skills",
     "LICENSE",
     "README.md",
+    "README-zh.md",
     "INSTALL.md"
   ],
   "os": [

@@ -65,6 +65,39 @@ func TestAIApiClientAccessKeyRejectsMissingCredentials(t *testing.T) {
 	}
 }
 
+func TestAIApiClientPublicOmitsAuthorization(t *testing.T) {
+	var sawAuth string
+	var sawPath string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		sawAuth = r.Header.Get("Authorization")
+		sawPath = r.URL.Path
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"code": "0",
+			"data": map[string]any{"list": []any{}},
+		})
+	}))
+	t.Cleanup(srv.Close)
+	t.Setenv(enum.EnvNameAIHost, srv.URL)
+
+	c, err := NewAIApiClientPublic("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := c.Get("/activity/list", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sawAuth != "" {
+		t.Fatalf("auth=%q", sawAuth)
+	}
+	if sawPath != "/openapi/activity/list" {
+		t.Fatalf("path=%s", sawPath)
+	}
+	if !strings.Contains(string(raw), `"list"`) {
+		t.Fatalf("raw=%s", raw)
+	}
+}
+
 func TestAIApiClientAccessKeyUsesHostOverride(t *testing.T) {
 	t.Setenv(enum.EnvNameAIHost, "https://ai.test.example")
 	c := NewAIApiClientAccessKey(config.AccessApiConfig{

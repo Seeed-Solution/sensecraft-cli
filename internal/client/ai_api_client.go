@@ -44,6 +44,18 @@ func NewAIApiClientAt(baseURL string, httpClient *http.Client) *AIApiClient {
 	return &AIApiClient{base: NewBaseClient(baseURL, WithHTTPClient(httpClient))}
 }
 
+// NewAIApiClientPublic calls AI routes under /openapi with no Access Key.
+// Host is SENSECRAFT_AI_HOST when set, otherwise the site for remoteType.
+func NewAIApiClientPublic(remoteType string) (*AIApiClient, error) {
+	host, err := enum.EffectiveAIHost(remoteType)
+	if err != nil {
+		return nil, err
+	}
+	return &AIApiClient{
+		base: NewBaseClient(fmt.Sprintf("%s/openapi", strings.TrimSuffix(host, "/"))),
+	}, nil
+}
+
 // NewAIApiClientAccessKey calls AI routes under /openapi with SenseCAP Access Key Basic auth.
 // Host is SENSECRAFT_AI_HOST when set, otherwise the SenseCraft AI site for the remote type.
 func NewAIApiClientAccessKey(cfg config.AccessApiConfig, sandbox bool) *AIApiClient {
@@ -80,7 +92,7 @@ func (c *AIApiClient) ensureAccessKey() error {
 	if c.accessKeyOK {
 		return nil
 	}
-	return fmt.Errorf("this command uses Access Key HTTP Basic → {ai-host}/openapi; run: sensecraft-cli auth init --kind sensecap")
+	return fmt.Errorf("this command uses Access Key HTTP Basic → {ai-host}/openapi; run: sensecraft-cli auth init")
 }
 
 func (c *AIApiClient) Base() *BaseClient {

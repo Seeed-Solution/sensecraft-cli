@@ -15,6 +15,14 @@ script/upload-oss.py
 script/release-local.sh
 /develop_doc.md
 
+# Internal notes. Users get README, INSTALL, skills, and docs/md-to-app.md.
+/ARCHITECTURE.md
+/docs/sensecraft-cli-smoke.md
+/docs/sensecraft-cli-test-cases.md
+/docs/app-plaza-cli-sync.md
+/docs/变更记录-2026-10-22.md
+/docs/report/
+
 # Local credential / config files — never commit real keys or tokens
 config.local.json
 *.local.json

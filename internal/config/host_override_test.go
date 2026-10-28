@@ -17,6 +17,17 @@ func TestResolveAPIHostUsesOverride(t *testing.T) {
 	}
 }
 
+func TestDevelopProfileUsesGlobalDataHost(t *testing.T) {
+	t.Setenv(enum.EnvNameDataHost, "")
+	got, err := WithResolvedHost(AccessApiConfig{RemoteType: enum.RemoteTypeDevelop})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Host == nil || *got.Host != enum.DomainNameOpenApiGlobal {
+		t.Fatalf("host=%v", got.Host)
+	}
+}
+
 func TestResolveAPIHostRejectsBadOverride(t *testing.T) {
 	t.Setenv(enum.EnvNameDataHost, "not a host")
 	_, err := WithResolvedHost(AccessApiConfig{RemoteType: enum.RemoteTypeChina})

@@ -15,7 +15,7 @@ func TestAPIError_PermissionDeniedMessage(t *testing.T) {
 	if !strings.Contains(got, "read-write") {
 		t.Fatalf("want read-write guidance, got %q", got)
 	}
-	if !strings.Contains(got, "auth init --kind sensecap") {
+	if !strings.Contains(got, "auth init") {
 		t.Fatalf("want auth init hint, got %q", got)
 	}
 	if !strings.Contains(got, "11201") {
@@ -38,7 +38,7 @@ func TestAPIError_AccessKeyRejected(t *testing.T) {
 	if strings.Contains(got, "cannot unmarshal") {
 		t.Fatalf("leaked decode error: %q", got)
 	}
-	for _, want := range []string{"11104", "Access Key", "AccessId or accessKey error", "auth init --kind sensecap"} {
+	for _, want := range []string{"11104", "Access Key", "AccessId or accessKey error", "auth init"} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("missing %q in %q", want, got)
 		}
@@ -122,7 +122,7 @@ func TestAIAPIError_PermissionDeniedMessage(t *testing.T) {
 	if strings.Contains(got, "You have no options permission") {
 		t.Fatalf("want friendly message, got raw API msg: %q", got)
 	}
-	if !strings.Contains(got, "auth init --kind sensecap") {
+	if !strings.Contains(got, "auth init") {
 		t.Fatalf("want auth init hint, got %q", got)
 	}
 }

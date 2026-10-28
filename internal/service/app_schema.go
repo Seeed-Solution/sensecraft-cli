@@ -39,7 +39,7 @@ func AppFieldsSchema() json.RawMessage {
 				{"field": "price", "supported": false, "notes": "no price input; preview counts custom rows as 0"},
 			},
 		},
-		"reference": "skills/sensecraft-apps/reference-app-fields.md",
+		"reference": "skills/sensecraft-cli/references/app-fields.md",
 	})
 	return raw
 }
@@ -71,7 +71,7 @@ func AppBlocksCatalog() json.RawMessage {
 					"muse_gadget",
 					"full_flash",
 				},
-				"notes": "Flat fields on the block, not nested in config. device_id is a material SKU string, not a production type id. device_type is uniform_type or empty. flash_mode is bin or zip. firmware_size and project_zip_size are strings. flash_address is 0x0, 0x4000, 0x10000, or 0x90000; write the device default. zip fields only when flash_mode is zip. muse_gadget and full_flash are booleans, default false; a missing field is false; \"true\" and 1 are read as true. Both are kept only for Indicator 114993068 (D1S/D1L/D1Pro aliases on the same row), Watcher 113991315/113991275, E1001 100073581, E1002 100017057, 1.47-inch touch 100069905, and Sticky 100056818; other devices are reset to false. When muse_gadget is true, also set full_flash true (the editor forces it). firmware_url must be muse-gadget.bin linked at 0x20000, and flash_address stays the device default (do not write 0x20000). full_flash true erases the whole flash before the write. With muse_gadget false, E1001/E1002 also rewrite the stock bootloader at 0x0 and partition table at 0x8000 while the app stays at 0x90000; Indicator, 1.47-inch touch, Sticky, and Watcher non-Muse images are already merged at 0x0, so full_flash only turns on erase-all. A Muse image still uses its own segments plus erase-all; do not add the reTerminal stock bootloader to it. Do not write an SDK token, flash_target, flash_address_adapted, or bootloader/partition/OTA/PHY files. Segment layout is documentation only. Running the flash stays L3.",
+				"notes": "Flat fields on the block, not nested in config. device_id is a material SKU string, not a production type id. device_type is uniform_type or empty. flash_mode is bin or zip. firmware_size and project_zip_size are strings. flash_address is 0x0, 0x4000, 0x10000, or 0x90000; write the device default. zip fields only when flash_mode is zip. muse_gadget and full_flash are booleans, default false; a missing field is false; \"true\" and 1 are read as true. Both are kept only for Indicator 114993068 (D1S/D1L/D1Pro aliases on the same row), Watcher 113991315/113991275, E1001 100073581, E1002 100017057, 1.47-inch touch 100069905, and Sticky 100056818; other devices are reset to false. When muse_gadget is true, set full_flash false (the editor forces it). full_flash true is only for turning Muse off and flashing a normal image on a Muse SKU. firmware_url must be muse-gadget.bin linked at 0x20000, and flash_address stays the device default (do not write 0x20000). full_flash true erases the whole flash before the write. With muse_gadget false, E1001/E1002 also rewrite the stock bootloader at 0x0 and partition table at 0x8000 while the app stays at 0x90000; Indicator, 1.47-inch touch, Sticky, and Watcher non-Muse images are already merged at 0x0, so full_flash only turns on erase-all. A Muse image uses its own segments and does not erase-all; do not add the reTerminal stock bootloader to it. Do not write an SDK token, flash_target, flash_address_adapted, or bootloader/partition/OTA/PHY files. Segment layout is documentation only. Running the flash stays L3.",
 			},
 			{
 				"type":     "deploy-ai-model",
@@ -80,7 +80,9 @@ func AppBlocksCatalog() json.RawMessage {
 				"execute":  "L3",
 				"config_keys": []string{
 					"model", "model.type", "model.model", "device_type", "powerMode", "conf", "iou", "threshold", "triggerAction",
+					"deploy_tool_entry",
 				},
+				"notes": "Vision and sound share this type. config.deploy_tool_entry is vision or sound. sound excludes reCamera Pro (uniform_type 53).",
 			},
 			{
 				"type":        "ai-vibration",
@@ -90,12 +92,17 @@ func AppBlocksCatalog() json.RawMessage {
 				"config_keys": []string{"detectionType", "deviceType", "windowSize", "isPower", "gpio", "dStatus"},
 			},
 			{
-				"type":        "deploy-container-app",
-				"priority":    "high",
-				"when":        "Edge container app deploy UX in docs",
-				"execute":     "L3",
-				"config_keys": []string{},
-				"notes":       "Container install is not a CLI command; use Console when the CLI has no container control",
+				"type":     "deploy-container-app",
+				"priority": "high",
+				"when":     "Edge container app deploy UX in docs",
+				"execute":  "L3",
+				"config_keys": []string{
+					"app_id", "app_key", "app_display_name", "app_icon", "app_description",
+					"architecture", "architectures", "version", "version_options",
+					"install_form", "merged_service", "user_override_flags", "form_field_values",
+					"raw_by_version", "detail_form_fields",
+				},
+				"notes": "Fields live in config. version is the selected version string, not app_version. Container install is not a CLI command; use Console when the CLI has no container control",
 			},
 			{
 				"type":        "node-red",
@@ -103,6 +110,7 @@ func AppBlocksCatalog() json.RawMessage {
 				"when":        "Node-RED flow + optional model binding",
 				"execute":     "L3",
 				"config_keys": []string{"flow_data_url", "flow_data", "model_id", "model_data"},
+				"notes":       "config.flow_data and config.model_data are objects, not strings. On save the app writes JSON.stringify(config.flow_data) to the top-level flow_data string and copies model_data to the top level.",
 			},
 			{
 				"type":        "aily-blockly",
@@ -112,7 +120,7 @@ func AppBlocksCatalog() json.RawMessage {
 				"config_keys": []string{"project_id", "device_id", "config"},
 			},
 		},
-		"reference": "skills/sensecraft-apps/reference-tool-blocks.md",
+		"reference": "skills/sensecraft-cli/references/tool-blocks.md",
 	})
 	return raw
 }

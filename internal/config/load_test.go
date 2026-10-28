@@ -8,6 +8,28 @@ import (
 	"sensecraft-cloud-terminal/internal/enum"
 )
 
+func TestRemoteTypeOf(t *testing.T) {
+	if got := RemoteTypeOf(nil); got != "" {
+		t.Fatalf("nil=%q", got)
+	}
+	if got := RemoteTypeOf(&CliConfig{}); got != "" {
+		t.Fatalf("empty=%q", got)
+	}
+	got := RemoteTypeOf(&CliConfig{
+		UseApi: "k",
+		AppConfigList: []AccessApiConfig{{
+			KeyId:      "k",
+			RemoteType: " Develop ",
+		}},
+	})
+	if got != "Develop" {
+		t.Fatalf("got %q", got)
+	}
+	if got := RemoteTypeOf(&CliConfig{UseApi: "missing"}); got != "" {
+		t.Fatalf("missing=%q", got)
+	}
+}
+
 func TestResolveConfigPath(t *testing.T) {
 	wd, err := os.Getwd()
 	if err != nil {

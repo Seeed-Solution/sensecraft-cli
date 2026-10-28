@@ -18,15 +18,19 @@ find "$PKG/skills" -type d -name '*-legacy' -prune -exec rm -rf {} +
 if [[ -f "$ROOT/LICENSE" ]]; then
   cp "$ROOT/LICENSE" "$PKG/LICENSE"
 fi
-if [[ -f "$ROOT/INSTALL.md" ]]; then
-  cp "$ROOT/INSTALL.md" "$PKG/INSTALL.md"
+# packages/cli/INSTALL.md stays in the package.
+# Its login section is `auth add`. The repo root guide uses `auth init`.
+if [[ -f "$ROOT/README-zh.md" ]]; then
+  cp "$ROOT/README-zh.md" "$PKG/README-zh.md"
 fi
 
 # Short install-oriented README for the npm page.
 cat >"$PKG/README.md" <<'EOF'
 # @seeed-studio/sensecraft-cli
 
-Cloud CLI for SenseCAP devices and SenseCraft AI (apps, models, files, cloud deploy).
+The official command-line tool for [SenseCraft](https://sensecraft.seeed.cc). Read sensor data, create models, and publish applications — for developers and AI agents.
+
+Chinese: [README-zh.md](README-zh.md).
 
 ## Install
 
@@ -37,27 +41,21 @@ sensecraft-cli --version
 
 Requires Node.js ≥ 16. Downloads a platform binary pinned to this package version.
 
-**Full guide** (PATH, Windows, upgrade/uninstall, offline mirror, Cursor Skills): see [`INSTALL.md`](INSTALL.md) in this package (same file as the repo root).
+**Full guide** (PATH, Windows, upgrade, uninstall, offline mirror, Cursor Skills): [`INSTALL.md`](INSTALL.md).
 
 ## Agent Skills
 
 After install, Skill markdown lives under this package's `skills/` directory:
 
-| Skill | Path |
-|-------|------|
-| Meta router | `skills/sensecraft-ai/SKILL.md` |
-| SenseCAP PaaS | `skills/sensecraft-data/` |
-| Application Plaza | `skills/sensecraft-apps/` |
-| File upload | `skills/sensecraft-files/` |
-| Model library | `skills/sensecraft-models/` |
-| Classic reCamera 40 | `skills/sensecraft-recamera/` |
-| Cloud devices | `skills/sensecraft-devices-cloud/` |
+One skill: `skills/sensecraft-cli/SKILL.md`. Product procedures are in `references/`. `create-app/` is the nested skill for turning a local project into an app.
 
 ```bash
-ls "$(npm root -g)/@seeed-studio/sensecraft-cli/skills"
+SRC="$(npm root -g)/@seeed-studio/sensecraft-cli/skills/sensecraft-cli"
+mkdir -p ~/.cursor/skills
+ln -sfn "$SRC" ~/.cursor/skills/sensecraft-cli
 ```
 
-Point your Agent (Cursor, etc.) at these folders, or copy/symlink them into the Agent's skills path. See `skills/README.md` and `INSTALL.md` §9.
+Symlink the directory. Do not copy it. `sensecraft-cli update` refreshes the files behind the link. See `INSTALL.md` §9.
 
 ## Config
 

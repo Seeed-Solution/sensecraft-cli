@@ -6,17 +6,36 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"sensecraft-cloud-terminal/internal/client"
 	"sensecraft-cloud-terminal/internal/enum"
 )
 
+// activityNow is the clock for "in progress". Tests replace it.
+var activityNow = time.Now
+
 type ongoingActivity struct {
-	ActivityID int64    `json:"activity_id"`
-	Name       string   `json:"name"`
-	TagIDs     []string `json:"tag_ids"`
-	StartTime  *int64   `json:"start_time,omitempty"`
-	EndTime    *int64   `json:"end_time,omitempty"`
+	ActivityID int64
+	Name       string
+	GuideURL   string
+	TagIDs     []string
+	StartTime  *int64
+	EndTime    *int64
+}
+
+// activityView is the user-facing row. Tag ids stay on ongoingActivity.
+type activityView struct {
+	ActivityID int64  `json:"activity_id"`
+	Name       string `json:"name"`
+	GuideURL   string `json:"guide_url"`
+	StartTime  string `json:"start_time"`
+	EndTime    string `json:"end_time"`
+}
+
+// ListPublicActivities lists activities in progress. It does not send an Access Key.
+func ListPublicActivities(remoteType string, sandbox bool) (json.RawMessage, error) {
+	return AppService{remoteType: remoteType, sandbox: sandbox}.ListActivities()
 }
 
 func (s AppService) ListActivities() (json.RawMessage, error) {
@@ -24,21 +43,49 @@ func (s AppService) ListActivities() (json.RawMessage, error) {
 	if err != nil {
 		return nil, err
 	}
-	if items == nil {
-		items = []ongoingActivity{}
-	}
-	raw, err := json.Marshal(map[string]any{"list": items})
+	views := currentActivityViews(items, activityNow())
+	raw, err := json.Marshal(map[string]any{"list": views})
 	if err != nil {
 		return nil, err
 	}
 	return raw, nil
 }
 
+func currentActivityViews(items []ongoingActivity, now time.Time) []activityView {
+	out := make([]activityView, 0)
+	for _, it := range items {
+		if it.StartTime == nil || it.EndTime == nil {
+			continue
+		}
+		start := time.Unix(*it.StartTime, 0)
+		end := time.Unix(*it.EndTime, 0)
+		if now.Before(start) || now.After(end) {
+			continue
+		}
+		out = append(out, activityView{
+			ActivityID: it.ActivityID,
+			Name:       it.Name,
+			GuideURL:   it.GuideURL,
+			StartTime:  start.UTC().Format(time.RFC3339),
+			EndTime:    end.UTC().Format(time.RFC3339),
+		})
+	}
+	return out
+}
+
 func (s AppService) ongoingActivities() ([]ongoingActivity, error) {
 	if s.sandbox {
 		return sandboxOngoingActivities(), nil
 	}
-	data, err := s.client.Get(enum.AIApiPathActivityList, nil)
+	c := s.client
+	if c == nil {
+		public, err := client.NewAIApiClientPublic(s.remoteType)
+		if err != nil {
+			return nil, err
+		}
+		c = public
+	}
+	data, err := c.Get(enum.AIApiPathActivityList, nil)
 	if err != nil {
 		if errors.Is(err, client.ErrSandboxMode) {
 			return sandboxOngoingActivities(), nil
@@ -54,6 +101,7 @@ func sandboxOngoingActivities() []ongoingActivity {
 	return []ongoingActivity{{
 		ActivityID: 1,
 		Name:       "Muse Gadget",
+		GuideURL:   "https://test-app.seeed.cc/application/?tab=public",
 		TagIDs:     []string{"1"},
 		StartTime:  &start,
 		EndTime:    &end,
@@ -97,6 +145,9 @@ func normalizeOngoingActivity(raw map[string]any) (ongoingActivity, bool) {
 		ActivityID: id,
 		Name:       name,
 		TagIDs:     uniquePositiveTagIDs(raw["tag_ids"]),
+	}
+	if guide, ok := raw["guide_url"].(string); ok {
+		item.GuideURL = strings.TrimSpace(guide)
 	}
 	if n, ok := flexibleInt64(raw["start_time"]); ok {
 		item.StartTime = &n

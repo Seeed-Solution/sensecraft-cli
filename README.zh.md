@@ -17,7 +17,7 @@
 | 设备 | 列出、查看、绑定、解绑网关、节点和开发套件 |
 | 分组 | 创建分组、移动设备 |
 | 遥测 | 最新值、历史记录、折线聚合点 |
-| 应用 | 浏览广场，管理自己的应用、物料和活动 |
+| 应用 | CodeCraft Hub：浏览应用，管理自己的应用、物料和活动 |
 | 模型 | 搜索模型库，上传和发布模型 |
 | 文件 | 上传本地文件，得到 `file_url` |
 | 云设备 | 列出 Jetson 等云设备，部署模型 |
@@ -71,7 +71,7 @@ sensecraft-cli auth info
 ```
 
 4. 再跑只读命令，例如 `sensecraft-cli device list` 或 `sensecraft-cli app list --public`。
-5. 先读 [`skills/sensecraft-ai/SKILL.md`](skills/sensecraft-ai/SKILL.md)，它会转到对应的领域 skill。
+5. 先读 [`skills/sensecraft-cli/SKILL.md`](skills/sensecraft-cli/SKILL.md)，它会转到对应的产品说明。
 
 解绑、删除、发布、部署这类写操作，要等用户单独确认之后才能加 `--yes`。
 
@@ -79,13 +79,8 @@ sensecraft-cli auth info
 
 | Skill | 说明 |
 |-------|------|
-| [`sensecraft-ai`](skills/sensecraft-ai/SKILL.md) | 把请求转到下面的 skill |
-| [`sensecraft-data`](skills/sensecraft-data/SKILL.md) | 设备、分组、遥测 |
-| [`sensecraft-apps`](skills/sensecraft-apps/SKILL.md) | 应用广场。用清单创建应用见 [`create-app`](skills/sensecraft-apps/create-app/SKILL.md) |
-| [`sensecraft-models`](skills/sensecraft-models/SKILL.md) | 模型库 |
-| [`sensecraft-files`](skills/sensecraft-files/SKILL.md) | 上传文件 |
-| [`sensecraft-devices-cloud`](skills/sensecraft-devices-cloud/SKILL.md) | 云设备和部署 |
-| [`sensecraft-recamera`](skills/sensecraft-recamera/SKILL.md) | 经典 reCamera（uniform type 40） |
+| [`sensecraft-cli`](skills/sensecraft-cli/SKILL.md) | SenseCraft Data、SenseCraft AI 和 CodeCraft Hub |
+| [`create-app`](skills/sensecraft-cli/create-app/SKILL.md) | 把本地项目做成 CodeCraft Hub 应用 |
 
 全局 npm 安装之后：
 
@@ -110,7 +105,7 @@ sensecraft-cli auth info
 | `Global` | `https://sensecap.seeed.cc/openapi` | `https://api-gateway.seeed.cc/openapi` |
 | `China` | `https://sensecap.seeed.cn/openapi` | `https://api-gateway.seeed.cc/openapi` |
 
-国内站和国际站共用同一个 AI 地址。同一把 Access Key 用 HTTP Basic 调用两边：用户名是 Key ID，密码是 Access Key。
+中国站仅支持 SenseCraft Data。SenseCraft AI 和 CodeCraft Hub 请用 Global。同一把 Access Key 用 HTTP Basic 调用接口：用户名是 Key ID，密码是 Access Key。
 
 ## 命令
 
@@ -132,7 +127,7 @@ sensecraft-cli recamera check --model-id <id>
 | `device` | 网关（`--device-type 1`）、节点（`2`，默认）、开发套件（`3`） |
 | `group` | 设备分组 |
 | `data` | 最新遥测、历史、折线点 |
-| `app` | 广场和我的应用。不传 `--public` 时列出自己的应用 |
+| `app` | CodeCraft Hub 和我的应用。不传 `--public` 时列出自己的应用 |
 | `model` | 模型库。不传 `--mine` 时列出公开模型 |
 | `file` | 上传。`--type`：`1` 图片，`2` 模型，`3` 应用，`4` 固件，`5` 静态资源（需要 `--flow-id`），`6` 压缩包 |
 | `cloud` | 云设备，以及部署模型 |

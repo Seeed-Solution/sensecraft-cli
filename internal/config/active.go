@@ -8,14 +8,32 @@ import (
 	"sensecraft-cloud-terminal/internal/utils"
 )
 
+// RemoteTypeOf is the selected profile's remote_type.
+// No config, no selection, or an unknown key returns "" so callers use the default host.
+func RemoteTypeOf(cli *CliConfig) string {
+	if cli == nil {
+		return ""
+	}
+	id := strings.TrimSpace(cli.UseApi)
+	if id == "" {
+		return ""
+	}
+	for _, item := range cli.AppConfigList {
+		if item.KeyId == id {
+			return strings.TrimSpace(item.RemoteType)
+		}
+	}
+	return ""
+}
+
 // ResolveActiveAPIConfig returns the SenseCAP OpenAPI credential selected in the CLI config.
 func ResolveActiveAPIConfig(cli *CliConfig) (AccessApiConfig, error) {
 	if cli == nil || len(cli.AppConfigList) == 0 {
-		return AccessApiConfig{}, fmt.Errorf("no SenseCAP API config found; run: sensecraft-cli auth init --kind sensecap")
+		return AccessApiConfig{}, fmt.Errorf("no SenseCAP API config found; run: sensecraft-cli auth init")
 	}
 
 	if cli.UseApi == "" {
-		return AccessApiConfig{}, fmt.Errorf("no SenseCAP API config found; run: sensecraft-cli auth init --kind sensecap")
+		return AccessApiConfig{}, fmt.Errorf("no SenseCAP API config found; run: sensecraft-cli auth init")
 	}
 
 	var selected = AccessApiConfig{}
@@ -57,7 +75,9 @@ func resolveAPIHost(cfg AccessApiConfig) (string, error) {
 		return origin, err
 	}
 	switch cfg.RemoteType {
-	case enum.RemoteTypeGlobal, "":
+	case enum.RemoteTypeGlobal, enum.RemoteTypeDevelop, "":
+		// Develop is a CodeCraft test label on a Global Access Key. Data OpenAPI
+		// stays on the global host; app calls use the test AI gateway instead.
 		return enum.DomainNameOpenApiGlobal, nil
 	case enum.RemoteTypeChina:
 		return enum.DomainNameOpenApiChina, nil

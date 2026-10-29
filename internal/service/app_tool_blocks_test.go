@@ -118,6 +118,28 @@ func TestFlashFirmwareChecksConfigValues(t *testing.T) {
 	}
 }
 
+func TestFlashFirmwareMuseFlagsRequireMuseSKU(t *testing.T) {
+	block := watcherFlashBlock()
+	cfg := block["config"].(map[string]any)
+	cfg["muse_gadget"] = false
+	cfg["full_flash"] = true
+	if err := ValidateDeploymentBlocks(toolBlockBody(block)); err != nil {
+		t.Fatalf("full_flash on a Muse SKU should be allowed: %v", err)
+	}
+
+	cfg["device_id"] = "113991115"
+	cfg["muse_gadget"] = true
+	cfg["full_flash"] = false
+	if err := ValidateDeploymentBlocks(toolBlockBody(block)); err == nil {
+		t.Fatal("accepted muse_gadget on a non-Muse SKU")
+	}
+	cfg["muse_gadget"] = false
+	cfg["full_flash"] = true
+	if err := ValidateDeploymentBlocks(toolBlockBody(block)); err == nil {
+		t.Fatal("accepted full_flash on a non-Muse SKU")
+	}
+}
+
 func TestOtherToolConfigRepresentations(t *testing.T) {
 	for _, flow := range []any{map[string]any{"nodes": []any{}}, []any{map[string]any{"id": "node-1"}}} {
 		block := map[string]any{"id": "flow", "type": "node-red", "config": map[string]any{"flow_data": flow}}

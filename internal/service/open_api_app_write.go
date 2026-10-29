@@ -32,10 +32,10 @@ var ErrDeclarationRequired = errors.New(
 )
 
 // ErrAppLockedUnderReview matches Console isAppLockedForEditing (be_public=2).
-var ErrAppLockedUnderReview = errors.New("app is under review (be_public=2); Console locks editing — wait for review or unpublish first")
+var ErrAppLockedUnderReview = errors.New("app is under review (be_public=2); editing is locked — wait for review or run app withdraw")
 
 // ErrPublishedAppNoDelete matches Console: delete only when be_public==0.
-var ErrPublishedAppNoDelete = errors.New("published or under-review apps cannot be deleted; unpublish first")
+var ErrPublishedAppNoDelete = errors.New("published or under-review apps cannot be deleted; unpublish a public app, or withdraw an app under review, then delete")
 
 // ErrForeignAppNoEdit matches Console isMyApp / list.vue user_id == user_id.
 var ErrForeignAppNoEdit = errors.New("cannot edit another user's app")
@@ -140,8 +140,13 @@ func (s AppService) SetAppPrivacy(p AppPrivacyParams) (json.RawMessage, error) {
 			"be_public":     2,
 		})
 	}
-	// 提交审核后给 /view-application/{id}-{名称}，不要再拼 from、section、state。
-	return s.stampOwnerDetailURL(data, strings.TrimSpace(p.AppID), stringFromMap(existing, "app_name")), nil
+	name := stringFromMap(existing, "app_name")
+	id := strings.TrimSpace(p.AppID)
+	// 提交审核后只给详情页。审核中编辑页会报 The application must not allow editing。
+	if p.Privacy == 2 {
+		return s.stampReviewDetailURL(data, id, name), nil
+	}
+	return s.stampOwnerDetailURL(data, id, name), nil
 }
 
 type AppDeleteParams struct {
@@ -320,6 +325,16 @@ func (s AppService) withAppConsoleURL(data json.RawMessage) json.RawMessage {
 // stampOwnerDetailURL adds the edit link and the creator-center detail link.
 // appName is used only to build the slug; it is not written into the JSON.
 func (s AppService) stampOwnerDetailURL(data json.RawMessage, appID, appName string) json.RawMessage {
+	return s.stampAppLinks(data, appID, appName, true)
+}
+
+// stampReviewDetailURL is the link set after submit-for-review. be_public=2
+// locks the editor, so console_url (/application/edit) is omitted.
+func (s AppService) stampReviewDetailURL(data json.RawMessage, appID, appName string) json.RawMessage {
+	return s.stampAppLinks(data, appID, appName, false)
+}
+
+func (s AppService) stampAppLinks(data json.RawMessage, appID, appName string, includeEdit bool) json.RawMessage {
 	if extractAppID(data) == "" && strings.TrimSpace(appID) != "" {
 		data = ensureAppIdentity(data, appID, "")
 	}
@@ -331,16 +346,21 @@ func (s AppService) stampOwnerDetailURL(data json.RawMessage, appID, appName str
 	if name == "" {
 		name = strings.TrimSpace(appName)
 	}
-	out := attachConsoleURL(data, "app_id", id, AppEditConsoleURL(s.remoteType, id))
-	detail := AppDetailConsoleURL(s.remoteType, id, name)
-	if detail == "" {
-		return out
+	out := data
+	if includeEdit {
+		out = attachConsoleURL(data, "app_id", id, AppEditConsoleURL(s.remoteType, id))
 	}
 	var m map[string]any
 	if err := json.Unmarshal(out, &m); err != nil || m == nil {
 		return out
 	}
-	m["detail_url"] = detail
+	if !includeEdit {
+		delete(m, "console_url")
+	}
+	detail := AppDetailConsoleURL(s.remoteType, id, name)
+	if detail != "" {
+		m["detail_url"] = detail
+	}
 	encoded, err := json.Marshal(m)
 	if err != nil {
 		return out
@@ -555,6 +575,11 @@ func (s AppService) applyAppPatch(appID string, body map[string]any, allowMissin
 	}
 	if err := ValidateDeploymentBlocks(body); err != nil {
 		return nil, err
+	}
+	if raw, ok := body["materials"]; ok {
+		if err := validateAppMaterials(raw); err != nil {
+			return nil, err
+		}
 	}
 	tagsDropped, err := normalizeAppActivityID(body)
 	if err != nil {

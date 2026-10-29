@@ -405,7 +405,7 @@ sensecraft-cli app publish --id <app_id> --agree-declaration --yes
 
 发布前网页和 CLI 都会卡这四项：名称、简介、场景、至少一张封面。缺一项就先补，不要发。
 
-成功后告诉用户：应用仍是「审核中」，不是已经出现在广场上。把 stdout 里的 `detail_url` 原样给用户，形式是 `/view-application/{id}-{名称}`，不要再加 `from`、`section`、`state`。作者登录后打开就能看到自己的草稿。不要改成 `/application/detail/<id>`。有 `web_link` 的应用卡片会跳外链，那种不是这个编辑器文档。
+成功后告诉用户：应用仍是「审核中」，不是已经出现在广场上，也不是还能接着改的草稿。把 stdout 里的 `detail_url` 原样给用户，形式是 `/view-application/{id}-{名称}`，不要再加 `from`、`section`、`state`。作者登录后打开的是详情页。不要改成 `/application/detail/<id>`。不要给编辑链接：审核中没有 `console_url`，也不要自己拼 `/application/edit?id=`。打开编辑页会报 `The application must not allow editing`。要恢复编辑用 `app withdraw`，不要用 `app unpublish`（下架只用于已经公开的应用）。有 `web_link` 的应用卡片会跳外链，那种不是这个编辑器文档。
 
 结构是否写对，可以在无网络时对照：
 

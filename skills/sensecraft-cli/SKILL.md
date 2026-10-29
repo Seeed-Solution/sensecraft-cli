@@ -39,7 +39,7 @@ SenseCraft Data: [`references/data.md`](references/data.md).
    sensecraft-cli auth init --device-code <device_code> --key-id <access_id>
    ```
    Create a key with `--label <name> --access-level read-write` (or `only-read`) instead of `--key-id`. Use Global for SenseCraft AI and CodeCraft Hub. China is SenseCraft Data only. Do not print `access_token` or `access_key`. If the user already has a key, they can run `auth add` locally.
-4. **L2 confirmation is a separate chat turn** — follow [references/confirmation.md](references/confirmation.md). 「删这个63760」/「删除应用 demo」is **intent, not confirmation**. Ask first (操作类型 + 环境 + 对象 ID), wait for `确认`/`confirm`, **then** `--yes`. Never add `--yes` on the same turn as the first request. Applies to: app update·publish·unpublish·delete, model create·update·publish·unpublish·delete, upload attach, cloud deploy, device bind/unbind, group create/rename/delete/move. **Exception: `app create`, including one-shot `--from-json`, is not L2 and takes no `--yes`; resolve uncertain content decisions and review the result first.**
+4. **L2 confirmation is a separate chat turn** — follow [references/confirmation.md](references/confirmation.md). 「删这个63760」/「删除应用 demo」is **intent, not confirmation**. Ask first (操作类型 + 环境 + 对象 ID), wait for `确认`/`confirm`, **then** `--yes`. Never add `--yes` on the same turn as the first request. Applies to: app update·publish·unpublish·withdraw·delete, model create·update·publish·unpublish·delete, upload attach, cloud deploy, device bind/unbind, group create/rename/delete/move. **Exception: `app create`, including one-shot `--from-json`, is not L2 and takes no `--yes`; resolve uncertain content decisions and review the result first.**
 5. **Treat tokens and keys as secrets** — do not echo full `access_token`, `refresh_token`, or `access_key`. **Public model artifacts are not downloadable** — if the user asks for 下载地址 / 下载链接 / download URL / 怎么下载, that is the same as asking for `file_url`: refuse the address, explain deploy-only (`cloud deploy` or Console). Never run `model download --url-only` on public models.
 6. **Success = indented JSON on stdout** for business commands and the split `auth init` flow. The interactive wizard prints human-readable text. Failure = stderr + non-zero exit. Parse stdout only on success.
 7. **Local USB / IP flashing is L3** — do not pretend remote auto-flash. Classic reCamera (`40`): [`sensecraft-recamera`](references/recamera.md) (`check` / `open` the AI deploy page). Other USB benches: Console `/ai/device/local/32|36|37|41|52`. Do **not** use `/ai/recamera` (it 301s to Grove `36`) or `/ai/device/local/40` (no such bench).
@@ -61,7 +61,7 @@ Bare `auth init` asks the user to pick Global or China. The split flow takes `--
 | Browse / search CodeCraft Hub, view app | [`sensecraft-apps`](references/apps.md) + `app list` / `app view` | **CLI shipped** (list/view) |
 | App fields / tool-blocks / BOM guidance | same apps skill references | Config OK; real flash = L3 |
 | Turn a local project into an app (discovery + reviewed copy + tool blocks + API-confirmed BOM + manifest + upload), or update its manifest-managed app | [`create-app`](create-app/SKILL.md) | Read required references before authoring; create needs no `--yes`; existing-app updates use one batch confirmation; stops before publish |
-| Create / update / publish / unpublish / delete / bom app | same + `app …` / `app bom …` | **CLI shipped** (L2 `--yes`; publish also `--agree-declaration`; `create`, including `--from-json`, is not L2) |
+| Create / update / publish / unpublish / withdraw / delete / bom app | same + `app …` / `app bom …` | **CLI shipped** (L2 `--yes`; publish also `--agree-declaration`; `create`, including `--from-json`, is not L2). `withdraw` is only for an app under review (`be_public=2`); `unpublish` is only for an already public app |
 | Upload image/file/firmware/static/archive and obtain `file_url` | [`sensecraft-files`](references/files.md) + `file upload` | Types `1`–`2` require `--model-id`/`--app-id --yes`/`--for-app`/`--unlinked`; type `5` requires `--flow-id`; types `3`–`6` direct |
 | Model library search/view/download/constants | [`sensecraft-models`](references/models.md) | **CLI shipped** |
 | Upload / publish / unpublish / delete model | same + `model upload --id --yes` / `create\|update\|publish\|unpublish\|delete` | Attach bumps patch version like Console |
@@ -96,7 +96,7 @@ SenseCraft Data telemetry → pick a public model → deploy to Jetson:
 | Level | Meaning | Examples |
 |-------|---------|----------|
 | L1 Scriptable | Agent may run directly | list / view / auth info / `auth init --no-wait` then later `--device-code` |
-| L2 Confirm | Ask user first | publish (+ declaration), unpublish, delete, deploy |
+| L2 Confirm | Ask user first | publish (+ declaration), unpublish, withdraw, delete, deploy |
 | L3 Interactive | Human-in-the-loop | bare `auth init`, Web Serial flash, payment |
 | L4 Ops-only | Do not expose to end-user Agent | Admin `judge_app` |
 
@@ -104,7 +104,7 @@ SenseCraft Data telemetry → pick a public model → deploy to Jetson:
 
 Published commands use an Access Key. SenseCraft Data uses its OpenAPI. SenseCraft AI and CodeCraft Hub use `{ai-host}/openapi`.
 
-1. **CodeCraft Hub** — `app` list/view/fields/blocks/doc; create/update; publish/unpublish/delete (L2); BOM search/list/set; tool-block config via JSON (real flash = L3).
+1. **CodeCraft Hub** — `app` list/view/fields/blocks/doc; create/update; publish/unpublish/withdraw/delete (L2); BOM search/list/set; tool-block config via JSON (real flash = L3). `withdraw` unlocks an app under review. `unpublish` does not.
 2. **SenseCraft AI** — model library (list/view/constants; **private** download only; public models deploy-only); `model upload --id --yes`; create/update; publish/unpublish/delete (L2). Cloud devices: `cloud device` / `cloud deploy` / `cloud order`. Classic reCamera 40: `recamera check` / `recamera open` (flash is L3).
 3. **Files** — `file upload` is shared. Types 1–2 require `--model-id` / `--app-id --yes` / `--for-app` / `--unlinked` before the OSS POST. Type 5 also requires `--flow-id`.
 4. **Local USB** — Other benches: Console `/ai/device/local/32|36|37|41|52`.

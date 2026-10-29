@@ -424,7 +424,7 @@ Lifecycle (matches Console edit.vue / list.vue):
   owner only (user_id == profile) — another user's app cannot be edited
   be_public=0  private — edit/delete/publish allowed
   be_public=1  published — owner may edit (saved as sketch; CLI sends be_public=1). CodeCraft Hub unchanged until app publish (draft).
-  be_public=2  under review — locked; no update/cover/BOM. Unpublish to unlock.`,
+  be_public=2  under review — locked; no update/cover/BOM. Use app withdraw to unlock.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx, err := cmdctx.GetAICmdContext()
 			if err != nil {
@@ -488,11 +488,13 @@ Never sends privacy=1 (ops-approved public).
 
 Matches the Console publish confirmation: user must agree to the Publish Declaration
 (https://sensecraft.seeed.cc/legal/en/declaration) via --agree-declaration.
-Submitting locks editing until review finishes (or unpublish).
+Submitting locks editing until review finishes (or withdraw).
+stdout then has detail_url only. It does not include console_url, because
+/application/edit rejects an app under review.
 
 Private apps: submit for first public listing.
 Already published (be_public=1) with a sketch: same API as the Console publish-draft action.
-Under review (be_public=2): refused until unpublish.`,
+Under review (be_public=2): refused. Use app withdraw to unlock editing.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx, err := cmdctx.GetAICmdContext()
 			if err != nil {
@@ -675,7 +677,7 @@ func newAppDeleteCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "delete",
 		Short: "Delete a private app (L2: requires --yes)",
-		Long:  `POST /flow/app/v2/delete_app. Only be_public=0 (private). Published / under-review: unpublish first.`,
+		Long:  `POST /flow/app/v2/delete_app. Only be_public=0 (private). A public app (be_public=1) must be unpublished first. An app under review (be_public=2) must be withdrawn first.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx, err := cmdctx.GetAICmdContext()
 			if err != nil {
@@ -775,7 +777,7 @@ func newAppBOMSetCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "set",
 		Short: "Replace app materials via update_app (L2: --yes)",
-		Long: `POST update_app with materials[]. Refused when the app is under review (be_public=2).
+		Long: `POST update_app with materials[]. Refused when the app is under review (be_public=2). Use app withdraw to unlock editing.
 
 Seeed row: id(=SKU), name, quantity, note, buy_url
 Custom row: omit id; name, quantity, note, buy_url`,

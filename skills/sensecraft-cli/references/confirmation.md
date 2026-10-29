@@ -7,8 +7,8 @@
 These are **not** confirmation. Do **not** pass `--yes` on the same turn:
 
 - 「删这个63760」「删除应用 demo」「把模型下架」「发布这个模型」
-- 「delete this」「unpublish」「deploy to the device」
-- Any first mention of create / modify / publish / unpublish / delete / deploy / stop / bind / unbind
+- 「delete this」「unpublish」「withdraw the review」「deploy to the device」
+- Any first mention of create / modify / publish / unpublish / withdraw / delete / deploy / stop / bind / unbind
 
 ## Required chat question (before any L2 CLI)
 

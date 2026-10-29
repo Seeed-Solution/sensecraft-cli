@@ -4,11 +4,42 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
+	"strconv"
 	"strings"
 
 	"sensecraft-cloud-terminal/internal/client"
 	"sensecraft-cloud-terminal/internal/enum"
 )
+
+const bomQuantityMax = 999
+
+var bomQuantityPattern = regexp.MustCompile(`^[1-9][0-9]*$`)
+
+func validateAppMaterials(raw any) error {
+	if raw == nil {
+		return nil
+	}
+	list, ok := raw.([]any)
+	if !ok {
+		return fmt.Errorf("materials must be an array")
+	}
+	for i, item := range list {
+		row, ok := item.(map[string]any)
+		if !ok {
+			return fmt.Errorf("materials[%d] must be an object", i)
+		}
+		quantity, ok := row["quantity"].(string)
+		if !ok || !bomQuantityPattern.MatchString(quantity) {
+			return fmt.Errorf("materials[%d].quantity must be an integer string from 1 to %d", i, bomQuantityMax)
+		}
+		n, err := strconv.ParseUint(quantity, 10, 64)
+		if err != nil || n < 1 || n > bomQuantityMax {
+			return fmt.Errorf("materials[%d].quantity must be an integer string from 1 to %d", i, bomQuantityMax)
+		}
+	}
+	return nil
+}
 
 type AppBOMSearchParams struct {
 	Name string
@@ -84,6 +115,9 @@ func (s AppService) SetBOM(p AppBOMSetParams) (json.RawMessage, error) {
 	materials, ok := body["materials"]
 	if !ok {
 		return nil, fmt.Errorf("--from-json must be an object with materials[] (Seeed rows need id=SKU; custom omit id)")
+	}
+	if err := validateAppMaterials(materials); err != nil {
+		return nil, err
 	}
 	updateBody := map[string]any{
 		"app_id":    p.AppID,

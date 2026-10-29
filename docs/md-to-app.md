@@ -212,7 +212,7 @@ YouTube、TikTok、抖音、Bilibili、Vimeo、优酷、爱奇艺收成 `<div cl
 
 | 正文在说 | `type` | 配置放哪 |
 | --- | --- | --- |
-| 把固件烧进板子 | `flash-firmware` | 放在 **`config` 对象里**；扁平的是 `blocks` 数组，不是工具配置。SKU、地址见 `skills/sensecraft-cli/references/tool-blocks.md` |
+| 把固件烧进板子 | `flash-firmware` | 只放在 **`config`** 里。详情页只读 `config`。SKU、地址见 `skills/sensecraft-cli/references/tool-blocks.md` |
 | 部署视觉 / 声音模型 | `deploy-ai-model` | 放在 `config` 里。两个入口是同一个 `type`，用 `config.deploy_tool_entry`：`vision` 或 `sound`。声音会排除 reCamera Pro（`uniform_type` `53`） |
 | 异常振动 | `ai-vibration` | 放在 `config` 里 |
 | 边缘容器应用 | `deploy-container-app` | 放在 `config` 里 |

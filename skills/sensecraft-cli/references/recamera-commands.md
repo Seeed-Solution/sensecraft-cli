@@ -11,8 +11,6 @@ sensecraft-cli auth info
 sensecraft-cli auth init --site Global --no-wait   # split flow; see SKILL.md
 ```
 
-Follow the [parent auth workflow](../SKILL.md#auth): the agent handles terminal prompts, the user completes browser authorization, then the agent rechecks auth. Do not ask the user to run CLI commands.
-
 ## List (existing commands)
 
 Always pass `--uniform-type 40`. Empty list → stop.

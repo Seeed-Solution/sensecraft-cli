@@ -353,8 +353,8 @@ ln -s "$PWD/skills/sensecraft-cli" ~/.claude/skills/sensecraft-cli
 
 使用约定：
 
-- 先读 **`sensecraft-cli`**。它覆盖 SenseCraft Data、SenseCraft AI 和 CodeCraft Hub。
-- 确保机器上 `sensecraft-cli` 在 PATH 中。没有 Access Key 时运行 `sensecraft-cli auth init --site Global --no-wait`，把验证链接交给用户后结束本轮；用户授权后再跑 `--device-code`。不要在非交互终端里跑不带参数的 `auth init`。已有钥匙时用 `auth add`。
+- 先读 **`sensecraft-cli`**。它会打开 `references/` 里对应的说明，覆盖 SenseCraft Data、SenseCraft AI 和 CodeCraft Hub。
+- 确保机器上 `sensecraft-cli` 在 PATH 中。Agent 先跑 `auth info`；没有 Access Key 时运行 `sensecraft-cli auth init --site Global --no-wait`，把 `verification_url` 原样交给用户后结束本轮；用户授权后再跑 `--device-code`。不要在一次性 Shell 里跑不带参数的 `auth init`。已有钥匙时用 `auth add`。
 - Agent 必须能在本机执行命令。纯聊天宿主只能读说明，不能声称命令已经跑过。
 - 本地 USB/IP 部署和烧录仍在浏览器或设备侧完成。
 

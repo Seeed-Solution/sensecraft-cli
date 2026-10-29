@@ -30,8 +30,8 @@ With no split flags, in a terminal:
 1. Select site: Global (International) or China. China supports SenseCraft Data only. SenseCraft AI and CodeCraft Hub require Global.
 2. Request a device authorization code and show the verification URL/code.
 3. Wait for the user to approve in the browser; the CLI polls automatically.
-4. Select an existing Access Key, or create one with a label and permission level.
-5. Save to local config and set it active.
+4. Resolve the account and organization, then select an existing Access Key or create one with a label and permission level.
+5. Save to local config and set it as the active profile.
 
 ### Split flow
 

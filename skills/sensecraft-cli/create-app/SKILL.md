@@ -94,7 +94,7 @@ Update the review notes with corrections, evidence, remaining gaps, and readines
 
 1. Read the upload references. Run `sensecraft-cli auth info`. If no Access Key is active, use the split `auth init` flow in [`../SKILL.md`](../SKILL.md). Do not run bare `auth init`. Recheck the environment and that selected files still match their reviewed hashes. Upload only reviewed assets; reuse unchanged URLs. Images: `file upload --path <image> --type 1 --for-app`. Firmware: `--type 4`. Other artifacts: select the actual type/flags from the reference. App images use at most 16 JPG/JPEG/PNG/GIF/WebP files, each ≤5 MB; other artifacts are ≤100 MB.
 
-   For Muse firmware, scan the exact file selected for upload before `file upload --type 4`. A complete SDK token is `mgst_` followed by 43 characters from `[A-Za-z0-9_-]`. The short `mgst_` prefix used by firmware format validation is not a credential match. Keep the scan quiet so matching values stay local:
+   For Muse Gadget firmware, scan the exact file selected for upload before `file upload --type 4`. A complete SDK token is `mgst_` followed by 43 characters from `[A-Za-z0-9_-]`. The short `mgst_` prefix used by firmware format validation is not a credential match. Keep the scan quiet so matching values stay local:
 
    ```bash
    grep -aqE 'mgst_[A-Za-z0-9_-]{43}' <firmware-file>

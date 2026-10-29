@@ -1057,9 +1057,8 @@ var rawMarkdownPatterns = []struct {
 	{"ordered list", regexp.MustCompile(`(?m)^[ \t]*\d+\.[ \t]`)},
 }
 
-// ValidateDeploymentBlocks rejects text-block content that is still Markdown.
-// The editor stores inline HTML and would show the markers as characters.
-// code blocks are plain source and are not checked.
+// ValidateDeploymentBlocks checks the modern tool config envelope and rejects
+// prose that is still Markdown. Code blocks remain plain source.
 func ValidateDeploymentBlocks(body map[string]any) error {
 	blocks, ok, err := deploymentBlockList(body)
 	if err != nil || !ok {
@@ -1071,6 +1070,12 @@ func ValidateDeploymentBlocks(body map[string]any) error {
 			return fmt.Errorf("deployment.blocks[%d] must be an object", i)
 		}
 		typ := strings.ToLower(strings.TrimSpace(stringFromMap(block, "type")))
+		if typ == "flash-firmware" {
+			alignFlashFirmwareBlock(block)
+		}
+		if err := validateAppToolBlock(block, typ, i); err != nil {
+			return err
+		}
 		if !proseBlockType(typ) {
 			continue
 		}

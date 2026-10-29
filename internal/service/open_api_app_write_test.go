@@ -461,7 +461,7 @@ func TestPublishDetailURLIsCreatorCenter(t *testing.T) {
 	}
 	detail, _ := result["detail_url"].(string)
 	if !strings.Contains(detail, "/view-application/sandbox-app-1-sandbox-vision-app") ||
-		!strings.Contains(detail, "from=user-center") ||
+		strings.Contains(detail, "?") ||
 		strings.Contains(detail, "/application/detail/") {
 		t.Fatalf("detail_url=%q", detail)
 	}

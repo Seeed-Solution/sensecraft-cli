@@ -13,26 +13,13 @@
     "scene": "",
     "license": "",
     "author": "",
-    "allow_clone": 1,
-    "allow_commerce": 0
+    "allow_clone": null,
+    "allow_commerce": null,
+    "activity_id": null
   },
-  "images": [
-    {
-      "path": "docs/images/cover.png",
-      "sha256": null,
-      "file_url": null,
-      "role": "cover"
-    }
-  ],
+  "images": [],
   "deployment": {
-    "blocks": [
-      {
-        "id": "intro_1",
-        "type": "paragraph",
-        "content": "What this app does, who it is for, and what is in the box.",
-        "indent": 0
-      }
-    ]
+    "blocks": []
   },
   "bom": {
     "materials": []

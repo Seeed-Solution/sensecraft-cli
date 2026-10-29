@@ -140,7 +140,7 @@ func (s AppService) SetAppPrivacy(p AppPrivacyParams) (json.RawMessage, error) {
 			"be_public":     2,
 		})
 	}
-	// 提交审核后给创作中心详情，不要让调用方自己拼 /application/detail/{id}（那是广场页）。
+	// 提交审核后给 /view-application/{id}-{名称}，不要再拼 from、section、state。
 	return s.stampOwnerDetailURL(data, strings.TrimSpace(p.AppID), stringFromMap(existing, "app_name")), nil
 }
 

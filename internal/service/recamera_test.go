@@ -60,8 +60,8 @@ func TestRecameraCheckAppFromBlocks(t *testing.T) {
 	if !strings.Contains(res.ConsoleURL, "/view-application/recamera-app-sandbox-vision-app") {
 		t.Fatalf("console_url=%s", res.ConsoleURL)
 	}
-	if !strings.Contains(res.ConsoleURL, "from=user-center") {
-		t.Fatalf("owner detail must keep from=user-center: %s", res.ConsoleURL)
+	if strings.Contains(res.ConsoleURL, "?") {
+		t.Fatalf("app detail must be id and name only: %s", res.ConsoleURL)
 	}
 }
 
@@ -130,11 +130,11 @@ func TestRecameraConsoleURLs(t *testing.T) {
 		t.Fatalf("model url=%s", model)
 	}
 	mine := RecameraAppDeployURL("Global", "app-1", "Demo", true)
-	if mine != "https://codecraft.seeed.cc/hub/view-application/app-1-demo?from=user-center&tab=custom" {
+	if mine != "https://codecraft.seeed.cc/hub/view-application/app-1-demo" {
 		t.Fatalf("mine url=%s", mine)
 	}
 	plaza := RecameraAppDeployURL("China", "app-1", "Demo", false)
-	if plaza != "https://codecraft.seeed.cc/hub/view-application/app-1-demo?from=application-store&tab=public" {
+	if plaza != "https://codecraft.seeed.cc/hub/view-application/app-1-demo" {
 		t.Fatalf("plaza url=%s", plaza)
 	}
 }

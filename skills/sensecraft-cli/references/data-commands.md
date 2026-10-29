@@ -27,10 +27,11 @@ OAuth Device Flow. Obtains an Access Key and writes `sensecraft.json`.
 
 With no split flags, in a terminal:
 
-1. Select site: Global (International) or China
-2. Browser OAuth Device Flow authorization
-3. Select an existing Access Key, or create one
-4. Save to local config and set it active
+1. Select site: Global (International) or China. China supports SenseCraft Data only. SenseCraft AI and CodeCraft Hub require Global.
+2. Request a device authorization code and show the verification URL/code.
+3. Wait for the user to approve in the browser; the CLI polls automatically.
+4. Resolve account/organization, then select an existing Access Key or create one with a label and permission level.
+5. Save to local config and set as active profile.
 
 ### Split flow
 
@@ -52,7 +53,7 @@ The login access token is written to `sensecraft-auth-pending.json` next to the 
 
 - Do **not** run bare `auth init` in a non-interactive shell.
 - Run the split commands above. Do not echo `access_token` or `access_key`.
-- In sandbox mode, simulated credentials are written locally for testing.
+- In sandbox mode, simulated credentials are written locally for testing. Use an isolated test config; sandbox credentials do not authorize real cloud calls.
 
 ---
 

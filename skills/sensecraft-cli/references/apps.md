@@ -6,7 +6,7 @@ Domain skill for **CodeCraft Hub applications**. Auth: **Access Key** (HTTP Basi
 
 Parent router: [`../SKILL.md`](../SKILL.md).  
 SenseCAP IoT: [`data.md`](data.md).  
-Child skill: [`../create-app/SKILL.md`](../create-app/SKILL.md) — manifest-driven app lifecycle: mine a finished local project into a versioned `sensecraft-app.json` manifest (source of truth), create the app in one go, then local-first updates with drift detection (one batch confirmation per push). Publish / unpublish / delete stay in this file.
+Child skill: [`../create-app/SKILL.md`](../create-app/SKILL.md) — turn a local project into a deployable app: discover project facts, resolve uncertain decisions, write and review human-facing copy, configure tool-block deployment, confirm BOM catalog matches through the API, and build the versioned `codecraft-app.json` before upload. Read each related reference before authoring its information. Later updates follow the manifest with drift detection and one batch confirmation per push. Publish / unpublish / delete stay in this file.
 
 ## Agent rules
 
@@ -88,7 +88,7 @@ sensecraft-cli app unpublish --id <app_id> --yes    # privacy=0 private / withdr
 sensecraft-cli app delete --id <app_id> --yes       # private only (be_public=0)
 ```
 
-`app publish` matches Console 「发布确认」: show https://sensecraft.seeed.cc/legal/en/declaration and warn that review locks editing; only then pass `--agree-declaration --yes`. Missing either flag → non-zero. API body is still only `{app_id, privacy:2}` (agreement is client-side, like Console `warrantyAccepted`). stdout includes `detail_url`: the creator-center page (`https://codecraft.seeed.cc/hub/view-application/<id>-<slug>?from=user-center&tab=custom`). Give the user that URL. Do **not** invent `/application/detail/<id>` — that is the plaza page and does not open the private draft.
+`app publish` matches Console 「发布确认」: show https://sensecraft.seeed.cc/legal/en/declaration and warn that review locks editing; only then pass `--agree-declaration --yes`. Missing either flag → non-zero. API body is still only `{app_id, privacy:2}` (agreement is client-side, like Console `warrantyAccepted`). stdout includes `detail_url`: `https://codecraft.seeed.cc/hub/view-application/<id>-<slug>`. Give the user that URL as printed. Do not append `from`, `section`, `state`, or `tab`. Do **not** invent `/application/detail/<id>`.
 
 **Never** send `privacy=1` (ops-approved public). After editing a **published** app, tell the user plaza is unchanged until they confirm `app publish --agree-declaration --yes`.
 
@@ -105,6 +105,8 @@ Seeed rows need `id`(=SKU). Custom rows omit `id`. No manual custom image upload
 
 ### Author path
 
+For a local project/repository or an existing `codecraft-app.json`, use [create-app](../create-app/SKILL.md) for the full discovery, writing review, BOM verification, and manifest workflow. The abbreviated commands below apply to content that is already authored and reviewed; do not bypass that workflow by uploading a developer README directly.
+
 0. Resolve `scene`, inspect fields, and inspect block layouts:
    ```bash
    sensecraft-cli model constants
@@ -119,8 +121,8 @@ Seeed rows need `id`(=SKU). Custom rows omit `id`. No manual custom image upload
    ```bash
    sensecraft-cli app create --from-json ./app.json
    # CLI returns app_id + console_url + detail_url (even if update_app body was {}).
-   # detail_url is https://codecraft.seeed.cc/hub/view-application/<id>-<slug>?from=user-center&tab=custom
-   # (test AI host or remote_type Develop → https://test-codecraft.seeed.cc/hub). from=user-center loads the sketch cover.
+   # detail_url is https://codecraft.seeed.cc/hub/view-application/<id>-<slug>
+   # (test AI host or remote_type Develop → https://test-codecraft.seeed.cc/hub). No query. The site shows the author's draft when they are logged in.
    # A non-empty web_link on a list item is the link to give the user.
    # Restore JSON may have pic_url (list) or images[] (view); CLI writes both.
    # Show links to the user. NEVER re-run create because stdout looked empty —

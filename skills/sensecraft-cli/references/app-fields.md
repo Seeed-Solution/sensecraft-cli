@@ -19,7 +19,29 @@ Agent fill-in guide for SenseCraft custom apps (v3). Aligns with Console `infoFo
 | `author`                   | string                     | recommended on save        | current user id/account                                                                                                                                                                                                                               |
 | `activity_id`              | positive integer           | no                         | Join this activity. Omit or send blank to leave existing activity tags unchanged. CLI sends a JSON number. `0`, negatives, and non-integers are rejected before POST. Server: not a positive integer → `11202` `Request parameters are invalid`; missing / unpublished / deleted / outside start–end → `25000` `Activity does not exist or has expired` (the whole edit is discarded). |
 | `cancel_activity_id`       | positive integer           | no                         | Leave this activity. Omit or send blank to leave participation unchanged. CLI sends a JSON number and does not change `allow_clone`. Must not equal `activity_id`. |
-| `flow_data` / `model_data` | Node-RED sync              | only with `node-red` block | Block `config.flow_data` and `config.model_data` are objects, not strings. On save the app writes `JSON.stringify(config.flow_data)` to this top-level `flow_data` string and copies `model_data` here. |
+| `flow_data` / `model_data` | Node-RED sync              | only with `node-red` block | Block `config.flow_data` is an object or array; `config.model_data` is an object or null. Neither is a JSON string inside the block. On save the app writes `JSON.stringify(config.flow_data)` to this top-level `flow_data` string and copies `model_data` here. |
+
+### Activity selection during app authoring
+
+For a new app, assess participation using the project discovery results; do not wait for the user to name a competition. Respect any established preference to join or skip one. Run:
+
+```bash
+sensecraft-cli app activity list
+```
+
+Read [the activity command reference](app-commands.md#app-activity-list) before using the result. The current CLI returns `activity_id`, `name`, UTC `start_time`/`end_time`, and `guide_url` for activities open now. It does **not** return a structured requirements field. Open and read the API-provided guide for each plausible candidate, including its official rules where linked, before claiming eligibility. Missing/inaccessible guidance is an information gap, not proof that there are no requirements. Do not invent an activity-detail CLI or guessed API endpoint.
+
+Compare the documented theme, entry window/deadline, eligibility, supported/required hardware or features, required artifacts/demo/docs, and licensing/clone/commercial conditions with the actual project and settled user choices. Distinguish what the project already satisfies from deliverables still needed. A successful empty list means no currently available activity; a failed request is not an empty list. Sandbox output is not a live activity or eligibility check.
+
+- **Clear suitable activity:** select it with a concise evidence-based reason. If several qualify and one is clearly preferable for this project, explain that choice. Do not use result order or a popular-list `priority_activity_id` as the entry decision.
+- **No suitable activity:** select no participation and explain the mismatch or lack of open activities. Omit `activity_id`; do not use `0`, invent an ID, or ask a redundant opt-in question when the evidence supports the decision.
+- **Uncertain choice or eligibility:** ask with concrete options: candidate names/IDs, dates with a timezone, important requirements and project fit/gaps, plus **no activity**. Recommend the best-supported option. Reuse known answers. Do not change the project's agreed permissions or invent missing eligibility facts to make an entry fit. If new permission choices or required consent are unresolved, ask about those with the activity options.
+
+Record the chosen activity or no-activity reason, lookup time, API/guide sources, applicable rules, and project evidence in local review notes. For `create-app`, store the optional selection in `info.activity_id` and include its positive integer at payload top level on the initial one-shot create; the CLI applies it in the new app's follow-up save. Always send the resolved `allow_clone` explicitly: the CLI may otherwise turn it on when joining an activity. An explicit `allow_clone: 0` is technically preserved by the CLI, but does not establish eligibility for a contest requiring cloning.
+
+Recheck the current list and time window just before submitting. An invalid/expired activity can reject the entire follow-up save after an app ID already exists: preserve that ID, resolve the activity choice, and resume by update rather than creating a duplicate. Verify any exposed saved association and distinguish a join request accepted by the API from verified participation. Activity association does not by itself complete entry requirements or publish the app.
+
+For an existing app, preserve participation unless changing it is part of the requested batch. Omission/null/blank leaves participation unchanged, not removed; leaving uses `cancel_activity_id` through the parent workflow. Do not repeatedly send a historical `activity_id` during unrelated edits.
 
 ### Create vs update
 
@@ -44,6 +66,20 @@ Agent fill-in guide for SenseCraft custom apps (v3). Aligns with Console `infoFo
 API: `POST /flow/app/v3/edit_privacy_app` (CLI name: `publish` / `unpublish`).
 
 ## BOM (`materials[]`)
+
+### Catalog verification before authoring a BOM
+
+Read this reference before writing BOM rows. Derive required devices, app-specific accessories, variants, and quantities from project evidence, then resolve catalog identity through the live API:
+
+```bash
+sensecraft-cli app bom search --name "<product name or SKU>"
+```
+
+The CLI filters `material_options` from `get_production_options` and returns `list[]` and `count`. Match the **exact variant**, not merely the first similar name. A result's **`sku` becomes the saved material row's `id`**; its internal product `id`, if present, is not the SKU. Copy the returned `name` and `buy_url`; derive `quantity` (string) and the app-specific `note` from the project. Do not fabricate SKU or purchase URLs from memory or examples.
+
+Record the query and selected SKU/name/URL in local review notes, with the project evidence for quantity and purpose. Several plausible matches need a user decision. A successful no-match search after reasonable name/SKU variants permits a custom row; an auth/network/API failure leaves the candidate **unverified**, not absent from the catalog. Sandbox results are simulated and cannot confirm a real product. Report custom rows and unverified candidates separately from API-confirmed catalog rows. A project with no required hardware may use an empty BOM.
+
+Catalog verification proves product identity; it does not prove the app saved that row. After create or BOM update, use `app bom list --id <app_id> --sketch` and compare the saved rows with the manifest.
 
 ### Seeed Studio catalog row
 

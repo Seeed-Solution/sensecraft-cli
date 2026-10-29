@@ -1,117 +1,124 @@
 ---
 name: create-app
-description: Create a CodeCraft Hub app from a finished local project using a versioned local manifest (sensecraft-app.json) as the single source of truth — mine the project for app info, create the app in one go, then keep later edits local-first and push updates safely with drift detection. Use whenever the user wants to turn a finished or current project into a SenseCraft app, "publish my project" to SenseCraft, make an app from this repo/codebase, or update an app that has a sensecraft-app.json manifest — even if they only say "make this project an app" or "push my app changes". Publishing, unpublishing, deleting, and cloning stay with the parent sensecraft-cli skill.
+description: Turn a local project into a deployable CodeCraft Hub app, or update an app managed by codecraft-app.json. Discover project facts, resolve user decisions, author and review app copy, configure deployment tool blocks, verify BOM products through the API, then validate and upload the local manifest. Use for requests to upload a project or repo as a CodeCraft Hub or SenseCraft app. App publishing, unpublishing, deleting, and cloning use the parent skill.
 ---
 
-# create-app
+# Create a CodeCraft Hub app
 
-Turn a finished local project into a CodeCraft Hub app through a local manifest: gather → write manifest → one-go create → local-first updates.
+Deliver a reviewed `codecraft-app.json` and a private CodeCraft Hub app whose deployment instructions work through the available tool blocks. Follow discovery → synthesis → decisions → manifest → review → upload → verification. A saved draft with missing deployment inputs is an incomplete result; report those inputs explicitly.
 
-Entry skill: [`../SKILL.md`](../SKILL.md). App lifecycle (publish / unpublish / delete / clone): [`../references/apps.md`](../references/apps.md).
+The manifest is the source of truth for app values. Project evidence and review notes explain those values; they are not a second payload. An existing `identity.app_id` always means update/resume, never another create.
 
-> L2 writes follow [../references/confirmation.md](../references/confirmation.md). Auth, site, and output rules in the entry skill still apply. Below is only what create-app adds.
+## Read references before authoring
 
-## Why the manifest exists
+Read each applicable reference **in full before drafting or changing the corresponding information**, including on an update. A link, search snippet, template, static schema, or remembered config does not replace the read. Reuse a reference already read in this session unless it changed. If a required reference is unavailable, continue independent discovery and report the gap; do not guess the affected fields.
 
-The manifest makes the workflow resumable and safe. It remembers the `app_id` so a retry never spawns a duplicate (the server allows duplicate names). It records what was last pushed so a later Console edit is detected as drift instead of silently overwritten. And in a project without git, its timestamped archive snapshots are the only version history — treat them as precious.
+| Before this work | Required reading / inspection |
+|---|---|
+| Any CLI work | [Parent skill](../SKILL.md), [app commands](../references/app-commands.md); `auth info` before cloud calls |
+| Project discovery | [Project discovery](references/project-discovery.md), then the relevant project files themselves |
+| App fields, scene, images, permissions, BOM rows | [App fields and BOM](../references/app-fields.md); `app fields`; `model constants` for actual scene options |
+| Activity participation | [Activity selection](../references/app-fields.md#activity-selection-during-app-authoring), [activity command](../references/app-commands.md#app-activity-list) |
+| Any human-facing copy | [Writing and review](references/content-review.md), plus project evidence for the claims |
+| Deployment plan or tool-block config | [Tool blocks](../references/tool-blocks.md), including device-specific rules; `app blocks` |
+| Model-backed tool needing model selection/metadata | [Models](../references/models.md), [model commands](../references/model-commands.md), [model fields](../references/model-fields.md); verify the selected model through the supported API reads |
+| Manifest creation, projection, sync bookkeeping | [Manifest contract](references/manifest.md), [template](assets/manifest-template.json) |
+| Asset upload | [File upload](../references/files.md), [file command flags](../references/file-commands.md) |
+| Update of an existing remote app | [Confirmation protocol](../references/confirmation.md); review the concrete batch before requesting any outstanding approval |
 
-Manifest schema, field-by-field: [references/manifest.md](references/manifest.md). Starting template: [assets/manifest-template.json](assets/manifest-template.json).
+`app fields` and `app blocks` are static, zero-network commands: run them bare, without `--sandbox`. They describe structure, not live catalog matches. `model constants` and `app bom search` are cloud reads; sandbox samples are not API confirmation.
 
-## Manifest files on disk
+## 1. Discover the project and current app state
 
-- **Canonical**: `sensecraft-app.json` in the project root. Several apps in one repo: `sensecraft-app.<slug>.json` per app (`<slug>` = lowercase-hyphen app short name).
-- **Versioning**: run `git rev-parse --is-inside-work-tree` **once at gather time** and reuse the decision for the whole session.
-  - Inside git → canonical file only; suggest the user `git add` it after every successful push.
-  - No git → after every successful create/push and at the end of gather, also write `.sensecraft/archive/sensecraft-app[.<slug>].YYYYMMDD-HHmmss.json`. The canonical file is always the latest; archives are immutable history.
-- **Discovery** (update flow): prefer `sensecraft-app.json`; else a single `sensecraft-app.*.json` — excluding the reserved transient names `*.payload.json` / `*.patch.json` / `*.materials.json`; else list candidates and ask which app. A candidate must have manifest shape (`manifest_version` + `identity` + `sync`) — reject lookalikes. No manifest → this is a create flow. A discovered manifest whose `identity.app_id` is null and which fails validation or cannot be trusted: tell the user what was wrong, archive it under `.sensecraft/archive/`, rebuild from the template, and run `app list --mine --name "<app_name>"` as a duplicate check before creating.
-- **Transient payload/patch files** (the projected `--from-json` bodies) live under `.sensecraft/` — create the dir if needed — and are deleted once the push completes. Never leave them as untracked clutter in the project root. Only delete transients this session created — pre-existing leftovers from an earlier session are reported to the user and removed only with their agreement.
-- Never store tokens, access keys, or device keys in the manifest. If a mined value looks secret-like, warn and keep it out.
+Read [project-discovery.md](references/project-discovery.md). Mine this conversation first, then inspect the actual project: purpose and audience, implemented behavior, supported hardware, build/deployment configuration, artifacts, runtime setup, limitations, assets, and license. README claims are candidates; cross-check them with implementation and configuration before using them in app copy.
 
-## Workflow A — gather
+Keep concise evidence and open decisions in `.sensecraft/<manifest-stem>.review.md` (for example `.sensecraft/codecraft-app.review.md`). Record file locations or conversation decisions, not credentials. Use it to carry unresolved facts, the deployment plan, BOM lookup evidence, artifact paths/hashes, and the final review through a resumed session. Final app values live in the manifest.
 
-Mine first, ask approval once at the end.
+- Run `git rev-parse --is-inside-work-tree` once and reuse the result for versioning.
+- Prefer `codecraft-app.json`; otherwise use a single `codecraft-app.<slug>.json` with `manifest_version`, `identity`, and `sync`. Exclude `*.payload.json`, `*.patch.json`, and `*.materials.json`. Several candidates → ask which app. An explicit request for another app → use a separate slugged manifest, preserve the existing one.
+- Also discover legacy `sensecraft-app.json` / `sensecraft-app.<slug>.json` with the same shape checks and transient exclusions. Migrate the chosen manifest to the corresponding `codecraft-app` filename, preserving its contents, especially `identity.app_id` and `sync`. Never overwrite an existing destination: resolve competing manifests first. Preserve old archive snapshots; carry forward any existing review/artifact notes and sync baseline. A filename change is not a new app.
+- Preserve an invalid pre-create manifest in `.sensecraft/archive/` before rebuilding it from the template. Explain the fault and run `app list --mine --name "<app_name>"` before creating. If an app ID exists, preserve it and repair/resume that app.
+- Run `sensecraft-cli auth info` before cloud reads. CodeCraft Hub requires Global and an active SenseCAP Access Key. If auth is missing, use the split `auth init` flow in [`../SKILL.md`](../SKILL.md): `--site Global --no-wait`, show `verification_url` and end the turn, then `--device-code`. Do not run bare `auth init`. Do not invent account, scene, or catalog values before authentication succeeds.
 
-1. **Mine this conversation, then the project directory** (read-only). You are usually inside the development session — what was built, configured, and decided here is the primary source; project files are the cross-check. Organize what is already known directly.
-   
-   - `README*` → `app_name` / `excerpt` candidates (excerpt ≤ 300 UTF-16 code units).
-   - `package.json` / firmware README → name, `license`, `author`.
-   - `docs/`, `images/`, `assets/`, `screenshots/` → image candidates: JPG/JPEG/PNG/GIF/WebP, ≤ 5 MB each, up to 16, first = cover, prefer 4:3. No usable cover yet is fine — a private draft doesn't need one; publishing does. The user decides when to choose, upload, or generate one.
-   - **Deployment plan**: the steps serve non-developers who can only use the tool blocks provided — plan what they do on the app page (connect, run a block, configure, use), never how the project is built. Read [../references/tool-blocks.md](../references/tool-blocks.md) before drafting to know what's available. An artifact you can't upload yet never removes a block the flow needs; resolve the config per the reference and mark what's pending. Note candidate artifacts (firmware bins, model files, flow JSON) without deciding yet.
-   - Hardware mentions (XIAO, Grove, reCamera…) → BOM candidates; resolve SKUs with `sensecraft-cli app bom search --name "<kw>"`.
-2. **Fill gaps in ONE consolidated question round**: present a brief overview of the app fields and the deployment steps, then ask for what is missing — `scene` pick (list ids from `sensecraft-cli model constants` → `app_scenarios_array`; propose the best match), `allow_clone`, `allow_commerce`, and anything you flagged for the user to decide. If a step can't be completed by that audience, surface it here with options instead of writing a flow that contradicts itself. `app_name` defaults to the project's own name — propose any embellishment in the round rather than renaming silently. BOM default scope: **the device plus app-specific accessories named in the project docs** (ordinary cables, computers, and generic tools are excluded). When no Seeed SKU resolves via `app bom search`, custom BOM rows (name/quantity/note/buy_url, no `id`) are the correct fallback.
-3. **Write the manifest** from the template with `identity.app_id: null`, `sync.local_revision: 1`.
-4. **Validate locally before any network write** — fail fast here, not after create. Run the shipped validator so every session applies the same checks:
-   
-   ```bash
-   python3 <this-skill-dir>/assets/validate_manifest.py <manifest> --scene-ids <ids from model constants>
-   ```
-   It only validates **format, never content truth**. Cross-check structure with the static schema commands `sensecraft-cli app fields` and `sensecraft-cli app blocks` — they are zero-network, run them bare (they take **no** `--sandbox` flag).
-5. Snapshot the manifest (archive copy when there is no git).
+## 2. Synthesize fields, deployment, and BOM
 
-## When the source is a Markdown document
+Read the applicable references in the table **before** doing each part. Build evidence-backed candidates first; serialize after material decisions are resolved.
 
-The app editor stores a flat `deployment.blocks` array. It does not keep the Markdown file and it does not re-parse Markdown at preview time. There is no `app import-md` command.
+**App information.** Read [app-fields.md](../references/app-fields.md) in full before synthesizing these fields, including its activity selection guidance. Keep the project's name unless the user chooses a change. Write an excerpt for the intended reader: what it does, who uses it, and the useful outcome. Propose a scene label and its real ID from `app_scenarios_array`. Preserve known choices for `allow_clone` and `allow_commerce`; if unknown, ask rather than inherit template defaults or infer permissions from the license. Resolve author from the authenticated account when established; identify the project license separately. Inspect cover/gallery candidates and keep their order explicit. No cover is allowed for a private draft; note the publishing requirement.
 
-When the source is Markdown, pass it on create or update. The CLI compiles editor HTML, fills `app_name` / `excerpt` when the JSON omits them, and truncates an excerpt longer than 300 characters (see `warnings`).
+**Activity participation.** Use the project understanding from discovery and follow [app-fields.md § Activity selection](../references/app-fields.md#activity-selection-during-app-authoring) to decide whether to join an activity. Record the resolved selection in `info.activity_id` and the rationale in the review.
+
+**Deployment.** Read all of [tool-blocks.md](../references/tool-blocks.md), then map the complete first-time user journey to its supported blocks. For each action, record prerequisites, the chosen tool, verified config/artifact source, and the observable result. Inspect real artifact existence, target/architecture, build configuration, and required runtime inputs. A firmware file does not establish a model-deploy step; source code alone does not establish a flashable image. Place each tool directly after its instructions in a flat `deployment.blocks` array.
+
+Use available artifacts or a documented reproducible build when feasible within the user's scope. If an artifact, board variant, model, container version, or necessary action is unresolved, explain the specific gap and propose choices. Keep needed blocks in the local draft with pending values; never replace them with prose that pretends the deployment works. If no tool supports a required action, say so and agree on a supported path or an explicitly incomplete draft. Do not claim deployability until every required action has a usable path.
+
+**BOM.** Follow [app-fields.md § Catalog verification](../references/app-fields.md#catalog-verification-before-authoring-a-bom). Identify devices and app-specific accessories from project evidence; exclude ordinary cables, computers, and generic tools by default. Query `app bom search --name "<product or SKU>"` for each catalog candidate, broadening the name if necessary. Match the exact variant. Copy returned `sku` to manifest row `id`, along with the returned name and purchase URL; derive quantity and a useful role note from the project. Do not use a catalog's internal `id` as the SKU.
+
+Record the query and selected result in review notes. Multiple plausible variants → ask. A successful search with no matching product permits a clearly labeled custom row without `id`; API/auth failure means unverified, not no match. Never present custom rows or sandbox output as API-confirmed. No-hardware projects may have an empty BOM with that reason stated. After upload, checking saved rows is a separate verification from catalog matching.
+
+## 3. Resolve uncertain decisions
+
+Present a concise project summary, proposed fields, activity selection or reason for none, deployment actions/tools, BOM matches, and actual gaps. Batch questions about consequential choices: name/language/audience when unclear, scene, clone/commercial permissions, uncertain activity eligibility/selection, hardware variant and BOM scope/quantity, assets, or an unsupported deployment path. Include a recommendation and why; reuse answers already in the conversation.
+
+Ask only for uncertainty that affects correctness or the user's choice. Do not require an arbitrary one-round limit: a new material conflict can need a follow-up. Continue independent preparation while waiting, but do not commit guessed decisions or perform dependent uploads. Review is not an extra approval gate when the requested creation and all necessary decisions are already authorized.
+
+## 4. Build the local manifest
+
+Read [manifest.md](references/manifest.md) and the template. Populate the canonical manifest with resolved fields, optional activity selection, ordered images, the authored intro and deployment blocks, and confirmed BOM rows. Fresh create: `identity.app_id: null`, `sync.local_revision: 1`; fill environment/account from auth. Do not send the manifest itself to the API.
+
+- Hash the exact local image and artifact bytes to be uploaded. Keep firmware/model/archive paths, sizes, hashes, and destination block IDs in review notes; those paths do not belong in public tool configs.
+- Local images have `file_url: null` until uploaded. A pending tool URL is not a fake `https://example.com/...` link. Explain every pending input in review notes and the user summary.
+- Use the field locations from the references: every tool, including `flash-firmware`, stores its settings inside one `block.config` object. Do not repeat them on the block. The ordered blocks array is flat; tool settings are nested. SKU and `uniform_type` are distinct. Sizes are strings.
+- Store no access keys, device keys, SDK tokens, or personal credentials in the manifest, notes, or distributed artifacts. Check candidate archives/binaries for embedded credentials; if found, identify the affected artifact without echoing the secret and resolve a clean distribution path with the user before upload.
+- After gather and each successful push: in git, keep the canonical manifest reviewable in the working tree and follow the user's established Git workflow; outside git, also write an immutable `.sensecraft/archive/<manifest-stem>.YYYYMMDD-HHmmss.json` snapshot. Avoid overwriting a same-second snapshot. Retain the verified sync baseline per the manifest contract; do not hand versioning commands to the user.
+
+### Markdown sources
+
+Read [tool-blocks.md § Content format](../references/tool-blocks.md#content-format) and [app-commands.md § app doc compile](../references/app-commands.md#app-doc-compile) before compiling. Author only the reader-facing content; do not upload a developer README wholesale. `app doc compile --from-md <file>` is local and does not upload or insert tools. Inspect its `deployment`, `warnings`, and `pending_uploads`, then merge the compiled text and tool blocks **at their intended positions in the manifest**. Step headings such as `## Step: Flash` become steps; a plain `h2` does not.
+
+Push the final manifest projection with `--from-json`. Combining `--from-md` again would append JSON blocks after the compiled document and can duplicate/reorder the reviewed content. JSON text `content` uses HTML/plain text, never raw Markdown markers; `code` content is plain source. Local media paths must be uploaded and replaced with real URLs before submission.
+
+## 5. Review before upload
+
+Read [content-review.md](references/content-review.md) before drafting copy and apply its full review to the assembled manifest before every push. Review the actual name, excerpt, introduction, step titles/instructions, and BOM notes as a first-time reader. Fix unsupported claims, ambiguity, repetition, missing prerequisites, and instructions that do not match the adjacent tool. Run this editorial pass separately from format validation.
 
 ```bash
-sensecraft-cli app create --from-md ./README.md --from-json .sensecraft/sensecraft-app.payload.json
-sensecraft-cli app update --id <app_id> --from-md ./README.md --yes
+python3 <this-skill-dir>/assets/validate_manifest.py <manifest> --scene-ids <comma-separated-ids-from-model-constants>
 ```
 
-`--from-json` `deployment.blocks` are appended after the compiled document. Put tool-blocks there; do not repeat the prose. Upload every `pending_uploads` path, then write the returned https URL back into that block on a follow-up update. `app doc compile --from-md` only prints the JSON and does not create an app. JSON text blocks that still contain Markdown markers are rejected. Scene, cover, and BOM are not invented.
+Fix format violations before any upload or app write. This validator does **not** prove factual accuracy, catalog identity, tool compatibility, or deployability. Review its warnings: planned uploads may remain pending until the next stage; missing deployment artifacts/configs remain blockers to a deployable result.
 
-Follow [../../../docs/md-to-app.md](../../../docs/md-to-app.md) for step headings (`## 步骤：动作`, `## Step: Flash`, `### 1. 动作`) and for which headings stay headings. A plain `h2` is not a step.
+Update the review notes with corrections, evidence, remaining gaps, and readiness. Show the user the final name/excerpt, permission choices, activity name/ID and rationale or reason for no activity, ordered deployment actions and tools, BOM including custom/unverified status, selected assets, manifest path, and whether required deployment inputs are complete. Link the local manifest and review for full inspection. If all decisions are settled and creation is authorized, proceed without demanding another confirmation. An upload of a knowingly incomplete draft needs the user's choice of that outcome.
 
-Contest entry is a later `app update --activity-id <id>`. CLI also writes `"allow_clone": 1` on that update when the sketch is not already `1` and the JSON did not set `allow_clone`. Confirm the id is in `app activity list` first.
+## 6. Upload and create once
 
-## Writing the prose
-
-Published text is what plaza users actually read — mine it from the project, but author it deliberately.
-
-- `excerpt`: what the app is, who it is for, why it is interesting. Nothing else — no hardware/framework spec dump, no deploy steps, no version history or changelog.
-- `deployment.blocks` prose: short onboarding steps — necessary prep, main actions, how to start and stop. Include a step only if the feature exists. Target structure: an intro of at most two short paragraphs, then one step per distinct user action (typically 3–5 steps). No full menu enumeration, no exhaustive troubleshooting, no spec tables, no restating the excerpt inside steps. Inline formatting in `content` is HTML, not Markdown. Images and video are uploaded first, then linked; see [../references/tool-blocks.md#content-format](../references/tool-blocks.md#content-format).
-- Review once before every push: would a first-time user find every sentence clear, with nothing repeated?
-
-## Workflow B — create (one-go)
-
-1. **Preflight**: Run `sensecraft-cli auth info`. Need an active SenseCAP Access Key. If missing, use the split `auth init` flow in [`../SKILL.md`](../SKILL.md). Do not run bare `auth init`.
-2. **Upload assets**, writing each returned `file_url` back into the manifest entry:
-   
-   - Images: `sensecraft-cli file upload --path <img> --type 1 --for-app` (unlinked, 5 MB cap). Keep manifest order; index 0 = cover.
-   - Firmware/binaries for blocks: check binaries for embedded credentials before uploading — build outputs can compile tokens in; if anything shows up, flag it and let the user decide. Whatever the upload decision, a block the flow needs stays in the doc: fill its config per [../references/tool-blocks.md](../references/tool-blocks.md) and mark unfilled values as pending (e.g. firmware built locally by the end user). Upload itself: `sensecraft-cli file upload --path <fw> --type 4` → put the URL on the `flash-firmware` block as flat `firmware_url`, with `firmware_name` and string `firmware_size`. Do not nest those fields under `config`. The editor wraps them into `config` when the doc is opened.
-3. **Build the payload** from the manifest per the projection in [references/manifest.md](references/manifest.md#manifest--cli-payload). Omit keys that have no values — the CLI rejects an empty `images: []` but accepts the key absent. Write the projection to `.sensecraft/sensecraft-app.payload.json` (transient — delete after the push).
-4. **Create** — deliberately not L2, no `--yes`:
+1. Read the upload references. Recheck auth/environment and that selected files still match their reviewed hashes. If auth is missing, use the split flow in [`../SKILL.md`](../SKILL.md). Do not run bare `auth init`. Upload only reviewed assets; reuse unchanged URLs. Images: `file upload --path <image> --type 1 --for-app`. Firmware: `--type 4`. Other artifacts: select the actual type/flags from the reference. App images use at most 16 JPG/JPEG/PNG/GIF/WebP files, each ≤5 MB; other artifacts are ≤100 MB.
+2. Write returned `file_url` values into the canonical manifest as each upload succeeds, keeping image order. Update the intended tool/media fields and the artifact ledger. For firmware fill `config.firmware_url`, `config.firmware_name`, and string `config.firmware_size` on the target block. Never expose temporary signed upload URLs in review prose.
+3. Validate again, inspect the final projection, and reassess readiness. Required deployment inputs must now be filled unless the user chose an incomplete draft. Apply the [activity submission rules](../references/app-fields.md#activity-selection-during-app-authoring) when relevant and follow [manifest → CLI payload](references/manifest.md#manifest--cli-payload). Omit local bookkeeping; images become URLs with `pic_url = images[0]`; no images → omit both keys, never `images: []`. Never send `be_public` or `privacy`.
+4. Write `.sensecraft/<manifest-stem>.payload.json`, then create **without `--yes`**:
    ```bash
-   sensecraft-cli app create --from-json .sensecraft/sensecraft-app.payload.json
+   sensecraft-cli app create --from-json .sensecraft/codecraft-app.payload.json
    ```
-   Expect `app_id` + `console_url` + `detail_url` on stdout. If the **`app_id` or URLs** are missing or empty, run `sensecraft-cli app list --mine --name "<app_name>"` BEFORE any retry — never blind re-create. Echoed fields differing from what you sent are not by themselves a failure signal.
-5. **Record**: write `app_id`, `created_at` into `identity`; set `sync.last_pushed_*` (revision, RFC3339 time, payload hash); archive snapshot.
-6. **Report**: app name, `app_id`, `console_url`, `detail_url`, image/BOM/block counts, `sync.local_revision` as the version — and the lifecycle state: created **private** (`be_public=0`), a draft only the user can see, already test-deployable to their own devices, not on the plaza (publish = parent skill). No cover yet → note one is required before publishing. Never describe a private or pending app as 已上线 / published.
+   Parse successful stdout for `app_id`, `console_url`, and `detail_url`. Record the ID and local UTC `created_at` immediately, before verification. On any ambiguous failure or missing ID/URLs, run `app list --mine --name "<app_name>"` before deciding whether creation happened; do not blindly retry. An internal follow-up save may fail after creating the app: recover that ID and resume by update.
+5. Re-read `app view --id <app_id> --sketch` and `app bom list --id <app_id> --sketch`. Compare intended fields, image order, blocks/configs, and BOM rows, accounting for documented server normalization. Verify any requested activity association per the activity reference. A create response alone is not proof all sections saved. On a mismatch preserve the ID and report/repair through the update path.
+6. Only after verification, advance `sync.last_pushed_*` using the manifest contract and snapshot. Delete only transient payloads created by this session after success; preserve prior files and failure evidence.
+7. Report app name, ID, returned editor/detail links, counts, manifest revision/path, activity choice/result, and readiness. State **private draft (`be_public=0`)**; private and deployment-ready are separate facts. Missing cover affects publishing; missing tool inputs affect deployment. Never claim the hardware was flashed or the app is public. Publish/unpublish/delete/clone use [apps.md](../references/apps.md).
 
-**Partial failure resume**: once `identity.app_id` is set, creation happened. Any later failure (upload, follow-up write) → continue with Workflow C against that `app_id`. Never start Workflow B over for the same manifest.
+## Existing app: update or resume
 
-## Workflow C — update (local-first)
+Read the references for the affected sections before editing them. Preserve the same discovery, synthesis, and review standards, scaled to the requested change.
 
-The manifest leads, the remote follows. Every remote write below is L2: **one confirmation per batch, on a separate chat turn** ([../references/confirmation.md](../references/confirmation.md)) — the user's first request is intent, not confirmation.
+Handle activity participation on updates per [app-fields.md](../references/app-fields.md#activity-selection-during-app-authoring) and the manifest projection rules.
 
-1. **Edit the manifest first** (user or agent), bump `sync.local_revision`, validate as in Workflow A step 4.
-2. **Preflight + env guard**: `auth info` — `remote_type`/`org_id` must match `identity`. Mismatch → stop; the user either switches auth or explicitly adopts the new env into the manifest.
-3. **Drift check**: `sensecraft-cli app view --id <app_id> --sketch`, project the remote into the same sections the manifest covers, compare with `sync.last_pushed_hash` (algorithm pinned in [references/manifest.md](references/manifest.md#sync--local-vs-remote-bookkeeping)). Same → push. Different → the app was changed outside this manifest: show the field-level diff and use your judgment — merge what doesn't conflict, bring real conflicts to the user as a concrete proposal. Never silently overwrite someone else's edits.
-4. **Confirm once for the whole batch**: state environment, app name + id, and every pending change (fields, images, BOM rows, blocks). Wait for the user's `确认` / `yes` reply.
-5. **Push only what changed**:
-   | Changed section | Command |
+1. Edit the manifest first, increment `sync.local_revision`, and validate. Recheck auth: `identity.remote_type` and `org_id` must match. A mismatch requires switching auth or an explicit decision to adopt the environment; do not write across environments silently.
+2. Read `app view --id <app_id> --sketch`. Under review (`be_public=2`) → stop and explain the lock. Compare with the last verified baseline per [manifest sync](references/manifest.md#sync--local-vs-remote-bookkeeping). Detect outside edits, merge non-conflicting changes, and present conflicts as concrete choices. No verified baseline after a partial create → inspect current remote state and reconcile; never assume it is empty.
+3. Complete local preparation and review before any outstanding L2 confirmation. Describe environment, app name/ID, and the entire pending batch. Follow the [confirmation protocol](../references/confirmation.md), honoring valid approval already given for that batch; do not ask per field/upload/BOM row.
+4. Upload changed assets and send only changed sections, using session-owned transients under `.sensecraft/`:
+
+   | Change | Command |
    |---|---|
-   | info fields and/or image set | `sensecraft-cli app update --id <app_id> --from-json .sensecraft/sensecraft-app.patch.json --yes` (sparse OK — CLI merges missing info keys from the sketch) |
-   | BOM | `sensecraft-cli app bom set --id <app_id> --from-json .sensecraft/sensecraft-app.materials.json --yes` |
-   | deployment blocks | include `deployment` in the `app update` patch |
-   - **Images**: upload new/changed files with `--type 1 --for-app` (compare `sha256` in the manifest), then send the **full** `images[]` URL array in the update patch. Never use `--app-id` attach here — it prepends one image and scrambles the manifest order (see [../references/app-commands.md](../references/app-commands.md)).
-6. **Verify** per the parent rule: success may return `{}`, so re-read with `app view --id <app_id> --sketch` (and `app bom list --id <app_id>` when BOM changed).
-7. **Record**: `last_pushed_revision = local_revision`, new hash + time; archive snapshot; suggest `git add` when in git.
-8. **Published app**: the update saves a **draft** — the plaza copy is unchanged until publish (parent skill). Under review (`be_public=2`) the CLI refuses — stop and say so.
+   | Info, images, deployment | `app update --id <app_id> --from-json <patch-path> --yes` |
+   | BOM | `app bom set --id <app_id> --from-json <materials-path> --yes` |
 
-## Field and block rules
-
-- App info + BOM: [../references/app-fields.md](../references/app-fields.md)
-- Deployment layout + tool-block configs: [../references/tool-blocks.md](../references/tool-blocks.md)
-- CLI flags for every command above: [../references/app-commands.md](../references/app-commands.md)
+   Images require the full ordered URL array; upload with `--for-app`, not `--app-id` (attach prepends a cover). Deployment updates carry the full intended `deployment`; do not accidentally drop unchanged tools.
+5. Re-read sketch and, when changed, `app bom list --id <app_id> --sketch` even if the write returns `{}`. Advance sync baseline and snapshot only for verified success. On partial failure keep the known ID/upload URLs and reconcile the saved sections before retrying. A published app's update saves a draft; the public copy changes only through the parent publish workflow.

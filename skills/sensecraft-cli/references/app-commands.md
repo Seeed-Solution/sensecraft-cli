@@ -113,9 +113,9 @@ Rejects `be_public=1` / `privacy=1`. Do **not** confuse with `app update` (exist
 **Success output:** CLI always prints `app_id`, `console_url`, and `detail_url` on CodeCraft Hub (`https://codecraft.seeed.cc/hub`, or `https://test-codecraft.seeed.cc/hub` when the AI host contains `test-`, including `remote_type=Develop`):
 
 - edit: `/application/edit?id=<app_id>`
-- my app detail: `/view-application/<app_id>-<slug>?from=user-center&tab=custom`
+- app detail: `/view-application/<app_id>-<slug>`
 
-`from=user-center` loads the sketch (cover/`images`) and the page back button returns to the creator center. A public link uses `tab=public&from=application-store` and must not include `from=user-center` or `from=my-apps`. If a list item has a non-empty `web_link`, give the user that URL instead of `view-application`. Model and legal pages stay on `sensecraft.seeed.cc`.
+Owner and plaza links are the same path. Do not append `from`, `section`, `state`, or `tab`. The site shows the author's draft when they are logged in, and the published page to everyone else. If a list item has a non-empty `web_link`, give the user that URL instead of `view-application`. Model and legal pages stay on `sensecraft.seeed.cc`.
 
 **Do not retry create blindly:**
 
@@ -179,7 +179,7 @@ When `--activity-id` is set and this JSON does not include `allow_clone`, CLI se
 
 **Status: implemented.**
 
-- `publish` → `privacy=2` (submit review). Same path as Console **发布草稿** when the app is already public (`is_sketch` + `be_public=1`). Result may include `draft_publish`. Refused if already `be_public=2` or not owner. stdout `detail_url` is the creator-center page (`from=user-center`). Give the user that URL. Do not replace it with `/application/detail/<id>` (plaza page, no private draft).
+- `publish` → `privacy=2` (submit review). Same path as Console **发布草稿** when the app is already public (`is_sketch` + `be_public=1`). Result may include `draft_publish`. Refused if already `be_public=2` or not owner. stdout `detail_url` is `/view-application/<id>-<slug>` with no query. Give the user that URL. Do not append navigation params or replace it with `/application/detail/<id>`.
 - **Publish Declaration (required for `publish` only):** matches Console 「发布确认」`warrantyAccepted`. Before passing `--agree-declaration`, show the user:
   - Review will lock editing until approval (or `unpublish`)
   - Declaration URL: https://sensecraft.seeed.cc/legal/en/declaration
@@ -205,6 +205,8 @@ sensecraft-cli app delete --id <app_id> --yes
 ```bash
 sensecraft-cli app activity list
 ```
+
+The returned `guide_url` is the source for requirements and official rules; requirements are not included as a structured CLI field. Read candidate guides and compare them with the project before selecting an activity. Follow [activity selection during authoring](app-fields.md#activity-selection-during-app-authoring) for choosing a match, choosing none, or asking the user with options. Do not confuse `priority_activity_id` (list ordering) with `activity_id` (joining).
 
 ### `app like` / `app unlike` / `app collect` / `app uncollect` / `app mark-deploy` (L2)
 
@@ -241,7 +243,7 @@ sensecraft-cli app clone --id <source_app_id> --name "New name" --yes
 | Subcommand                   | Notes                                                |
 | ---------------------------- | ---------------------------------------------------- |
 | `search [--name]`            | `get_production_options` → filter `material_options` |
-| `list --id`                  | materials from `view_app`                            |
+| `list --id [--sketch]`       | materials from `view_app`; use `--sketch` to verify saved draft rows |
 | `set --id --from-json --yes` | `update_app` materials[] (L2)                        |
 
 ```bash

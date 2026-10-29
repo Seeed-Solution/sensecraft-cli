@@ -68,7 +68,7 @@ Read [manifest.md](references/manifest.md) and the template. Populate the canoni
 
 - Hash the exact local image and artifact bytes to be uploaded. Keep firmware/model/archive paths, sizes, hashes, and destination block IDs in review notes; those paths do not belong in public tool configs.
 - Local images have `file_url: null` until uploaded. A pending tool URL is not a fake `https://example.com/...` link. Explain every pending input in review notes and the user summary.
-- Use the field locations from the references: every tool, including `flash-firmware`, stores its settings inside one `block.config` object. The ordered blocks array is flat; tool settings are nested. SKU and `uniform_type` are distinct. Sizes are strings.
+- Use the field locations from the references: every tool, including `flash-firmware`, stores its settings inside one `block.config` object. Do not repeat them on the block. The ordered blocks array is flat; tool settings are nested. SKU and `uniform_type` are distinct. Sizes are strings.
 - Store no access keys, device keys, SDK tokens, or personal credentials in the manifest, notes, or distributed artifacts. Check candidate archives/binaries for embedded credentials; if found, identify the affected artifact without echoing the secret and resolve a clean distribution path with the user before upload.
 - After gather and each successful push: in git, keep the canonical manifest reviewable in the working tree and follow the user's established Git workflow; outside git, also write an immutable `.sensecraft/archive/<manifest-stem>.YYYYMMDD-HHmmss.json` snapshot. Avoid overwriting a same-second snapshot. Retain the verified sync baseline per the manifest contract; do not hand versioning commands to the user.
 

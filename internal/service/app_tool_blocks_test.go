@@ -48,18 +48,43 @@ func TestToolBlocksRequireOneConfigEnvelope(t *testing.T) {
 	}
 }
 
-func TestFlashFirmwareRejectsFlatOrMixedSettings(t *testing.T) {
+func TestFlashFirmwareLiftsFlatFieldsThenDropsThem(t *testing.T) {
 	block := watcherFlashBlock()
 	if err := ValidateDeploymentBlocks(toolBlockBody(block)); err != nil {
 		t.Fatal(err)
 	}
-	block["firmware_url"] = "https://example.invalid/flat.bin"
-	if err := ValidateDeploymentBlocks(toolBlockBody(block)); err == nil {
-		t.Fatal("accepted mixed root/config settings")
+	if _, flat := block["firmware_url"]; flat {
+		t.Fatal("config-only block gained a root firmware_url")
 	}
-	delete(block, "config")
-	if err := ValidateDeploymentBlocks(toolBlockBody(block)); err == nil {
-		t.Fatal("accepted the malformed flat block that renders as not uploaded")
+
+	const firmwareURL = "https://example.invalid/muse-gadget.bin"
+	flat := map[string]any{
+		"id": "flat", "type": "flash-firmware",
+		"device_id": "113991315", "device_type": "37", "flash_mode": "bin",
+		"firmware_url": firmwareURL, "firmware_name": "muse-gadget.bin",
+		"firmware_size": "2232320", "flash_address": "0x0", "muse_gadget": true, "full_flash": false,
+	}
+	if err := ValidateDeploymentBlocks(toolBlockBody(flat)); err != nil {
+		t.Fatal(err)
+	}
+	if _, still := flat["firmware_url"]; still {
+		t.Fatal("flat firmware_url was posted on the block")
+	}
+	lifted := flat["config"].(map[string]any)
+	if lifted["firmware_url"] != firmwareURL || lifted["muse_gadget"] != true {
+		t.Fatalf("flat settings were not copied into config: %#v", lifted)
+	}
+
+	mixed := watcherFlashBlock()
+	mixed["firmware_url"] = "https://example.invalid/other.bin"
+	if err := ValidateDeploymentBlocks(toolBlockBody(mixed)); err != nil {
+		t.Fatal(err)
+	}
+	if _, still := mixed["firmware_url"]; still {
+		t.Fatal("root firmware_url survived")
+	}
+	if mixed["config"].(map[string]any)["firmware_url"] != firmwareURL {
+		t.Fatalf("config lost to a different root value: %#v", mixed["config"])
 	}
 }
 
@@ -124,9 +149,7 @@ func TestMalformedToolRejectedBeforeCreateOrUpdateWrites(t *testing.T) {
 	}))
 	defer srv.Close()
 	s := appServiceForTest(t, srv)
-	block := watcherFlashBlock()
-	delete(block, "config")
-	block["firmware_url"] = "https://example.invalid/muse-gadget.bin"
+	block := map[string]any{"id": "tool", "type": "flash-firmware", "config": "flat"}
 	body := toolBlockBody(block)
 	body["app_name"] = "Watcher"
 	encoded, _ := json.Marshal(body)
@@ -193,11 +216,12 @@ func TestCreateAndUpdatePersistRendererReadableConfig(t *testing.T) {
 			t.Fatal("surrounding document blocks were lost or changed")
 		}
 		flash := saved[2].(map[string]any)
+		cfg := flash["config"].(map[string]any)
+		if !reflect.DeepEqual(cfg, blocks[2].(map[string]any)["config"]) {
+			t.Fatal("renderer-readable config was changed or discarded")
+		}
 		if _, flat := flash["firmware_url"]; flat {
 			t.Fatal("posted flat firmware fields")
-		}
-		if !reflect.DeepEqual(flash["config"], blocks[2].(map[string]any)["config"]) {
-			t.Fatal("renderer-readable config was changed or discarded")
 		}
 	}
 }

@@ -1070,6 +1070,9 @@ func ValidateDeploymentBlocks(body map[string]any) error {
 			return fmt.Errorf("deployment.blocks[%d] must be an object", i)
 		}
 		typ := strings.ToLower(strings.TrimSpace(stringFromMap(block, "type")))
+		if typ == "flash-firmware" {
+			alignFlashFirmwareBlock(block)
+		}
 		if err := validateAppToolBlock(block, typ, i); err != nil {
 			return err
 		}

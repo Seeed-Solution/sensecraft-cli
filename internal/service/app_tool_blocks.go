@@ -109,3 +109,52 @@ func validateAppToolBlock(block map[string]any, kind string, index int) error {
 	}
 	return nil
 }
+
+// alignFlashFirmwareBlock copies flat flash settings into config, then drops
+// those fields from the block. The app site reads block.config only.
+// A filled config wins over a different value on the block.
+func alignFlashFirmwareBlock(block map[string]any) {
+	if block == nil {
+		return
+	}
+	raw, exists := block["config"]
+	cfg, isMap := raw.(map[string]any)
+	if exists && !isMap {
+		return
+	}
+	if !exists {
+		if !flashBlockHasFlatSettings(block) {
+			return
+		}
+		cfg = map[string]any{}
+	}
+	keys := appToolConfigKeys["flash-firmware"]
+	for _, key := range keys {
+		root, rootOK := block[key]
+		cfgVal, cfgOK := cfg[key]
+		if rootOK && (!cfgOK || flashSettingBlank(cfgVal) && !flashSettingBlank(root)) {
+			cfg[key] = root
+		}
+	}
+	block["config"] = cfg
+	for _, key := range keys {
+		delete(block, key)
+	}
+}
+
+func flashBlockHasFlatSettings(block map[string]any) bool {
+	for _, key := range appToolConfigKeys["flash-firmware"] {
+		if _, ok := block[key]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+func flashSettingBlank(v any) bool {
+	if v == nil {
+		return true
+	}
+	text, ok := v.(string)
+	return ok && strings.TrimSpace(text) == ""
+}

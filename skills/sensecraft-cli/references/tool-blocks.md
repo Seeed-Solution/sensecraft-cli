@@ -22,7 +22,7 @@ Host binaries (images, videos, firmware) via `file upload` first. A relative pat
 
 `deployment.blocks` is a **flat** ordered array.
 
-“Flat” describes the array of blocks, not a tool's settings. Every tool block stores its settings inside one `config` object. The page reads `block.config.*` directly for this format; it does not wrap fields from the block root on read. Flattened settings belong to the separate legacy `deployment[].tools[]` format and must not be copied into modern `deployment.blocks[]`.
+“Flat” describes the array of blocks, not a tool's settings. Every tool block, including `flash-firmware`, stores its settings inside one `config` object. The app site reads `block.config.*` and does not read a second copy on the block. Flattened settings belong to the separate legacy `deployment[].tools[]` format.
 
 ```text
 [ intro text blocks... ] [ step ][ text|tools... ] [ step ][ text|tools... ] ...
@@ -60,7 +60,7 @@ Multiple tool-blocks may appear in one step (e.g. paragraph → flash → paragr
 
 ### `flash-firmware`
 
-Write every field below inside **`block.config`**, just like other tool blocks, for `app create` / `app update`. Keep `id`, `type`, and layout metadata on the block itself. Reject flat or mixed root/config settings and an extra `config.config` wrapper; do not rely on opening the editor to repair them. Existing flat blocks need an explicit migration that preserves all their settings.
+Write every field below inside **`block.config`**. Keep `id` and `type` on the block. Do not also put these fields on the block, and do not add a `config.config` wrapper. The app site reads `config` only. `app create` / `app update` copy a flat-only block into `config`, then remove the flat fields. When both copies exist and differ, `config` is kept.
 
 | Field | How to write |
 |-------|----------------|
@@ -225,6 +225,6 @@ Used for **container / edge app** deployment UI inside the application doc. Fiel
 
 ## Repair an existing malformed block
 
-Read the latest owner sketch, clone its **complete** `deployment`, and move the affected block's settings into `config`, preserving its ID, all values, order, and every other block. If flat and nested values disagree, resolve that conflict before writing. An update containing only a one-element `deployment.blocks` array replaces the document; it is not a patch of that one block.
+Read the latest owner sketch, clone its **complete** `deployment`, and move the affected block's settings into `config`, then remove those fields from the block. Preserve its ID, all values, order, and every other block. If flat and nested values disagree, keep `config`. An update containing only a one-element `deployment.blocks` array replaces the document; it is not a patch of that one block.
 
 Validate the corrected document and follow the parent's existing-app write protocol. Re-read the sketch afterward and check the saved `config` and unchanged surrounding blocks. Reconcile the project's local manifest and sync baseline too, so a later push does not restore the malformed shape. A successful API response only proves storage; verify the consumer-visible field paths as well.

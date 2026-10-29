@@ -1,62 +1,62 @@
-# SenseCraft CLI 安装指南
+# SenseCraft CLI install guide
 
-本文说明如何安装、升级、卸载 `sensecraft-cli`，以及如何把 Agent Skills 接到 Cursor 等工具。命令与登录见 [`README.zh.md`](README.zh.md)（英文 [`README.md`](README.md)）。
+How to install, upgrade, and uninstall `sensecraft-cli`, and how to connect Agent Skills to Cursor and other tools. Commands and sign-in: [`README.md`](README.md) (Chinese: [`README.zh.md`](README.zh.md)).
 
-## 1. 环境要求
+## 1. Requirements
 
-| 项 | 要求 |
-|----|------|
-| Node.js | **≥ 16**（推荐 18 / 20 LTS） |
-| 网络 | 能访问 npm registry，以及二进制下载源（默认阿里云 OSS） |
-| 可选 | Go（仅从源码构建时需要，版本见 `go.mod`） |
+| Item | Requirement |
+|------|-------------|
+| Node.js | **≥ 16** (18 or 20 LTS recommended) |
+| Network | Access to the npm registry and the binary download host (Aliyun OSS by default) |
+| Optional | Go, only when building from source. See `go.mod` for the version |
 
-### 支持的平台
+### Supported platforms
 
-| OS | 架构 | 二进制名 |
-|----|------|----------|
+| OS | Architecture | Binary name |
+|----|--------------|-------------|
 | macOS | Intel (`x64`) | `sensecraft-cli-darwin-amd64` |
 | macOS | Apple Silicon (`arm64`) | `sensecraft-cli-darwin-arm64` |
 | Linux | `x64` / `arm64` | `sensecraft-cli-linux-amd64` / `…-arm64` |
 | Windows | `x64` / `arm64` | `sensecraft-cli-windows-amd64.exe` / `…-arm64.exe` |
 
-其它组合会在安装时报 `Unsupported platform`。
+Any other combination fails install with `Unsupported platform`.
 
 ---
 
-## 2. 推荐安装（npm / npx）
+## 2. Recommended install (npm / npx)
 
-适用于大多数用户。安装器会：
+This path fits most people. The installer:
 
-1. 按当前平台下载**与本 npm 包版本一致**的二进制  
-2. 全局注册 `sensecraft-cli` 命令  
-3. 若本地尚无配置，在交互终端下引导填写 OpenAPI Access Key
+1. Downloads the binary for this platform, pinned to this npm package version
+2. Registers the `sensecraft-cli` command globally
+3. In an interactive terminal, asks for an OpenAPI Access Key when no local config exists yet
 
 ### macOS / Linux
 
 ```bash
-# 确认 Node
+# Check Node
 node -v    # >= v16
 
-# 安装（首次会下载二进制）
+# Install (the first run downloads the binary)
 npx @seeed-studio/sensecraft-cli install
 
-# 验证
+# Check
 sensecraft-cli --version
 sensecraft-cli --help
 ```
 
-若提示找不到命令，把 npm 全局 bin 加入 PATH：
+If the shell cannot find the command, add the npm global bin directory to PATH:
 
 ```bash
 npm prefix -g
-# 常见路径：
-#   macOS (Homebrew Node): /opt/homebrew/bin 或 /usr/local/bin
-#   Linux: ~/.npm-global/bin 或 /usr/bin
-echo 'export PATH="$(npm prefix -g)/bin:$PATH"' >> ~/.zshrc   # 或 ~/.bashrc
+# Common paths:
+#   macOS (Homebrew Node): /opt/homebrew/bin or /usr/local/bin
+#   Linux: ~/.npm-global/bin or /usr/bin
+echo 'export PATH="$(npm prefix -g)/bin:$PATH"' >> ~/.zshrc   # or ~/.bashrc
 source ~/.zshrc
 ```
 
-### Windows（PowerShell 或 cmd）
+### Windows (PowerShell or cmd)
 
 ```powershell
 node -v
@@ -64,11 +64,11 @@ npx @seeed-studio/sensecraft-cli install
 sensecraft-cli --version
 ```
 
-- 全局命令一般为 `sensecraft-cli.cmd`，装在 `npm prefix -g` 目录下。  
-- 若新开终端仍找不到命令：把该目录加入系统 **PATH**，或注销后重开终端。  
-- 建议使用 **PowerShell 5+** 或 Windows Terminal；Git Bash 一般也可用。
+- The global command is usually `sensecraft-cli.cmd`, in the `npm prefix -g` directory.
+- If a new terminal still cannot find it, add that directory to the system **PATH**, or sign out and open the terminal again.
+- PowerShell 5+ or Windows Terminal is the comfortable choice. Git Bash usually works too.
 
-### 不全局安装、临时调用
+### Call it without a global install
 
 ```bash
 npx @seeed-studio/sensecraft-cli --version
@@ -76,64 +76,64 @@ npx @seeed-studio/sensecraft-cli auth info
 npx @seeed-studio/sensecraft-cli device list
 ```
 
-`npx` 每次仍可能触发 postinstall 下载/复用本地缓存的二进制。
+`npx` may still run postinstall and download or reuse a cached binary.
 
-### 指定版本安装
+### Install a specific version
 
 ```bash
-npx @seeed-studio/sensecraft-cli@0.1.3 install
-# 或
-npm install -g @seeed-studio/sensecraft-cli@0.1.3
+npx @seeed-studio/sensecraft-cli@<version> install
+# or
+npm install -g @seeed-studio/sensecraft-cli@<version>
 ```
 
-二进制 URL 形如：
+The binary URL looks like:
 
-`{RELEASE_BASE}/v{版本}/sensecraft-cli-{os}-{arch}[.exe]`
+`{RELEASE_BASE}/v{version}/sensecraft-cli-{os}-{arch}[.exe]`
 
-默认 `RELEASE_BASE`：
+Default `RELEASE_BASE`:
 
 `https://sensecraft-statics.seeed.cc/static/bin/sensecraft-cli`
 
 ---
 
-## 3. 首次登录
+## 3. First sign-in
 
-用 SenseCAP 门户里的 OpenAPI Access Key 登录。Key ID 和 Access Key 写入本机后，设备、分组、传感数据，以及应用、模型、文件、云设备都用这一把钥匙。
+Sign in with the OpenAPI Access Key from the SenseCAP portal. After the Key ID and Access Key are saved on this machine, devices, groups, sensor data, apps, models, files, and cloud devices all use that one key.
 
 ```bash
 sensecraft-cli auth add --key-id <Key ID> --access-key <Access Key> --site Global
 sensecraft-cli auth info
 ```
 
-`--site` 为 `Global` 或 `China`，省略时是 `Global`。无交互环境需要带上 `--key-id` 和 `--access-key`。`auth info` 不打印 Access Key。
+`--site` is `Global` or `China`. The default is `Global`. A non-interactive environment must pass `--key-id` and `--access-key`. `auth info` does not print the Access Key.
 
 ---
 
-## 4. 配置文件位置
+## 4. Config file location
 
-| 场景 | 路径 |
-|------|------|
-| **npm / npx 安装（默认）** | macOS/Linux：`~/.config/sensecraft-cli/sensecraft.json`；Windows：`%APPDATA%\sensecraft-cli\sensecraft.json` |
-| **源码 `go build` 直接运行** | 当前工作目录下的 `sensecraft.json`（除非设置了环境变量） |
+| Situation | Path |
+|-----------|------|
+| **npm / npx install (default)** | macOS/Linux: `~/.config/sensecraft-cli/sensecraft.json`; Windows: `%APPDATA%\sensecraft-cli\sensecraft.json` |
+| **Running a `go build` binary** | `sensecraft.json` in the current working directory, unless an environment variable is set |
 
-环境变量（优先级从高到低）：
+Environment variables, highest priority first:
 
-| 变量 | 含义 |
-|------|------|
-| `SENSECRAFT_CONFIG_FILE` | 配置文件完整路径 |
-| `SENSECRAFT_CLI_PATH` | 配置**目录**（文件名固定为 `sensecraft.json`） |
+| Variable | Meaning |
+|----------|---------|
+| `SENSECRAFT_CONFIG_FILE` | Full path to the config file |
+| `SENSECRAFT_CLI_PATH` | Config **directory** (the file name is always `sensecraft.json`) |
 
-npm 包装器会自动注入 `SENSECRAFT_CLI_PATH` 指向上述默认目录，因此 **npm 装的 CLI 与纯 `go build` 二进制默认读的不是同一个文件**。
+The npm wrapper sets `SENSECRAFT_CLI_PATH` to the default directory above, so an npm-installed CLI and a plain `go build` binary do not read the same file by default.
 
-### 迁移配置
+### Move a config file
 
 ```bash
-# 示例：把 cwd 下的配置迁到 npm 默认位置
+# Example: move a config from the working directory to the npm default
 mkdir -p ~/.config/sensecraft-cli
 cp ./sensecraft.json ~/.config/sensecraft-cli/sensecraft.json
 ```
 
-Windows：
+Windows:
 
 ```powershell
 New-Item -ItemType Directory -Force "$env:APPDATA\sensecraft-cli"
@@ -142,81 +142,81 @@ Copy-Item .\sensecraft.json "$env:APPDATA\sensecraft-cli\sensecraft.json"
 
 ---
 
-## 5. 升级
+## 5. Upgrade
 
-已通过 npm 安装时，直接运行：
+When the CLI was installed with npm:
 
 ```bash
 sensecraft-cli update
 ```
 
-命令会查询 npm 上的最新版本，并执行 `npm install -g @seeed-studio/sensecraft-cli@<版本>`。本地版本号已经相同也会重新安装。安装器接着比较 `vendor/.version` 与新包版本，不一致就重新下载二进制。配置目录里的 Access Key 会保留。`--version` 只打印本地版本号，不访问 npm。
+The command looks up the latest version on npm and runs `npm install -g @seeed-studio/sensecraft-cli@<version>`. It reinstalls even when the local version number already matches. The installer then compares `vendor/.version` with the new package version and downloads the binary again when they differ. The Access Key in the config directory is kept. `--version` prints the local version only and does not contact npm.
 
-其它用法：
+Other forms:
 
 ```bash
-sensecraft-cli update --check   # 只查询，不安装
+sensecraft-cli update --check   # query only, do not install
 npm install -g @seeed-studio/sensecraft-cli@latest
 ```
 
-平时使用其它命令时，如果缓存里发现了更新，结束时会在 stderr 提示运行 `sensecraft-cli update`。同一版本 24 小时内只提示一次，出现更新的版本会再提示。24 小时内不会重复访问 npm。本地 `dev` 构建、CI、以及设置了 `SENSECRAFT_CLI_NO_UPDATE_NOTIFIER` 时不提示。
+While you run other commands, a newer version found in the cache is reported on stderr at the end, with a hint to run `sensecraft-cli update`. The same version is mentioned at most once every 24 hours. A newly published version is mentioned again. The CLI does not contact npm again inside that 24-hour window. A local `dev` build, CI, and `SENSECRAFT_CLI_NO_UPDATE_NOTIFIER` skip the hint.
 
-进行中的活动也在 stderr 以 `Notice:` 提醒，名称、日期和详情链接来自 `https://api-gateway.seeed.cc/openapi/activity/list`（不带参数，即尚未结束的活动）。24 小时内只提醒一次。交互终端会问 `Ignore this activity? [y/N]`，回答 `y` 之后按 `activity_id` 不再提醒；回答 `n` 时 24 小时后还会再出现。非交互只打印，不提问，也不记成忽略。CI 以及 `SENSECRAFT_CLI_NO_ACTIVITY_NOTIFIER` 时不提醒。
+An ongoing activity is also printed on stderr as `Notice:`. The name, dates, and detail link come from `https://api-gateway.seeed.cc/openapi/activity/list` (no query, so activities that have not ended). It appears at most once every 24 hours. An interactive terminal asks `Ignore this activity? [y/N]`. Answering `y` suppresses that `activity_id`. Answering `n` shows it again after 24 hours. A non-interactive run prints the notice, does not ask, and does not record an ignore. CI and `SENSECRAFT_CLI_NO_ACTIVITY_NOTIFIER` skip it.
 
-当前程序如果不是 npm 安装的（例如直接运行编译出的二进制），`update` 只打印上面的手动安装命令，不会覆盖正在运行的文件。
+If the program was not installed with npm (for example a binary you compiled yourself), `update` only prints the manual install command. It does not replace the file that is running.
 
-验证：
+Check:
 
 ```bash
 sensecraft-cli --version
-# 应与 npm 包版本一致
+# should match the npm package version
 ```
 
 ---
 
-## 6. 卸载
+## 6. Uninstall
 
 ```bash
 npm uninstall -g @seeed-studio/sensecraft-cli
 ```
 
-可选清理：
+Optional cleanup:
 
 ```bash
-# 配置（会删除本地 Token / Access Key，请先备份）
+# Config (this deletes the local token / Access Key; back it up first)
 rm -rf ~/.config/sensecraft-cli          # macOS / Linux
 # Windows: Remove-Item -Recurse "$env:APPDATA\sensecraft-cli"
 
-# npx 缓存（可选）
+# npx cache (optional)
 npm cache clean --force
 ```
 
-包目录下的 `vendor/` 二进制会随全局包卸载一起消失。
+The `vendor/` binary inside the package directory goes away with the global package.
 
 ---
 
-## 7. 离线 / 内网 / 自定义二进制源
+## 7. Offline, intranet, or a custom binary host
 
-### 使用本地已编译的 `dist/`
+### Use a local `dist/` you already built
 
 ```bash
 ./script/build.sh
 export SENSECRAFT_CLI_LOCAL_DIST="$PWD/dist"
 npx @seeed-studio/sensecraft-cli install
-# 或在已 clone 的 packages/cli 下：
+# or, from a cloned packages/cli:
 # SENSECRAFT_CLI_LOCAL_DIST=$PWD/../../dist npm run postinstall
 ```
 
-### 覆盖下载基址
+### Override the download base URL
 
-默认从 OSS 拉 `{base}/v{version}/{artifact}`。内网镜像时：
+By default the installer fetches `{base}/v{version}/{artifact}` from OSS. For an internal mirror:
 
 ```bash
 export SENSECRAFT_CLI_RELEASE_BASE="https://your-mirror.example.com/sensecraft-cli"
 npx @seeed-studio/sensecraft-cli install
 ```
 
-镜像目录结构须与发版一致，例如：
+The mirror layout must match a release, for example:
 
 ```text
 …/sensecraft-cli/v0.1.3/sensecraft-cli-darwin-arm64
@@ -224,26 +224,26 @@ npx @seeed-studio/sensecraft-cli install
 …
 ```
 
-### 跳过下载（仅复用已有 vendor）
+### Skip the download and reuse `vendor/`
 
 ```bash
 export SENSECRAFT_CLI_SKIP_DOWNLOAD=1
-# 若 vendor 中没有匹配当前版本的二进制，安装会失败
+# Install fails when vendor has no binary for the current version
 ```
 
-### 可选校验和
+### Optional checksum
 
-若发版方提供了 SHA256，可设置：
+If the publisher provides a SHA256:
 
 ```bash
 export SENSECRAFT_CLI_SHA256="<hex>"
 ```
 
-与下载内容不一致时安装失败。
+Install fails when the download does not match.
 
-### 代理
+### Proxy
 
-遵循 Node / 系统代理环境变量，例如：
+The installer follows Node and system proxy variables, for example:
 
 ```bash
 export HTTPS_PROXY=http://proxy.example.com:8080
@@ -252,28 +252,28 @@ export HTTP_PROXY=http://proxy.example.com:8080
 
 ---
 
-## 8. 从源码构建
+## 8. Build from source
 
 ```bash
-git clone <本仓库 URL>
+git clone <this repository URL>
 cd sensecraft-cloud-terminal
 
-# 本机调试
+# Local debug build
 go build -o sensecraft-cli .
 ./sensecraft-cli --version
 
-# 全平台发布产物 → dist/
+# Release artifacts for every platform → dist/
 ./script/build.sh
 ```
 
-本地用源码二进制时，配置默认落在**当前目录** `sensecraft.json`。若希望与 npm 安装共用配置：
+A binary built from source stores config in `sensecraft.json` in the **current directory**. To share the npm install's config:
 
 ```bash
 export SENSECRAFT_CLI_PATH="$HOME/.config/sensecraft-cli"
 ./sensecraft-cli auth info
 ```
 
-开发自检：
+Checks while developing this repo:
 
 ```bash
 ./script/smoke-ai.sh
@@ -281,92 +281,90 @@ export SENSECRAFT_CLI_PATH="$HOME/.config/sensecraft-cli"
 cd packages/cli && SENSECRAFT_CLI_LOCAL_DIST=$PWD/../../dist npm run test:install
 ```
 
-发版流程见 [`README.md`](README.md)。
+The public overview is [`README.md`](README.md).
 
 ---
 
-## 9. Agent Skills（Cursor 等）
+## 9. Agent Skills (Cursor and others)
 
-Skills 是给 Agent 读的 Markdown 能力说明，**不是** CLI 子命令。
+Skills are Markdown capability notes for an agent. They are not CLI subcommands.
 
-### 安装来源
+### Where they come from
 
-| 来源 | 路径 |
-|------|------|
-| 本仓库 | `skills/` |
-| npm 包安装后 | 全局包目录下的 `skills/`（与 `bin`、`scripts` 同级） |
+| Source | Path |
+|--------|------|
+| This repository | `skills/` |
+| After an npm install | `skills/` inside the global package, next to `bin` and `scripts` |
 
-查找全局包目录：
+Find the global package:
 
 ```bash
 npm root -g
-# 例如 …/node_modules/@seeed-studio/sensecraft-cli/skills/sensecraft-cli/SKILL.md
+# for example …/node_modules/@seeed-studio/sensecraft-cli/skills/sensecraft-cli/SKILL.md
 ```
 
-### 推荐布局
+### Layout
 
-| Skill | 路径 | 鉴权 |
+| Skill | Path | Auth |
 |-------|------|------|
-| 入口 | `skills/sensecraft-cli/SKILL.md` | Access Key |
-| 从本地项目创建应用 | `skills/sensecraft-cli/create-app/` | Access Key |
+| Entry | `skills/sensecraft-cli/SKILL.md` | Access Key |
+| Create an app from a local project | `skills/sensecraft-cli/create-app/` | Access Key |
 
-更细的发现说明：[`skills/README.md`](skills/README.md)。
+Discovery notes: [`skills/README.md`](skills/README.md).
 
-### 接到 Cursor
+### Connect Cursor
 
-任选其一：
+Pick one:
 
-1. **工作区即本仓库**  
-   打开 `sensecraft-cloud-terminal` 作为 Cursor 项目，Agent 可直接读 `skills/`。
+1. **This repository is the workspace.** Open `sensecraft-cloud-terminal` as the Cursor project. The agent can read `skills/` directly.
 
-2. **拷贝 / 软链到 Cursor skills 目录**（路径以你本机 Cursor 版本为准，常见为用户目录下的 skills 配置）：
+2. **Copy or symlink into the Cursor skills directory** (the path depends on the Cursor version; a common place is the skills folder in the user directory):
 
    ```bash
    ln -s "$PWD/skills/sensecraft-cli" ~/.cursor/skills/sensecraft-cli
    ```
 
-3. **只用 npm 包里的 skills**  
-   把 `$(npm root -g)/@seeed-studio/sensecraft-cli/skills` 链到 Agent 可发现的路径。
+3. **Use the skills from the npm package.** Link `$(npm root -g)/@seeed-studio/sensecraft-cli/skills` to a path the agent discovers.
 
-### 接到 Claude Code / 其他 Agent
+### Connect Claude Code and other agents
 
-这些 skill 只依赖标准 `SKILL.md`（YAML `name`/`description` + Markdown 正文），不包含 Cursor 私有指令。支持 Agent Skills 的宿主可以直接复制或软链整个 skill 目录：
+These skills use a standard `SKILL.md` (YAML `name` / `description` plus Markdown). They contain no Cursor-only instructions. A host that supports Agent Skills can copy or symlink the skill directory:
 
 ```bash
-# Claude Code：项目级
+# Claude Code, project scope
 mkdir -p .claude/skills
 for d in "$PWD"/skills/*; do
   ln -s "$d" ".claude/skills/$(basename "$d")"
 done
 
-# Claude Code：用户级（可选）
+# Claude Code, user scope (optional)
 mkdir -p ~/.claude/skills
 ln -s "$PWD/skills/sensecraft-cli" ~/.claude/skills/sensecraft-cli
 ```
 
-其他 Agent：
+Other agents:
 
-1. 若支持 `SKILL.md` 自动发现，把 `skills/*/` 原样放入其项目级或用户级 skills 目录；具体目录以宿主文档为准。
-2. 若不支持 Skills，把 `skills/sensecraft-cli/SKILL.md` 作为系统/项目上下文加载。
-3. Agent 必须具有本机命令执行能力，才能调用 `sensecraft-cli`；纯聊天宿主只能读取说明，不能声称命令已执行。
-4. 没有 Access Key 时走分步 `auth init`（`--no-wait`，把验证链接交给用户）。本地 USB/IP 部署与烧录仍由用户自己完成。
+1. If the host discovers `SKILL.md` on its own, put `skills/*/` into its project or user skills directory. Use that host's documented path.
+2. If it does not support Skills, load `skills/sensecraft-cli/SKILL.md` as system or project context.
+3. The agent must be able to run commands on this machine before it can call `sensecraft-cli`. A chat-only host can read the notes and cannot claim a command ran.
+4. With no Access Key, use the split `auth init` (`--no-wait`, then hand the verification URL to the user). Local USB or IP deploy and flashing stay with the user.
 
-使用约定：
+Usage:
 
-- 先读 **`sensecraft-cli`**。它会打开 `references/` 里对应的说明，覆盖 SenseCraft Data、SenseCraft AI 和 CodeCraft Hub。
-- 确保机器上 `sensecraft-cli` 在 PATH 中。Agent 先跑 `auth info`；没有 Access Key 时运行 `sensecraft-cli auth init --site Global --no-wait`，把 `verification_url` 原样交给用户后结束本轮；用户授权后再跑 `--device-code`。不要在一次性 Shell 里跑不带参数的 `auth init`。已有钥匙时用 `auth add`。
-- Agent 必须能在本机执行命令。纯聊天宿主只能读说明，不能声称命令已经跑过。
-- 本地 USB/IP 部署和烧录仍在浏览器或设备侧完成。
+- Read **`sensecraft-cli`** first. It opens the matching file under `references/` and covers SenseCraft Data, SenseCraft AI, and CodeCraft Hub.
+- `sensecraft-cli` must be on PATH. The agent runs `auth info` first. With no Access Key, it runs `sensecraft-cli auth init --site Global --no-wait`, shows `verification_url` unchanged, and ends the turn. After the user authorizes, it continues with `--device-code`. Do not run bare `auth init` in a one-shot shell. An existing key uses `auth add`.
+- The agent must be able to run commands on this machine. A chat-only host can read the notes and cannot claim a command ran.
+- Local USB or IP deploy and flashing stay in the browser or on the device.
 
 ---
 
-## 10. 验证清单
+## 10. Checks
 
 ```bash
 sensecraft-cli --version
 sensecraft-cli auth info
 
-# 不消耗真实配额的冒烟（需已有对应 profile 或临时 config）
+# Sandbox smoke that does not spend a real quota (needs a profile or a temporary config)
 sensecraft-cli model constants --sandbox
 sensecraft-cli app list --mine --sandbox
 sensecraft-cli device list --sandbox
@@ -376,56 +374,56 @@ sensecraft-cli data latest --eui SANDBOXEUI000001 --sandbox
 
 ---
 
-## 11. 常见问题
+## 11. Common problems
 
 ### `sensecraft-cli: command not found`
 
-- 确认已执行 `npx @seeed-studio/sensecraft-cli install` 或 `npm install -g …`  
-- 把 `$(npm prefix -g)/bin`（Windows 为 `npm prefix -g`）加入 PATH  
-- 新开一个终端再试  
+- Confirm `npx @seeed-studio/sensecraft-cli install` or `npm install -g …` finished
+- Add `$(npm prefix -g)/bin` to PATH (on Windows, `npm prefix -g`)
+- Open a new terminal and try again
 
-### 二进制下载失败
+### Binary download failed
 
-安装器会提示可尝试：
+The installer suggests:
 
-1. 确认发版产物已上传到 `{RELEASE_BASE}/v{version}/`  
-2. `SENSECRAFT_CLI_LOCAL_DIST` 指向本地 `dist/`  
-3. `SENSECRAFT_CLI_RELEASE_BASE` 指向可用镜像  
+1. Confirm the release artifacts are at `{RELEASE_BASE}/v{version}/`
+2. Point `SENSECRAFT_CLI_LOCAL_DIST` at a local `dist/`
+3. Point `SENSECRAFT_CLI_RELEASE_BASE` at a mirror that works
 
-公司网络拦截 OSS 时，优先用本地 `dist/` 或内网镜像。
+When a company network blocks OSS, use a local `dist/` or an internal mirror.
 
-### `auth info` 显示还没有 Access Key
+### `auth info` says there is no Access Key yet
 
-- 用 `sensecraft-cli auth add --key-id <Key ID> --access-key <Access Key> --site Global` 写入。`--site China` 用于国内站。  
-- 确认读写的是同一配置文件：`echo $SENSECRAFT_CLI_PATH` / `%SENSECRAFT_CLI_PATH%`。  
-- 设备、应用、模型和云设备使用同一把 Access Key。  
+- Write one with `sensecraft-cli auth add --key-id <Key ID> --access-key <Access Key> --site Global`. Use `--site China` for the China site.
+- Confirm both commands use the same config file: `echo $SENSECRAFT_CLI_PATH` / `%SENSECRAFT_CLI_PATH%`.
+- Devices, apps, models, and cloud devices share that Access Key.
 
-### npm 装的和 `go build` 的配置不一致
+### The npm install and a `go build` binary see different configs
 
-见上文「配置文件位置」：前者默认 `~/.config/…`，后者默认 cwd。用 `SENSECRAFT_CLI_PATH` 或 `SENSECRAFT_CONFIG_FILE` 统一。
+See "Config file location" above. The first defaults to `~/.config/…`, the second to the working directory. Point both at one place with `SENSECRAFT_CLI_PATH` or `SENSECRAFT_CONFIG_FILE`.
 
-### Windows 杀毒软件拦截
+### Windows antivirus quarantines the binary
 
-首次下载的 `sensecraft-cli.exe` 可能被隔离。将安装目录或 `vendor` 加入白名单后重装。
+The first download of `sensecraft-cli.exe` may be quarantined. Allow the install directory or `vendor`, then install again.
 
-### 升级后版本号不变
+### The version number does not change after an upgrade
 
 ```bash
 npm uninstall -g @seeed-studio/sensecraft-cli
 npm cache clean --force
-npx @seeed-studio/sensecraft-cli@<目标版本> install
+npx @seeed-studio/sensecraft-cli@<target version> install
 sensecraft-cli --version
 ```
 
 ---
 
-## 12. 相关文档
+## 12. Related docs
 
-| 文档 | 内容 |
-|------|------|
+| Doc | Contents |
+|-----|----------|
 | [`README.md`](README.md) | English overview |
-| [`README.zh.md`](README.zh.md) | 中文说明 |
-| [`docs/sensecraft-cli-smoke.md`](docs/sensecraft-cli-smoke.md) | 发版冒烟清单 |
-| [`docs/sensecraft-cli-test-cases.md`](docs/sensecraft-cli-test-cases.md) | 全量功能测试用例 |
-| [`skills/README.md`](skills/README.md) | Skills 目录与 Agent 约定 |
+| [`README.zh.md`](README.zh.md) | Chinese overview |
+| [`docs/sensecraft-cli-smoke.md`](docs/sensecraft-cli-smoke.md) | Release smoke checklist |
+| [`docs/sensecraft-cli-test-cases.md`](docs/sensecraft-cli-test-cases.md) | Full functional test cases |
+| [`skills/README.md`](skills/README.md) | Skills layout and agent conventions |
 | [`LICENSE`](LICENSE) | MIT |

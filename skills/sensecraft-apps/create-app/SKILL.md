@@ -62,7 +62,24 @@ Published text is what plaza users actually read — mine it from the project, b
 2. **Upload assets**, writing each returned `file_url` back into the manifest entry:
    
    - Images: `sensecraft-cli file upload --path <img> --type 1 --for-app` (unlinked, 5 MB cap). Keep manifest order; index 0 = cover.
-   - Firmware/binaries for blocks: check binaries for embedded credentials before uploading — build outputs can compile tokens in; if anything shows up, flag it and let the user decide. Whatever the upload decision, a block the flow needs stays in the doc: fill its config per [reference-tool-blocks.md](../reference-tool-blocks.md) and mark unfilled values as pending (e.g. firmware built locally by the end user). Upload itself: `sensecraft-cli file upload --path <fw> --type 4` → put the URL into the block's `config.firmware_url` (+ `firmware_size`).
+   - Firmware/binaries for blocks: check binaries for embedded credentials before uploading — build outputs can compile tokens in; report findings without exposing their values and resolve them before uploading. While resolving findings, a block the flow needs stays in the doc: fill its config per [reference-tool-blocks.md](../reference-tool-blocks.md) and mark unfilled values as pending (e.g. firmware built locally by the end user). Upload itself: `sensecraft-cli file upload --path <fw> --type 4` → put the URL into the block's `config.firmware_url` (+ `firmware_size`).
+
+     For Muse firmware, check for a complete SDK token: `mgst_` followed by
+     43 characters from `[A-Za-z0-9_-]`. The short `mgst_` prefix used by the
+     firmware's format validation is not a credential match. Use the quiet
+     scan so matching values stay local:
+
+     ```bash
+     grep -aqE 'mgst_[A-Za-z0-9_-]{43}' <fw>
+     ```
+
+     Interpret the exit code: **1** means no complete token pattern was
+     found and passes this check; **0** means a token pattern was found and
+     the firmware needs a token-free rebuild and rescan; **2 or higher**
+     means a path or read error to fix before retrying. Require a passing
+     scan of the exact file selected for upload. Report only pass, match,
+     or check error; keep full matching values out of tool and chat output.
+
 3. **Build the payload** from the manifest per the projection in [reference-manifest.md](reference-manifest.md#manifest--cli-payload). Omit keys that have no values — the CLI rejects an empty `images: []` but accepts the key absent. Write the projection to `.sensecraft/sensecraft-app.payload.json` (transient — delete after the push).
 4. **Create** — deliberately not L2, no `--yes`:
    ```bash

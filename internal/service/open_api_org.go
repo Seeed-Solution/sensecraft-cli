@@ -13,7 +13,7 @@ type OrganizationInfo struct {
 	OrgID int64 `json:"orgId"`
 }
 
-// ViewOrganization 使用 Access Key 调用 OpenAPI，校验凭证并返回组织信息。
+// ViewOrganization calls OpenAPI with the Access Key, checks the credential, and returns the organization.
 func ViewOrganization(cfg config.AccessApiConfig) (*definition.ViewOrgInfoResponse, error) {
 	resolved, err := config.WithResolvedHost(cfg)
 	if err != nil {
@@ -26,12 +26,13 @@ func ViewOrganization(cfg config.AccessApiConfig) (*definition.ViewOrgInfoRespon
 		return nil, fmt.Errorf("verify access key: %w", err)
 	}
 
-	var info definition.OpenApiIntResponse[definition.ViewOrgInfoResponse]
+	// GetBody already unwraps {code,msg,data}. The organization object is that data.
+	var info definition.ViewOrgInfoResponse
 	if err := body.Unmarshal(&info); err != nil {
 		return nil, err
 	}
-	if info.Data.OrgID == 0 {
+	if info.OrgID == 0 {
 		return nil, fmt.Errorf("organization id missing from API response")
 	}
-	return &info.Data, nil
+	return &info, nil
 }

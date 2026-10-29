@@ -36,7 +36,7 @@ func TestDetectManualAndMissingNpm(t *testing.T) {
 		lookPath:     func(string) (string, error) { return "/usr/bin/npm", nil },
 	}
 	got := manual.Detect()
-	if got.CanAutoUpdate() || got.Reason() != "不是通过 npm 安装" {
+	if got.CanAutoUpdate() || got.Reason() != "not installed via npm" {
 		t.Fatalf("manual=%+v reason=%s", got, got.Reason())
 	}
 
@@ -46,7 +46,7 @@ func TestDetectManualAndMissingNpm(t *testing.T) {
 		lookPath:     func(string) (string, error) { return "", ErrNotFound },
 	}
 	got = noNpm.Detect()
-	if got.CanAutoUpdate() || got.Reason() != "已通过 npm 安装，但 PATH 中没有 npm" {
+	if got.CanAutoUpdate() || got.Reason() != "installed via npm, but npm is not on PATH" {
 		t.Fatalf("no npm=%+v reason=%s", got, got.Reason())
 	}
 }

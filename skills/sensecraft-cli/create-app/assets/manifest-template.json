@@ -1,0 +1,33 @@
+{
+  "manifest_version": 1,
+  "identity": {
+    "app_id": null,
+    "remote_type": null,
+    "org_id": null,
+    "account": null,
+    "created_at": null
+  },
+  "info": {
+    "app_name": "",
+    "excerpt": "",
+    "scene": "",
+    "license": "",
+    "author": "",
+    "allow_clone": null,
+    "allow_commerce": null,
+    "activity_id": null
+  },
+  "images": [],
+  "deployment": {
+    "blocks": []
+  },
+  "bom": {
+    "materials": []
+  },
+  "sync": {
+    "local_revision": 1,
+    "last_pushed_revision": 0,
+    "last_pushed_at": null,
+    "last_pushed_hash": null
+  }
+}

@@ -1,21 +1,41 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
+	"sensecraft-cloud-terminal/internal/authhint"
 	"sensecraft-cloud-terminal/internal/enum"
 	"sensecraft-cloud-terminal/internal/utils"
 )
 
-// ResolveActiveAPIConfig 从 CLI 配置中解析当前使用的 SenseCAP OpenAPI 凭证。
+// RemoteTypeOf is the selected profile's remote_type.
+// No config, no selection, or an unknown key returns "" so callers use the default host.
+func RemoteTypeOf(cli *CliConfig) string {
+	if cli == nil {
+		return ""
+	}
+	id := strings.TrimSpace(cli.UseApi)
+	if id == "" {
+		return ""
+	}
+	for _, item := range cli.AppConfigList {
+		if item.KeyId == id {
+			return strings.TrimSpace(item.RemoteType)
+		}
+	}
+	return ""
+}
+
+// ResolveActiveAPIConfig returns the SenseCAP OpenAPI credential selected in the CLI config.
 func ResolveActiveAPIConfig(cli *CliConfig) (AccessApiConfig, error) {
 	if cli == nil || len(cli.AppConfigList) == 0 {
-		return AccessApiConfig{}, fmt.Errorf("no SenseCAP API config found; run: sensecraft-cli auth init --kind sensecap")
+		return AccessApiConfig{}, errors.New(authhint.NeedLogin())
 	}
 
 	if cli.UseApi == "" {
-		return AccessApiConfig{}, fmt.Errorf("no SenseCAP API config found; run: sensecraft-cli auth init --kind sensecap")
+		return AccessApiConfig{}, errors.New(authhint.NeedLogin())
 	}
 
 	var selected = AccessApiConfig{}
@@ -35,7 +55,7 @@ func ResolveActiveAPIConfig(cli *CliConfig) (AccessApiConfig, error) {
 	return WithResolvedHost(selected)
 }
 
-// WithResolvedHost 根据 remote_type（或 Private 的 host）填充 Host，供 OpenAPI 客户端使用。
+// WithResolvedHost fills Host from remote_type, or from the Private host, for the OpenAPI client.
 func WithResolvedHost(cfg AccessApiConfig) (AccessApiConfig, error) {
 	host, err := resolveAPIHost(cfg)
 	if err != nil {
@@ -57,7 +77,9 @@ func resolveAPIHost(cfg AccessApiConfig) (string, error) {
 		return origin, err
 	}
 	switch cfg.RemoteType {
-	case enum.RemoteTypeGlobal, "":
+	case enum.RemoteTypeGlobal, enum.RemoteTypeDevelop, "":
+		// Develop is a CodeCraft test label on a Global Access Key. Data OpenAPI
+		// stays on the global host; app calls use the test AI gateway instead.
 		return enum.DomainNameOpenApiGlobal, nil
 	case enum.RemoteTypeChina:
 		return enum.DomainNameOpenApiChina, nil

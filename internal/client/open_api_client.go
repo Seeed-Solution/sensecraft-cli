@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"sensecraft-cloud-terminal/internal/authhint"
 	"sensecraft-cloud-terminal/internal/config"
 	"sensecraft-cloud-terminal/internal/enum"
 )
@@ -38,17 +39,17 @@ func (e APIError) Error() string {
 }
 
 func accessKeyPermissionDeniedMessage(code string) string {
-	return fmt.Sprintf(
-		"Access Key lacks write permission (API code=%s); create or switch to a read-write key via: sensecraft-cli auth init --kind sensecap",
+	return authhint.HaveKey(fmt.Sprintf(
+		"Access Key lacks write permission (API code=%s). Choose a read-write key.",
 		code,
-	)
+	))
 }
 
 func accessKeyRejectedMessage(e APIError) string {
 	if e.Msg != "" {
-		return fmt.Sprintf("Access Key was rejected (API code=%s: %s). Check the Key ID, Access Key, and site, then run: sensecraft-cli auth init --kind sensecap", e.Code, e.Msg)
+		return authhint.HaveKey(fmt.Sprintf("Access Key was rejected (API code=%s: %s). Check the Key ID, Access Key, and site.", e.Code, e.Msg))
 	}
-	return fmt.Sprintf("Access Key was rejected (API code=%s). Check the Key ID, Access Key, and site, then run: sensecraft-cli auth init --kind sensecap", e.Code)
+	return authhint.HaveKey(fmt.Sprintf("Access Key was rejected (API code=%s). Check the Key ID, Access Key, and site.", e.Code))
 }
 
 // DecodeError is a 2xx response the CLI could not turn into its expected value.
@@ -93,7 +94,7 @@ func (b APIBody) Unmarshal(dest any) error {
 	return nil
 }
 
-// OpenApiClient 基于 BaseClient，封装 SenseCAP OpenAPI 的认证与响应 envelope 解析。
+// OpenApiClient wraps BaseClient with SenseCAP OpenAPI auth and response-envelope parsing.
 type OpenApiClient struct {
 	base *BaseClient
 }

@@ -9,7 +9,7 @@ import (
 func TestFilterMaterialOptions(t *testing.T) {
 	raw := []byte(`{
 		"material_options": [
-			{"sku":"113991254","name":"XIAO ESP32S3 Sense","classify":"XIAO","price":"15.99","pic_url":"https://example/x.png"},
+			{"sku":"113991115","name":"XIAO ESP32S3 Sense","classify":"XIAO","price":"15.99","pic_url":"https://example/x.png"},
 			{"sku":"110061361","name":"reCamera 2002","classify":"reCamera","price":"99.00"}
 		]
 	}`)
@@ -26,7 +26,7 @@ func TestFilterMaterialOptions(t *testing.T) {
 	}
 	list := m["list"].([]any)
 	item := list[0].(map[string]any)
-	if item["sku"] != "113991254" {
+	if item["sku"] != "113991115" {
 		t.Fatalf("sku=%v", item["sku"])
 	}
 	if item["price"] != "15.99" || item["pic_url"] == "" {

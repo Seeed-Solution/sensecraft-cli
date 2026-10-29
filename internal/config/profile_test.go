@@ -38,3 +38,15 @@ func TestFormatCliConfigInfo(t *testing.T) {
 		t.Fatalf("access key should not be printed: %s", out)
 	}
 }
+
+func TestFormatCliConfigInfoWhenEmptyTellsAgentToStartSplitLogin(t *testing.T) {
+	out := FormatCliConfigInfo(nil, "/tmp/sensecraft.json")
+	for _, want := range []string{"--site Global --no-wait", "unchanged", "end this turn", "--device-code"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("missing %q in %s", want, out)
+		}
+	}
+	if strings.Contains(out, "Run: sensecraft-cli auth init\n") {
+		t.Fatalf("empty config still points at the wizard: %s", out)
+	}
+}

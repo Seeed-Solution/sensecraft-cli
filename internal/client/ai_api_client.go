@@ -2,12 +2,14 @@ package client
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
 
+	"sensecraft-cloud-terminal/internal/authhint"
 	"sensecraft-cloud-terminal/internal/config"
 	"sensecraft-cloud-terminal/internal/enum"
 )
@@ -42,6 +44,18 @@ type AIApiClient struct {
 // Tests use this to stand in for the SenseCraft host.
 func NewAIApiClientAt(baseURL string, httpClient *http.Client) *AIApiClient {
 	return &AIApiClient{base: NewBaseClient(baseURL, WithHTTPClient(httpClient))}
+}
+
+// NewAIApiClientPublic calls AI routes under /openapi with no Access Key.
+// Host is SENSECRAFT_AI_HOST when set, otherwise the site for remoteType.
+func NewAIApiClientPublic(remoteType string) (*AIApiClient, error) {
+	host, err := enum.EffectiveAIHost(remoteType)
+	if err != nil {
+		return nil, err
+	}
+	return &AIApiClient{
+		base: NewBaseClient(fmt.Sprintf("%s/openapi", strings.TrimSuffix(host, "/"))),
+	}, nil
 }
 
 // NewAIApiClientAccessKey calls AI routes under /openapi with SenseCAP Access Key Basic auth.
@@ -80,7 +94,7 @@ func (c *AIApiClient) ensureAccessKey() error {
 	if c.accessKeyOK {
 		return nil
 	}
-	return fmt.Errorf("this command uses Access Key HTTP Basic → {ai-host}/openapi; run: sensecraft-cli auth init --kind sensecap")
+	return errors.New(authhint.NeedLogin())
 }
 
 func (c *AIApiClient) Base() *BaseClient {

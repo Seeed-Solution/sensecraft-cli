@@ -3,6 +3,7 @@ package service
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/url"
 	"strconv"
 	"strings"
@@ -28,27 +29,39 @@ func GetAppService(ctx app.AICmdContext) AppService {
 }
 
 type AppListParams struct {
-	Public      bool
-	Mine        bool
-	Name        string
-	Scene       string
-	UniformType string
-	Page        int
-	Length      int
-	MarkType    string
+	Public             bool
+	Mine               bool
+	Name               string
+	Scene              string
+	UniformType        string
+	Page               int
+	Length             int
+	MarkType           string
+	Sort               string
+	PriorityActivityID string
+	Likes              bool
+	Collections        bool
 }
 
 func (s AppService) ListApps(p AppListParams) (json.RawMessage, error) {
-	q := buildAppListQuery(p)
-
+	var activities []ongoingActivity
+	var actErr error
+	if p.Sort == "popular" && strings.TrimSpace(p.PriorityActivityID) == "" {
+		activities, actErr = s.ongoingActivities()
+	}
+	q, err := prepareAppListQuery(p, activities, actErr)
+	if err != nil {
+		return nil, err
+	}
 	data, err := s.client.Get(enum.AIApiPathAppList, q)
 	if err != nil {
 		if errors.Is(err, client.ErrSandboxMode) {
-			return sandboxAppList(p), nil
+			data = sandboxAppList(q)
+		} else {
+			return nil, err
 		}
-		return nil, err
 	}
-	return data, nil
+	return s.withListDetailURLs(data, p.Public), nil
 }
 
 type AppViewParams struct {
@@ -68,11 +81,84 @@ func (s AppService) ViewApp(p AppViewParams) (json.RawMessage, error) {
 	data, err := s.client.Get(enum.AIApiPathAppView, q)
 	if err != nil {
 		if errors.Is(err, client.ErrSandboxMode) {
-			return sandboxAppView(p), nil
+			data = sandboxAppView(p)
+		} else {
+			return nil, err
 		}
-		return nil, err
 	}
-	return data, nil
+	return s.withViewDetailURL(data), nil
+}
+
+// ownsApp reports whether this CLI user can treat the row as their own draft.
+// Public plaza rows of other people are not owned.
+func (s AppService) ownsApp(appID string, existing map[string]any) bool {
+	if s.sandbox {
+		return !sandboxIsForeignPublicID(appID)
+	}
+	if uid := strings.TrimSpace(s.userID); uid != "" {
+		if owner := appOwnerID(existing); owner != "" && owner != uid {
+			return false
+		}
+	}
+	return true
+}
+
+func (s AppService) detailURLForApp(id, name string, owned bool) string {
+	if owned {
+		return AppDetailConsoleURL(s.remoteType, id, name)
+	}
+	return AppPlazaDetailConsoleURL(s.remoteType, id, name)
+}
+
+func (s AppService) withViewDetailURL(data json.RawMessage) json.RawMessage {
+	m, err := rawJSONObject(data)
+	if err != nil || m == nil {
+		return data
+	}
+	id := stringFromMap(m, "app_id")
+	detail := s.detailURLForApp(id, stringFromMap(m, "app_name"), s.ownsApp(id, m))
+	if detail == "" {
+		return data
+	}
+	m["detail_url"] = detail
+	encoded, err := json.Marshal(m)
+	if err != nil {
+		return data
+	}
+	return encoded
+}
+
+// withListDetailURLs stamps each row. A public plaza query stays on the plaza
+// link. The owner's own list uses the creator-center detail.
+func (s AppService) withListDetailURLs(data json.RawMessage, public bool) json.RawMessage {
+	var root map[string]any
+	if err := json.Unmarshal(data, &root); err != nil || root == nil {
+		return data
+	}
+	rawList, ok := root["list"].([]any)
+	if !ok {
+		return data
+	}
+	for i, item := range rawList {
+		m, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		id := stringFromMap(m, "app_id")
+		owned := !public && s.ownsApp(id, m)
+		detail := s.detailURLForApp(id, stringFromMap(m, "app_name"), owned)
+		if detail == "" {
+			continue
+		}
+		m["detail_url"] = detail
+		rawList[i] = m
+	}
+	root["list"] = rawList
+	encoded, err := json.Marshal(root)
+	if err != nil {
+		return data
+	}
+	return encoded
 }
 
 // buildAppListQuery mirrors GET /flow/app/v2/list_app.
@@ -105,14 +191,106 @@ func buildAppListQuery(p AppListParams) url.Values {
 	if p.MarkType != "" {
 		q.Set("mark_type", p.MarkType)
 	}
+	if orderType := appListOrderType(p.Sort); orderType != "" {
+		q.Set("order_type", orderType)
+	}
+	if id := strings.TrimSpace(p.PriorityActivityID); id != "" {
+		q.Set("priority_activity_id", id)
+	}
 	// Mine: omit be_public (Console custom tab). Public and Mine both false → same as mine/all-owned depending on backend.
 	_ = p.Mine
 	return q
 }
 
-func sandboxAppList(p AppListParams) json.RawMessage {
+// appListOrderType maps --sort onto list_app order_type.
+// 1 is popular, 2 is newest, 3 is likes. An empty sort sends nothing.
+func appListOrderType(sort string) string {
+	switch strings.TrimSpace(sort) {
+	case "popular":
+		return "1"
+	case "newest":
+		return "2"
+	case "likes":
+		return "3"
+	default:
+		return ""
+	}
+}
+
+func prepareAppListQuery(p AppListParams, activities []ongoingActivity, activitiesErr error) (url.Values, error) {
+	p.Sort = strings.TrimSpace(p.Sort)
+	switch p.Sort {
+	case "", "popular", "newest", "likes":
+	default:
+		return nil, fmt.Errorf("--sort must be popular, newest, or likes")
+	}
+	mark, forcePublic, err := resolveListMark(p)
+	if err != nil {
+		return nil, err
+	}
+	if forcePublic {
+		if p.Mine {
+			return nil, fmt.Errorf("--likes and --collections cannot be combined with --mine")
+		}
+		p.Public = true
+	}
+	p.MarkType = mark
+
+	priority := strings.TrimSpace(p.PriorityActivityID)
+	switch p.Sort {
+	case "newest", "likes":
+		if priority != "" {
+			return nil, fmt.Errorf("--priority-activity-id cannot be used with --sort %s", p.Sort)
+		}
+	case "popular":
+		if priority != "" {
+			n, ok := positiveInt64(priority)
+			if !ok {
+				return nil, fmt.Errorf("--priority-activity-id must be a positive integer")
+			}
+			priority = strconv.FormatInt(n, 10)
+		} else if activitiesErr == nil && len(activities) > 0 {
+			priority = strconv.FormatInt(activities[0].ActivityID, 10)
+		} else {
+			priority = ""
+		}
+	default:
+		if priority != "" {
+			return nil, fmt.Errorf("--priority-activity-id requires --sort popular")
+		}
+	}
+	p.PriorityActivityID = priority
+	return buildAppListQuery(p), nil
+}
+
+func resolveListMark(p AppListParams) (mark string, forcePublic bool, err error) {
+	if p.Likes && p.Collections {
+		return "", false, fmt.Errorf("use only one of --likes or --collections")
+	}
+	explicit := strings.TrimSpace(p.MarkType)
+	switch {
+	case p.Likes:
+		mark = "1"
+		forcePublic = true
+	case p.Collections:
+		mark = "0"
+		forcePublic = true
+	}
+	if explicit != "" {
+		if explicit != "0" && explicit != "1" {
+			return "", false, fmt.Errorf("--mark-type must be 1 (my likes) or 0 (my collections)")
+		}
+		if mark != "" && mark != explicit {
+			return "", false, fmt.Errorf("--mark-type %s does not match --likes/--collections", explicit)
+		}
+		mark = explicit
+	}
+	return mark, forcePublic, nil
+}
+
+func sandboxAppList(q url.Values) json.RawMessage {
 	bePublic := 0
-	if p.Public {
+	if q.Get("be_public") == "1" {
 		bePublic = 1
 	}
 	item := map[string]any{
@@ -120,14 +298,15 @@ func sandboxAppList(p AppListParams) json.RawMessage {
 		"app_name":  "Sandbox Vision App",
 		"excerpt":   "Sandbox public application",
 		"be_public": bePublic,
-		"scene":     p.Scene,
+		"scene":     q.Get("scene"),
 	}
-	if ut := strings.TrimSpace(p.UniformType); ut != "" {
+	if ut := strings.TrimSpace(q.Get("uniform_type")); ut != "" {
 		item["uniform_type"] = ut
 	}
 	raw, _ := json.Marshal(map[string]any{
-		"list": []map[string]any{item},
-		"page": map[string]any{"count": 1, "page": 1, "length": 20},
+		"list":          []map[string]any{item},
+		"page":          map[string]any{"count": 1, "page": 1, "length": 20},
+		"sandbox_query": q,
 	})
 	return raw
 }
@@ -142,7 +321,7 @@ func sandboxAppView(p AppViewParams) json.RawMessage {
 		"app_name":       "Sandbox Vision App",
 		"excerpt":        "Sandbox application detail",
 		"scene":          1,
-		"allow_clone":    0,
+		"allow_clone":    sandboxAllowClone(p.AppID),
 		"allow_commerce": 0,
 		"images": []any{
 			map[string]any{"url": "https://example.invalid/sandbox-cover.jpg"},
@@ -181,6 +360,13 @@ func sandboxDeployAIModelBlock(modelID string, deviceType int) map[string]any {
 			},
 		},
 	}
+}
+
+func sandboxAllowClone(appID string) int {
+	if strings.Contains(strings.ToLower(appID), "noclone") {
+		return 0
+	}
+	return 1
 }
 
 func sandboxAppBePublic(appID string) int {

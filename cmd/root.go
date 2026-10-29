@@ -44,15 +44,20 @@ func GetRootCmd() *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:     "sensecraft-cli",
 		Version: version.Version,
-		Short:   "SenseCAP / SenseCraft AI cloud CLI",
-		Long: `Manage SenseCAP devices/data and SenseCraft AI apps/models via cloud APIs.
+		Short:   "SenseCraft cloud platform CLI",
+		Long: `Terminal for the SenseCraft cloud platform.
 
-SenseCAP + SenseCraft AI OpenAPI use Access Key:
-  sensecraft-cli auth init --kind sensecap
+SenseCraft Data: devices, groups, and telemetry (device, group, data)
+SenseCraft AI:   model library and reCamera (model, recamera, cloud)
+CodeCraft Hub:   applications (app)
+                 https://codecraft.seeed.cc/hub
 
-Global SenseCAP OpenAPI: https://sensecap.seeed.cc/openapi
-SenseCraft AI OpenAPI:   https://api-gateway.seeed.cc/openapi
-Console:                 https://sensecraft.seeed.cc`,
+All three platforms are accessed with an open Access Key.
+  sensecraft-cli auth init --site Global --no-wait
+Show the verification URL and end the turn. In a terminal, sensecraft-cli auth init runs the wizard.
+Create or manage a key: https://account.seeed.cc/account/access-keys
+
+The China site supports SenseCraft Data only. Use Global for SenseCraft AI and CodeCraft Hub.`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}

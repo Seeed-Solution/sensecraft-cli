@@ -28,7 +28,7 @@ func (e HTTPError) Error() string {
 	return fmt.Sprintf("HTTP %d: %s", e.StatusCode, string(e.Body))
 }
 
-// RequestOption 单次请求的额外配置。
+// RequestOption adds per-request configuration.
 type RequestOption func(*http.Request)
 
 func WithBasicAuth(username, password string) RequestOption {
@@ -46,7 +46,7 @@ func WithHeader(key, value string) RequestOption {
 	}
 }
 
-// BaseClient 通用 HTTP 客户端，负责 URL 拼接、请求发送与原始响应读取。
+// BaseClient is the shared HTTP client: it joins URLs, sends requests, and reads raw responses.
 type BaseClient struct {
 	baseURL     string
 	httpClient  *http.Client

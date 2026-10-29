@@ -10,7 +10,7 @@ import (
 
 const defaultFilePerm = 0o600
 
-// ReadBytes 读取文件全部内容。
+// ReadBytes reads the whole file.
 func ReadBytes(path string) ([]byte, error) {
 	path = filepath.Clean(path)
 	data, err := os.ReadFile(path)
@@ -20,7 +20,7 @@ func ReadBytes(path string) ([]byte, error) {
 	return data, nil
 }
 
-// ReadText 读取 UTF-8 文本文件。
+// ReadText reads a UTF-8 text file.
 func ReadText(path string) (string, error) {
 	data, err := ReadBytes(path)
 	if err != nil {
@@ -29,7 +29,7 @@ func ReadText(path string) (string, error) {
 	return string(data), nil
 }
 
-// WriteBytes 写入文件；自动创建父目录，并使用临时文件原子替换。
+// WriteBytes writes a file, creating parent directories and replacing the target atomically.
 func WriteBytes(path string, data []byte, perm os.FileMode) error {
 	path = filepath.Clean(path)
 	if perm == 0 {
@@ -77,12 +77,12 @@ func WriteBytes(path string, data []byte, perm os.FileMode) error {
 	return nil
 }
 
-// WriteText 写入 UTF-8 文本文件。
+// WriteText writes a UTF-8 text file.
 func WriteText(path string, content string, perm os.FileMode) error {
 	return WriteBytes(path, []byte(content), perm)
 }
 
-// ReadJSON 从文件读取并反序列化 JSON。
+// ReadJSON reads a file and unmarshals JSON into v.
 func ReadJSON(path string, v any) error {
 	data, err := ReadBytes(path)
 	if err != nil {
@@ -97,7 +97,7 @@ func ReadJSON(path string, v any) error {
 	return nil
 }
 
-// WriteJSON 将 v 序列化为 JSON 并写入文件。
+// WriteJSON marshals v as JSON and writes it to a file.
 func WriteJSON(path string, v any, indent bool) error {
 	var data []byte
 	var err error
@@ -113,18 +113,18 @@ func WriteJSON(path string, v any, indent bool) error {
 	return WriteBytes(path, data, defaultFilePerm)
 }
 
-// Exists 判断路径是否存在。
+// Exists reports whether path exists.
 func Exists(path string) bool {
 	_, err := os.Stat(filepath.Clean(path))
 	return err == nil
 }
 
-// IsNotExist 判断错误是否为文件不存在。
+// IsNotExist reports whether err means the file does not exist.
 func IsNotExist(err error) bool {
 	return errors.Is(err, os.ErrNotExist)
 }
 
-// EnsureDir 创建目录（含父级），已存在则忽略。
+// EnsureDir creates the directory and its parents. An existing directory is not an error.
 func EnsureDir(dir string) error {
 	dir = filepath.Clean(dir)
 	if dir == "" || dir == "." {

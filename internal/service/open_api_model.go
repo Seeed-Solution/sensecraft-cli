@@ -140,7 +140,7 @@ var ErrForeignPublicModelNoEdit = errors.New("cannot edit another user's public 
 var ErrPublishedModelNoDelete = errors.New("published or under-review models cannot be deleted; unpublish first")
 
 // ModelReReviewHint is returned when an owner updates a published model.
-// Console add.vue: "模型信息更新后，将重新进入审核流程。"
+// Console add.vue: after the model info changes, it re-enters review.
 const ModelReReviewHint = "published model was updated; it will re-enter review (Console edit_model sends be_public=1)"
 
 type ModelDownloadParams struct {

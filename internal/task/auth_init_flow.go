@@ -3,7 +3,6 @@ package task
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"sensecraft-cloud-terminal/internal/config"
 	"sensecraft-cloud-terminal/internal/enum"
@@ -13,7 +12,7 @@ import (
 
 const totalSteps = 5
 
-// InitContext 向导共享状态。
+// InitContext is the shared state of the auth init wizard.
 type InitContext struct {
 	UI         *ui.Console
 	Ctx        context.Context
@@ -28,19 +27,14 @@ type InitContext struct {
 
 type step func(*InitContext) (step, error)
 
-// RunInitFlow 执行 auth init 向导。
-// kind 只接受 sensecap（可省略）。
-func RunInitFlow(ctx context.Context, console *ui.Console, sandbox bool, kind string) error {
+// RunInitFlow runs the auth init wizard. The wizard saves an Access Key.
+func RunInitFlow(ctx context.Context, console *ui.Console, sandbox bool) error {
 	if !console.IsInteractive() && !sandbox {
-		return fmt.Errorf("auth init requires an interactive terminal, or use --sandbox to try the flow")
+		return errAuthInitNonInteractive()
 	}
 
 	configPath, err := config.ResolveConfigPath()
 	if err != nil {
-		return err
-	}
-
-	if err := normalizeAuthKind(kind); err != nil {
 		return err
 	}
 
@@ -67,16 +61,6 @@ func RunInitFlow(ctx context.Context, console *ui.Console, sandbox bool, kind st
 		current = next
 	}
 	return nil
-}
-
-func normalizeAuthKind(kind string) error {
-	k := strings.ToLower(strings.TrimSpace(kind))
-	switch k {
-	case "", "sensecap", "sc", "openapi":
-		return nil
-	default:
-		return fmt.Errorf("unknown --kind %q (want sensecap)", kind)
-	}
 }
 
 func stepSelectRemote(ctx *InitContext) (step, error) {

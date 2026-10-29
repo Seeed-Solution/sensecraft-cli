@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"sensecraft-cloud-terminal/internal/authhint"
 	"sensecraft-cloud-terminal/internal/enum"
 
 	"golang.org/x/oauth2"
@@ -144,7 +145,7 @@ func mapDeviceFlowError(err error) error {
 		case "access_denied":
 			return errors.New("user denied authorization")
 		case "expired_token":
-			return errors.New("authorization expired, please run auth init again")
+			return errors.New(authhint.DeviceCodeExpired())
 		}
 	}
 	return err

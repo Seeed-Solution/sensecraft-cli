@@ -48,7 +48,7 @@
   },
   "materials": [
     {
-      "id": "113991254",
+      "id": "113991115",
       "quantity": "1",
       "name": "Seeed Studio XIAO ESP32S3 Sense",
       "note": "示例主控",

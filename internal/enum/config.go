@@ -4,6 +4,9 @@ const (
 	RemoteTypeGlobal  = "Global"
 	RemoteTypeChina   = "China"
 	RemoteTypePrivate = "Private"
+	// RemoteTypeDevelop is the CodeCraft test profile. The Access Key is still a
+	// Global key. App API calls use the test gateway; see ResolveAIServerHost.
+	RemoteTypeDevelop = "Develop"
 
 	DomainNameOpenApiGlobal = "https://sensecap.seeed.cc"
 	DomainNameOpenApiChina  = "https://sensecap.seeed.cn"
@@ -27,7 +30,8 @@ const (
 	// Empty means the built-in Global/China/Private host.
 	EnvNameDataHost = "SENSECRAFT_DATA_HOST"
 	// EnvNameAIHost overrides the SenseCraft AI origin (no /openapi suffix).
-	// Empty means https://api-gateway.seeed.cc. Console pages stay on sensecraft.seeed.cc.
+	// Empty means https://api-gateway.seeed.cc, or the test gateway when remote_type is Develop.
+	// Model console pages stay on sensecraft.seeed.cc. App pages are on codecraft.seeed.cc/hub.
 	EnvNameAIHost = "SENSECRAFT_AI_HOST"
 	// EnvNameAuthHost overrides the account-center origin used by auth init
 	// (device code, token, and the user APIs that exchange an Access Key).

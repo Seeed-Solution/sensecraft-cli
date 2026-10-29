@@ -25,14 +25,17 @@ func TestModelDetailConsoleURL(t *testing.T) {
 
 func TestAppConsoleURLs(t *testing.T) {
 	edit := AppEditConsoleURL("Global", "app-1")
-	wantEdit := "https://sensecraft.seeed.cc/ai/application/edit?id=app-1"
+	wantEdit := "https://codecraft.seeed.cc/hub/application/edit?id=app-1"
 	if edit != wantEdit {
 		t.Fatalf("edit got %q want %q", edit, wantEdit)
 	}
-	detail := AppDetailConsoleURL("China", "app-1")
-	wantDetail := "https://sensecraft.seeed.cc/ai/application/detail/app-1?from=my-apps&tab=custom"
+	detail := AppDetailConsoleURL("China", "app-1", "reTerminal Sticky")
+	wantDetail := "https://codecraft.seeed.cc/hub/view-application/app-1-reterminal-sticky"
 	if detail != wantDetail {
 		t.Fatalf("detail got %q want %q", detail, wantDetail)
+	}
+	if AppDetailConsoleURL("Global", "app-1", "") != "https://codecraft.seeed.cc/hub/view-application/app-1" {
+		t.Fatal("empty name must not invent a slug")
 	}
 }
 
@@ -84,11 +87,29 @@ func TestAppCreateAttachesConsoleURLsInSandbox(t *testing.T) {
 	}
 	edit, _ := m["console_url"].(string)
 	detail, _ := m["detail_url"].(string)
-	if edit != "https://sensecraft.seeed.cc/ai/application/edit?id=sandbox-created-app" {
+	if edit != "https://codecraft.seeed.cc/hub/application/edit?id=sandbox-created-app" {
 		t.Fatalf("console_url=%q", edit)
 	}
-	if detail != "https://sensecraft.seeed.cc/ai/application/detail/sandbox-created-app?from=my-apps&tab=custom" {
+	if detail != "https://codecraft.seeed.cc/hub/view-application/sandbox-created-app-smokeapp" {
 		t.Fatalf("detail_url=%q", detail)
+	}
+}
+
+func TestAppSiteOriginFollowsDevelop(t *testing.T) {
+	t.Setenv(enum.EnvNameAIHost, "")
+	got := AppEditConsoleURL(enum.RemoteTypeDevelop, "app-1")
+	if got != "https://test-codecraft.seeed.cc/hub/application/edit?id=app-1" {
+		t.Fatalf("got %s", got)
+	}
+}
+
+func TestAppSiteOriginFollowsTestAIHost(t *testing.T) {
+	t.Setenv(enum.EnvNameAIHost, "https://test-sensecraft.seeed.cc")
+	if got := AppEditConsoleURL("Global", "app-1"); got != "https://test-codecraft.seeed.cc/hub/application/edit?id=app-1" {
+		t.Fatalf("got %s", got)
+	}
+	if got := ModelDetailConsoleURL("Global", "abc"); !strings.HasPrefix(got, "https://sensecraft.seeed.cc/ai/model/detail?") {
+		t.Fatalf("model url must stay on the AI console, got %s", got)
 	}
 }
 

@@ -5,14 +5,14 @@ import (
 	"strings"
 )
 
-// ImagePrompt 是交给调用方 Agent 的提示词。命令本身不画图。
+// ImagePrompt is the prompt handed back to the calling agent. This command does not draw.
 type ImagePrompt struct {
 	Prompt    string `json:"prompt"`
 	Brief     string `json:"brief,omitempty"`
 	LocalTool string `json:"local_tool,omitempty"`
 }
 
-// BuildImagePrompt 根据文案和本机生图工具，拼出给 Agent 的提示词。
+// BuildImagePrompt builds the agent prompt from the brief and the local image tool.
 func BuildImagePrompt(brief, localTool string) ImagePrompt {
 	brief = strings.TrimSpace(brief)
 	localTool = strings.TrimSpace(localTool)

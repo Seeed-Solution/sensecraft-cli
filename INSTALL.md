@@ -1,6 +1,6 @@
 # SenseCraft CLI 安装指南
 
-本文说明如何安装、升级、卸载 `sensecraft-cli`，以及如何把 Agent Skills 接到 Cursor 等工具。命令参考与业务用法见 [`README.md`](README.md)。
+本文说明如何安装、升级、卸载 `sensecraft-cli`，以及如何把 Agent Skills 接到 Cursor 等工具。命令与登录见 [`README.zh.md`](README.zh.md)（英文 [`README.md`](README.md)）。
 
 ## 1. 环境要求
 
@@ -29,7 +29,7 @@
 
 1. 按当前平台下载**与本 npm 包版本一致**的二进制  
 2. 全局注册 `sensecraft-cli` 命令  
-3. 若本地尚无配置，在交互终端下引导 `auth init`
+3. 若本地尚无配置，在交互终端下引导填写 OpenAPI Access Key
 
 ### macOS / Linux
 
@@ -96,29 +96,16 @@ npm install -g @seeed-studio/sensecraft-cli@0.1.3
 
 ---
 
-## 3. 首次认证
+## 3. 首次登录
 
-安装完成后初始化：
-
-```bash
-# SenseCAP Access Key（设备 / 分组 / 数据，以及 AI 应用 / 模型 / 云部署）
-sensecraft-cli auth init --kind sensecap
-```
-
-AI 初始化时选择站点：
-
-| 选项 | 用途 |
-|------|------|
-| Global | 国际生产 |
-| China | 国内账号（AI API host 与 Global 相同） |
-
-查看配置：
+用 SenseCAP 门户里的 OpenAPI Access Key 登录。Key ID 和 Access Key 写入本机后，设备、分组、传感数据，以及应用、模型、文件、云设备都用这一把钥匙。
 
 ```bash
+sensecraft-cli auth add --key-id <Key ID> --access-key <Access Key> --site Global
 sensecraft-cli auth info
 ```
 
-无交互环境（CI）不会自动跑 `auth init`，需事先准备好配置文件或自行执行初始化。
+`--site` 为 `Global` 或 `China`，省略时是 `Global`。无交互环境需要带上 `--key-id` 和 `--access-key`。`auth info` 不打印 Access Key。
 
 ---
 
@@ -313,20 +300,15 @@ Skills 是给 Agent 读的 Markdown 能力说明，**不是** CLI 子命令。
 
 ```bash
 npm root -g
-# 例如 …/node_modules/@seeed-studio/sensecraft-cli/skills/sensecraft-ai/SKILL.md
+# 例如 …/node_modules/@seeed-studio/sensecraft-cli/skills/sensecraft-cli/SKILL.md
 ```
 
 ### 推荐布局
 
 | Skill | 路径 | 鉴权 |
 |-------|------|------|
-| Meta 路由（优先加载） | `skills/sensecraft-ai/SKILL.md` | — |
-| SenseCAP PaaS | `skills/sensecraft-data/` | SenseCAP |
-| 应用广场 | `skills/sensecraft-apps/` | Access Key |
-| 文件上传 | `skills/sensecraft-files/` | Access Key |
-| 模型库 | `skills/sensecraft-models/` | Access Key |
-| 经典 reCamera 40 | `skills/sensecraft-recamera/` | Access Key |
-| 云设备 | `skills/sensecraft-devices-cloud/` | Access Key |
+| 入口 | `skills/sensecraft-cli/SKILL.md` | Access Key |
+| 从本地项目创建应用 | `skills/sensecraft-cli/create-app/` | Access Key |
 
 更细的发现说明：[`skills/README.md`](skills/README.md)。
 
@@ -340,10 +322,7 @@ npm root -g
 2. **拷贝 / 软链到 Cursor skills 目录**（路径以你本机 Cursor 版本为准，常见为用户目录下的 skills 配置）：
 
    ```bash
-   # 示例：软链 meta + 各域 skill（按需调整目标目录）
-   ln -s "$PWD/skills/sensecraft-ai"   ~/.cursor/skills/sensecraft-ai
-   ln -s "$PWD/skills/sensecraft-apps" ~/.cursor/skills/sensecraft-apps
-   # …
+   ln -s "$PWD/skills/sensecraft-cli" ~/.cursor/skills/sensecraft-cli
    ```
 
 3. **只用 npm 包里的 skills**  
@@ -362,20 +341,22 @@ done
 
 # Claude Code：用户级（可选）
 mkdir -p ~/.claude/skills
-ln -s "$PWD/skills/sensecraft-ai" ~/.claude/skills/sensecraft-ai
+ln -s "$PWD/skills/sensecraft-cli" ~/.claude/skills/sensecraft-cli
 ```
 
 其他 Agent：
 
 1. 若支持 `SKILL.md` 自动发现，把 `skills/*/` 原样放入其项目级或用户级 skills 目录；具体目录以宿主文档为准。
-2. 若不支持 Skills，把 `skills/sensecraft-ai/SKILL.md` 和命中的领域 skill 作为系统/项目上下文加载。
+2. 若不支持 Skills，把 `skills/sensecraft-cli/SKILL.md` 作为系统/项目上下文加载。
 3. Agent 必须具有本机命令执行能力，才能调用 `sensecraft-cli`；纯聊天宿主只能读取说明，不能声称命令已执行。
-4. `auth init`、本地 USB/IP 部署与烧录仍需用户交互，不能因为换了 Agent 就降级安全级别。
+4. 没有 Access Key 时走分步 `auth init`（`--no-wait`，把验证链接交给用户）。本地 USB/IP 部署与烧录仍由用户自己完成。
 
 使用约定：
 
-- SenseCraft AI 相关问题先走 **`sensecraft-ai`** 路由 skill。  
-- 确保机器上 `sensecraft-cli` 在 PATH 中，且已 `auth init`。
+- 先读 **`sensecraft-cli`**。它会打开 `references/` 里对应的说明，覆盖 SenseCraft Data、SenseCraft AI 和 CodeCraft Hub。
+- 确保机器上 `sensecraft-cli` 在 PATH 中。Agent 先跑 `auth info`；没有 Access Key 时运行 `sensecraft-cli auth init --site Global --no-wait`，把 `verification_url` 原样交给用户后结束本轮；用户授权后再跑 `--device-code`。不要在一次性 Shell 里跑不带参数的 `auth init`。已有钥匙时用 `auth add`。
+- Agent 必须能在本机执行命令。纯聊天宿主只能读说明，不能声称命令已经跑过。
+- 本地 USB/IP 部署和烧录仍在浏览器或设备侧完成。
 
 ---
 
@@ -413,11 +394,11 @@ sensecraft-cli data latest --eui SANDBOXEUI000001 --sandbox
 
 公司网络拦截 OSS 时，优先用本地 `dist/` 或内网镜像。
 
-### `auth info` 显示未初始化 / 装完又提示 init
+### `auth info` 显示还没有 Access Key
 
-- npm 安装认 **SenseCAP Access Key**（`app_config_list`）。  
+- 用 `sensecraft-cli auth add --key-id <Key ID> --access-key <Access Key> --site Global` 写入。`--site China` 用于国内站。  
 - 确认读写的是同一配置文件：`echo $SENSECRAFT_CLI_PATH` / `%SENSECRAFT_CLI_PATH%`。  
-- 应用 / 模型 / 云设备：`sensecraft-cli auth init --kind sensecap`。  
+- 设备、应用、模型和云设备使用同一把 Access Key。  
 
 ### npm 装的和 `go build` 的配置不一致
 
@@ -442,8 +423,8 @@ sensecraft-cli --version
 
 | 文档 | 内容 |
 |------|------|
-| [`README.md`](README.md) | 功能概览、命令参考、发版说明 |
-| [`ARCHITECTURE.md`](ARCHITECTURE.md) | 架构分层、鉴权、业务规则、安全模型、CI |
+| [`README.md`](README.md) | English overview |
+| [`README.zh.md`](README.zh.md) | 中文说明 |
 | [`docs/sensecraft-cli-smoke.md`](docs/sensecraft-cli-smoke.md) | 发版冒烟清单 |
 | [`docs/sensecraft-cli-test-cases.md`](docs/sensecraft-cli-test-cases.md) | 全量功能测试用例 |
 | [`skills/README.md`](skills/README.md) | Skills 目录与 Agent 约定 |

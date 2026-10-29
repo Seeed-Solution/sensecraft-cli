@@ -97,6 +97,50 @@ func TestFinalizeAppCreateResultPrefersUpdateWithID(t *testing.T) {
 	}
 }
 
+func TestCreateAppBlankMarkdown(t *testing.T) {
+	_, err := AppService{}.CreateApp(AppCreateParams{Markdown: "  \n", MarkdownSet: true})
+	if err == nil || !strings.Contains(err.Error(), "markdown is empty") {
+		t.Fatal(err)
+	}
+}
+
+func TestCreateAppFromMarkdownSandbox(t *testing.T) {
+	s := GetAppService(app.AICmdContext{
+		Ctx:     context.Background(),
+		Access:  config.AccessApiConfig{RemoteType: "Global"},
+		SandBox: true,
+	})
+	raw, err := s.CreateApp(AppCreateParams{
+		Markdown:    "# QA Name\n\n简介\n\nhttps://www.youtube.com/watch?v=dQw4w9WgXcQ\n\n![图](./a.png)\n",
+		MarkdownSet: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var m map[string]any
+	if err := json.Unmarshal(raw, &m); err != nil {
+		t.Fatal(err)
+	}
+	if m["excerpt"] != "简介" {
+		t.Fatalf("excerpt %#v", m["excerpt"])
+	}
+	blocks, _, err := deploymentBlockList(m)
+	if err != nil || len(blocks) == 0 {
+		t.Fatalf("blocks %v %#v", err, m["deployment"])
+	}
+	content := asString(blocks[0].(map[string]any)["content"])
+	if !strings.Contains(content, "video-embed-wrapper") {
+		t.Fatalf("create did not fill video html: %s", content)
+	}
+	pending, _ := m["pending_uploads"].([]any)
+	if len(pending) != 1 {
+		t.Fatalf("pending %#v", m["pending_uploads"])
+	}
+	if _, ok := m["warnings"]; !ok {
+		t.Fatal("missing warnings")
+	}
+}
+
 func TestCreateAppFromJSONReturnsIdentityInSandbox(t *testing.T) {
 	s := GetAppService(app.AICmdContext{
 		Ctx:     context.Background(),
@@ -403,6 +447,26 @@ func TestPublishAlreadyPublicIsDraftPublish(t *testing.T) {
 	}
 }
 
+func TestPublishDetailURLIsCreatorCenter(t *testing.T) {
+	s := sandboxAppSvc()
+	raw, err := s.SetAppPrivacy(AppPrivacyParams{
+		AppID: "sandbox-app-1", Privacy: 2, Yes: true, AgreeDeclaration: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var result map[string]any
+	if err := json.Unmarshal(raw, &result); err != nil {
+		t.Fatal(err)
+	}
+	detail, _ := result["detail_url"].(string)
+	if !strings.Contains(detail, "/view-application/sandbox-app-1-sandbox-vision-app") ||
+		strings.Contains(detail, "?") ||
+		strings.Contains(detail, "/application/detail/") {
+		t.Fatalf("detail_url=%q", detail)
+	}
+}
+
 func TestPublishLockedUnderReview(t *testing.T) {
 	s := sandboxAppSvc()
 	_, err := s.SetAppPrivacy(AppPrivacyParams{
@@ -460,6 +524,37 @@ func TestRejectUnownedAppWriteLiveAuthor(t *testing.T) {
 	}
 	if err := s.rejectUnownedAppWrite("a1", map[string]any{}); err != nil {
 		t.Fatalf("missing user_id should not block: %v", err)
+	}
+}
+
+func TestCreateAppKeepsNameWhenAPIOmitsIt(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != enum.AIApiPathAppCreate {
+			t.Errorf("unexpected %s %s", r.Method, r.URL.Path)
+			http.NotFound(w, r)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"code": 0,
+			"data": map[string]any{"app_id": "11641"},
+		})
+	}))
+	t.Cleanup(srv.Close)
+	s := appServiceForTest(t, srv)
+	raw, err := s.CreateApp(AppCreateParams{Name: "reTerminal Sticky"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got map[string]any
+	if err := json.Unmarshal(raw, &got); err != nil {
+		t.Fatal(err)
+	}
+	if got["app_name"] != "reTerminal Sticky" {
+		t.Fatalf("app_name: %#v", got["app_name"])
+	}
+	detail, _ := got["detail_url"].(string)
+	if !strings.Contains(detail, "/view-application/11641-reterminal-sticky") {
+		t.Fatalf("detail_url: %s", detail)
 	}
 }
 
@@ -675,7 +770,12 @@ func TestUpdateAppActivityFlagOnly(t *testing.T) {
 		case enum.AIApiPathAppView:
 			_ = json.NewEncoder(w).Encode(map[string]any{
 				"code": 0,
-				"data": map[string]any{"app_id": "11619", "be_public": 0, "excerpt": "keep"},
+				"data": map[string]any{"app_id": "11619", "be_public": 0, "excerpt": "keep", "allow_clone": 1},
+			})
+		case enum.AIApiPathActivityList:
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"code": 0,
+				"data": map[string]any{"list": []any{map[string]any{"activity_id": "12", "name": "Open"}}},
 			})
 		case enum.AIApiPathAppUpdate:
 			rawBody, _ = io.ReadAll(r.Body)
@@ -723,6 +823,174 @@ func TestUpdateAppSurfacesExpiredActivity(t *testing.T) {
 	_, err := s.UpdateApp(AppUpdateParams{AppID: "11619", Yes: true, ActivitySet: true, ActivityID: "9"})
 	if err == nil || !strings.Contains(err.Error(), "25000") || !strings.Contains(err.Error(), "Activity does not exist or has expired") {
 		t.Fatalf("got %v", err)
+	}
+}
+
+func TestUpdateAppContestSetsAllowCloneAndRejectsMissingActivity(t *testing.T) {
+	var updateCalls int
+	var body map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case enum.AIApiPathAppView:
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"code": 0,
+				"data": map[string]any{
+					"app_id": "11619", "be_public": 0, "excerpt": "keep",
+					"allow_clone": 0, "app_name": "Demo", "scene": "5",
+					"allow_commerce": 0, "images": []any{"https://example.invalid/a.png"},
+					"license": "", "author": "me",
+				},
+			})
+		case enum.AIApiPathActivityList:
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"code": 0,
+				"data": map[string]any{"list": []any{map[string]any{"activity_id": "3", "name": "Open", "tag_ids": []any{"1"}}}},
+			})
+		case enum.AIApiPathAppUpdate:
+			updateCalls++
+			raw, _ := io.ReadAll(r.Body)
+			_ = json.Unmarshal(raw, &body)
+			_ = json.NewEncoder(w).Encode(map[string]any{"code": 0, "data": map[string]any{}})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	s := appServiceForTest(t, srv)
+	if _, err := s.UpdateApp(AppUpdateParams{AppID: "11619", Yes: true, ActivitySet: true, ActivityID: "9"}); err == nil || !strings.Contains(err.Error(), "expired") {
+		t.Fatalf("missing activity got %v", err)
+	}
+	if updateCalls != 0 {
+		t.Fatalf("inactive activity must not POST, calls=%d", updateCalls)
+	}
+	if _, err := s.UpdateApp(AppUpdateParams{AppID: "11619", Yes: true, ActivitySet: true, ActivityID: "3"}); err != nil {
+		t.Fatal(err)
+	}
+	if body["allow_clone"] != float64(1) || body["activity_id"] != float64(3) {
+		t.Fatalf("body=%#v", body)
+	}
+}
+
+func TestUpdateAppCancelActivityFlagOnly(t *testing.T) {
+	var rawBody []byte
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case enum.AIApiPathAppView:
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"code": 0,
+				"data": map[string]any{
+					"app_id": "11619", "be_public": 0, "excerpt": "keep",
+					"allow_clone": 0, "app_name": "Demo",
+				},
+			})
+		case enum.AIApiPathActivityList:
+			t.Errorf("cancel must not consult the ongoing activity list")
+			http.NotFound(w, r)
+		case enum.AIApiPathAppUpdate:
+			rawBody, _ = io.ReadAll(r.Body)
+			_ = json.NewEncoder(w).Encode(map[string]any{"code": 0, "data": map[string]any{}})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	s := appServiceForTest(t, srv)
+	if _, err := s.UpdateApp(AppUpdateParams{AppID: "11619", Yes: true, CancelActivitySet: true, CancelActivityID: "1"}); err != nil {
+		t.Fatal(err)
+	}
+	var body map[string]any
+	if err := json.Unmarshal(rawBody, &body); err != nil {
+		t.Fatal(err)
+	}
+	if body["cancel_activity_id"] != float64(1) || body["app_id"] != "11619" {
+		t.Fatalf("body=%#v", body)
+	}
+	if _, ok := body["allow_clone"]; ok {
+		t.Fatalf("cancel must not force allow_clone: %#v", body)
+	}
+	if _, ok := body["excerpt"]; ok {
+		t.Fatalf("cancel-only update must not merge info fields: %#v", body)
+	}
+}
+
+func TestUpdateAppCancelActivityFromJSON(t *testing.T) {
+	var body map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case enum.AIApiPathAppView:
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"code": 0,
+				"data": map[string]any{"app_id": "11619", "be_public": 0, "excerpt": "keep"},
+			})
+		case enum.AIApiPathAppUpdate:
+			raw, _ := io.ReadAll(r.Body)
+			_ = json.Unmarshal(raw, &body)
+			_ = json.NewEncoder(w).Encode(map[string]any{"code": 0, "data": map[string]any{}})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	s := appServiceForTest(t, srv)
+	path := filepath.Join(t.TempDir(), "patch.json")
+	if err := os.WriteFile(path, []byte(`{"excerpt":"new","cancel_activity_id":"1"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.UpdateApp(AppUpdateParams{AppID: "11619", FromJSON: path, Yes: true}); err != nil {
+		t.Fatal(err)
+	}
+	if body["cancel_activity_id"] != float64(1) {
+		t.Fatalf("cancel_activity_id must be a JSON number: %#v", body)
+	}
+}
+
+func TestUpdateAppRejectsBadCancelActivityID(t *testing.T) {
+	var updateCalls int
+	var body map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case enum.AIApiPathAppView:
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"code": 0,
+				"data": map[string]any{"app_id": "11619", "be_public": 0, "excerpt": "keep"},
+			})
+		case enum.AIApiPathAppUpdate:
+			updateCalls++
+			raw, _ := io.ReadAll(r.Body)
+			_ = json.Unmarshal(raw, &body)
+			_ = json.NewEncoder(w).Encode(map[string]any{"code": 0, "data": map[string]any{}})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	s := appServiceForTest(t, srv)
+	for _, payload := range []string{
+		`{"excerpt":"new","cancel_activity_id":0}`,
+		`{"excerpt":"new","cancel_activity_id":-1}`,
+		`{"excerpt":"new","cancel_activity_id":"abc"}`,
+		`{"excerpt":"new","activity_id":1,"cancel_activity_id":1}`,
+	} {
+		path := filepath.Join(t.TempDir(), "patch.json")
+		if err := os.WriteFile(path, []byte(payload), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := s.UpdateApp(AppUpdateParams{AppID: "11619", FromJSON: path, Yes: true}); err == nil {
+			t.Fatalf("payload %s: expected error", payload)
+		}
+	}
+	blank := filepath.Join(t.TempDir(), "blank.json")
+	if err := os.WriteFile(blank, []byte(`{"excerpt":"new","cancel_activity_id":""}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.UpdateApp(AppUpdateParams{AppID: "11619", FromJSON: blank, Yes: true}); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := body["cancel_activity_id"]; ok {
+		t.Fatalf("blank cancel_activity_id must be omitted: %#v", body)
+	}
+	if updateCalls != 1 {
+		t.Fatalf("only the blank cancel id may POST, calls=%d", updateCalls)
 	}
 }
 

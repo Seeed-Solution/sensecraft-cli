@@ -73,7 +73,7 @@ Write every field below inside **`block.config`**. Keep `id` and `type` on the b
 | `muse_gadget` | JSON boolean, default `false`; write `true`/`false`, never strings or numbers. Some read paths coerce non-booleans by truthiness, so `"false"` can enable the option. `true` shows the Muse SDK token input under the flash button in preview |
 | `full_flash` | JSON boolean, default `false`. Kept only on the Muse SKUs below; any other device is reset to `false`. `true` erases the whole flash before the write. When `muse_gadget` is `true`, set `full_flash` to `false`. The editor hides the checkbox while Muse is on |
 
-`muse_gadget: true` is kept only for these SKUs. Any other device written `true` is reset to `false` by the editor. `full_flash` uses the same SKU list:
+`muse_gadget: true` is kept only for these SKUs. The CLI and `validate_manifest.py` reject `muse_gadget: true` or `full_flash: true` for any other `device_id`. The editor resets those flags to `false` when the document is opened. `full_flash` uses the same SKU list:
 
 | Device | `device_id` (SKU) |
 |--------|-------------------|

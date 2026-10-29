@@ -179,9 +179,9 @@ When `--activity-id` is set and this JSON does not include `allow_clone`, CLI se
 
 **Status: implemented.**
 
-- `publish` → `privacy=2` (submit review). Same path as Console **发布草稿** when the app is already public (`is_sketch` + `be_public=1`). Result may include `draft_publish`. Refused if already `be_public=2` or not owner. stdout `detail_url` is `/view-application/<id>-<slug>` with no query. Give the user that URL. Do not append navigation params or replace it with `/application/detail/<id>`.
+- `publish` → `privacy=2` (submit review). Same path as Console **发布草稿** when the app is already public (`is_sketch` + `be_public=1`). Result may include `draft_publish`. Refused if already `be_public=2` or not owner. stdout `detail_url` is `/view-application/<id>-<slug>` with no query. Give the user that URL only. Do not include `console_url` or `/application/edit`: review locks editing, and opening the editor returns `The application must not allow editing`. Do not append navigation params or replace the detail URL with `/application/detail/<id>`.
 - **Publish Declaration (required for `publish` only):** matches Console 「发布确认」`warrantyAccepted`. Before passing `--agree-declaration`, show the user:
-  - Review will lock editing until approval (or `unpublish`)
+  - Review will lock editing until approval (or `app withdraw`). Do not use `unpublish` to leave review
   - Declaration URL: https://sensecraft.seeed.cc/legal/en/declaration
   - Do **not** pass `--agree-declaration` unless the user explicitly agreed
 - `unpublish` → `privacy=0` for an **already public** app (make it private). Owner only. No declaration flag. Do **not** use it to withdraw a review.

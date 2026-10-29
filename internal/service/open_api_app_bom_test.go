@@ -55,6 +55,20 @@ func TestSandboxBOMCatalogIncludesPicURL(t *testing.T) {
 	}
 }
 
+func TestBOMQuantityRange(t *testing.T) {
+	if err := validateAppMaterials([]any{map[string]any{"quantity": "1"}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := validateAppMaterials([]any{map[string]any{"quantity": "999"}}); err != nil {
+		t.Fatal(err)
+	}
+	for _, quantity := range []any{"1000", "0", "01", 1} {
+		if err := validateAppMaterials([]any{map[string]any{"quantity": quantity}}); err == nil {
+			t.Fatalf("accepted quantity %#v", quantity)
+		}
+	}
+}
+
 func TestBOMSetRequiresYes(t *testing.T) {
 	s := AppService{}
 	_, err := s.SetBOM(AppBOMSetParams{

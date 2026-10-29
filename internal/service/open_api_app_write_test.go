@@ -321,6 +321,24 @@ func TestUpdateAppMaterialsOnlyDoesNotForceInfoMerge(t *testing.T) {
 	}
 }
 
+func TestUpdateAppRejectsQuantityAbove999(t *testing.T) {
+	s := sandboxAppSvc()
+	dir := t.TempDir()
+	path := filepath.Join(dir, "bom.json")
+	payload := `{"materials":[{"name":"Custom","quantity":"1000","note":"","buy_url":""}]}`
+	if err := os.WriteFile(path, []byte(payload), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, err := s.UpdateApp(AppUpdateParams{
+		AppID:    "sandbox-app-1",
+		FromJSON: path,
+		Yes:      true,
+	})
+	if err == nil || !strings.Contains(err.Error(), "1 to 999") {
+		t.Fatalf("got %v", err)
+	}
+}
+
 func TestAttachCoverImagePrepends(t *testing.T) {
 	s := GetAppService(app.AICmdContext{
 		Ctx:     context.Background(),
@@ -445,6 +463,9 @@ func TestPublishAlreadyPublicIsDraftPublish(t *testing.T) {
 	if result["draft_publish"] != true {
 		t.Fatalf("expected draft_publish: %#v", result)
 	}
+	if _, ok := result["console_url"]; ok {
+		t.Fatalf("under review must not include an edit link: %#v", result["console_url"])
+	}
 }
 
 func TestPublishDetailURLIsCreatorCenter(t *testing.T) {
@@ -464,6 +485,70 @@ func TestPublishDetailURLIsCreatorCenter(t *testing.T) {
 		strings.Contains(detail, "?") ||
 		strings.Contains(detail, "/application/detail/") {
 		t.Fatalf("detail_url=%q", detail)
+	}
+	if _, ok := result["console_url"]; ok {
+		t.Fatalf("under review must not include an edit link: %#v", result["console_url"])
+	}
+}
+
+func TestViewUnderReviewDropsEditURL(t *testing.T) {
+	s := sandboxAppSvc()
+	raw := s.withViewDetailURL(json.RawMessage(`{
+		"app_id": "sandbox-review-1",
+		"app_name": "Sandbox Vision App",
+		"be_public": 2,
+		"console_url": "https://codecraft.seeed.cc/hub/application/edit?id=sandbox-review-1"
+	}`))
+	var result map[string]any
+	if err := json.Unmarshal(raw, &result); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := result["console_url"]; ok {
+		t.Fatalf("view of an app under review must drop console_url: %#v", result["console_url"])
+	}
+	detail, _ := result["detail_url"].(string)
+	if !strings.Contains(detail, "/view-application/sandbox-review-1") {
+		t.Fatalf("detail_url=%q", detail)
+	}
+}
+
+func TestListUnderReviewDropsEditURLOnly(t *testing.T) {
+	s := sandboxAppSvc()
+	raw := s.withListDetailURLs(json.RawMessage(`{
+		"list": [
+			{
+				"app_id": "sandbox-review-1",
+				"app_name": "Locked",
+				"be_public": 2,
+				"console_url": "https://codecraft.seeed.cc/hub/application/edit?id=sandbox-review-1"
+			},
+			{
+				"app_id": "sandbox-app-1",
+				"app_name": "Draft",
+				"be_public": 0,
+				"console_url": "https://codecraft.seeed.cc/hub/application/edit?id=sandbox-app-1"
+			}
+		]
+	}`), false)
+	var result map[string]any
+	if err := json.Unmarshal(raw, &result); err != nil {
+		t.Fatal(err)
+	}
+	list, _ := result["list"].([]any)
+	if len(list) != 2 {
+		t.Fatalf("list=%#v", result["list"])
+	}
+	locked, _ := list[0].(map[string]any)
+	draft, _ := list[1].(map[string]any)
+	if _, ok := locked["console_url"]; ok {
+		t.Fatalf("review row kept an edit link: %#v", locked["console_url"])
+	}
+	if _, ok := locked["detail_url"]; !ok {
+		t.Fatal("review row lost detail_url")
+	}
+	edit, _ := draft["console_url"].(string)
+	if !strings.Contains(edit, "/application/edit?id=sandbox-app-1") {
+		t.Fatalf("private row edit link=%q", edit)
 	}
 }
 

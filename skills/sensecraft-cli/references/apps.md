@@ -21,7 +21,7 @@ Child skill: [`../create-app/SKILL.md`](../create-app/SKILL.md) — turn a local
 4. Tool-block **configuration** may be written into `deployment.blocks`. **Executing** flash / USB deploy / container install on hardware is **L3**. Classic reCamera (`40`): [`sensecraft-recamera`](recamera.md) (`check` / `open`). Other benches: Console `/ai/device/local/32|36|37|41|52`. `flash-firmware` run is out of scope this pass.
 5. Parse indented JSON on stdout; on failure read stderr + exit code. After `app update`, **re-read** the app — success body may be `{}`.
 6. **Rename / edit info**: sparse `{"app_name":"…"}` is OK (CLI merges other info fields from sketch). Do not invent HTTP; do **not** put `be_public=1` in user JSON. For **already published** apps the CLI injects `be_public=1` (Console info save) and returns `sketch_saved` — plaza copy is unchanged until `app publish`.
-7. **Lifecycle vs Console**: edit / publish / unpublish / delete / BOM / cover only for **your** apps (`user_id` == profile). Another user's plaza app cannot be edited. `be_public=2` locks owner edit. `be_public=1` owner may save sketch then `app publish` (草稿). Delete only `be_public=0`.
+7. **Lifecycle vs Console**: edit / publish / unpublish / withdraw / delete / BOM / cover only for **your** apps (`user_id` == profile). Another user's plaza app cannot be edited. `be_public=2` locks owner edit and has no editor link; unlock with `app withdraw`, not `app unpublish`. `be_public=1` owner may save sketch then `app publish` (草稿). `app unpublish` is only for an already public app. Delete only `be_public=0`.
 8. **Never blind-retry `app create`**: names are not unique. If create output lacks `app_id` or looks empty, run `app list --mine` before creating again.
 
 ## CLI status
@@ -84,11 +84,12 @@ sensecraft-cli app update --id <app_id> --cancel-activity-id 1 --yes
 ```bash
 # After user agrees to Publish Declaration + confirms submit:
 sensecraft-cli app publish --id <app_id> --agree-declaration --yes
-sensecraft-cli app unpublish --id <app_id> --yes    # privacy=0 private / withdraw review
+sensecraft-cli app unpublish --id <app_id> --yes    # already public (be_public=1) → private
+sensecraft-cli app withdraw --id <app_id> --yes     # under review (be_public=2) only
 sensecraft-cli app delete --id <app_id> --yes       # private only (be_public=0)
 ```
 
-`app publish` matches Console 「发布确认」: show https://sensecraft.seeed.cc/legal/en/declaration and warn that review locks editing; only then pass `--agree-declaration --yes`. Missing either flag → non-zero. API body is still only `{app_id, privacy:2}` (agreement is client-side, like Console `warrantyAccepted`). stdout includes `detail_url`: `https://codecraft.seeed.cc/hub/view-application/<id>-<slug>`. Give the user that URL as printed. Do not append `from`, `section`, `state`, or `tab`. Do **not** invent `/application/detail/<id>`.
+`app publish` matches Console 「发布确认」: show https://sensecraft.seeed.cc/legal/en/declaration and warn that review locks editing until approval or `app withdraw`; only then pass `--agree-declaration --yes`. Missing either flag → non-zero. API body is still only `{app_id, privacy:2}` (agreement is client-side, like Console `warrantyAccepted`). stdout includes `detail_url`: `https://codecraft.seeed.cc/hub/view-application/<id>-<slug>`. Give the user that URL as printed. Do not include `console_url` or `/application/edit`. Do not append `from`, `section`, `state`, or `tab`. Do **not** invent `/application/detail/<id>`.
 
 **Never** send `privacy=1` (ops-approved public). After editing a **published** app, tell the user plaza is unchanged until they confirm `app publish --agree-declaration --yes`.
 
@@ -133,7 +134,7 @@ For a local project/repository or an existing `codecraft-app.json`, use [create-
    sensecraft-cli app create --name "My App"
    sensecraft-cli app update --id <app_id> --from-json ./app.json --yes
    ```
-5. User agrees to Publish Declaration + confirms → `app publish --agree-declaration --yes` (submit review)
+5. User agrees to Publish Declaration + confirms → `app publish --agree-declaration --yes` (submit review). After that, give `detail_url` only. `be_public=2` has no editor link.
 
 Never put `be_public=1` / `privacy=1` in JSON; use `app publish`.
 

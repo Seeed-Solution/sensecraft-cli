@@ -28,6 +28,23 @@ var appToolConfigKeys = map[string][]string{
 	"aily-blockly": {"project_id", "device_id", "config"},
 }
 
+// museGadgetSKUs matches tool-blocks.md. Indicator aliases that are not this
+// SKU are not accepted here.
+var museGadgetSKUs = map[string]struct{}{
+	"114993068": {},
+	"113991315": {},
+	"113991275": {},
+	"100073581": {},
+	"100017057": {},
+	"100069905": {},
+	"100056818": {},
+}
+
+func isMuseGadgetSKU(deviceID string) bool {
+	_, ok := museGadgetSKUs[strings.TrimSpace(deviceID)]
+	return ok
+}
+
 func validateAppToolBlock(block map[string]any, kind string, index int) error {
 	keys, tool := appToolConfigKeys[kind]
 	if !tool {
@@ -106,6 +123,9 @@ func validateAppToolBlock(block map[string]any, kind string, index int) error {
 	}
 	if cfg["muse_gadget"] == true && cfg["full_flash"] == true {
 		return fmt.Errorf("%s: config.full_flash must be false when config.muse_gadget is true", label)
+	}
+	if (cfg["muse_gadget"] == true || cfg["full_flash"] == true) && !isMuseGadgetSKU(stringFromMap(cfg, "device_id")) {
+		return fmt.Errorf("%s: config.muse_gadget and config.full_flash can be true only for a Muse device SKU", label)
 	}
 	return nil
 }

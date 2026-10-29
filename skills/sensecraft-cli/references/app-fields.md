@@ -65,6 +65,8 @@ For an existing app, preserve participation unless changing it is part of the re
 
 API: `POST /flow/app/v3/edit_privacy_app` (CLI name: `publish` / `unpublish`).
 
+Leaving review is not `privacy=0`. `app unpublish` only turns an already public app (`be_public=1`) private. An app under review (`be_public=2`) uses `app withdraw` (`POST /flow/app/v3/callback_sketch`). While it is under review, do not give `console_url` or `/application/edit`.
+
 ## BOM (`materials[]`)
 
 ### Catalog verification before authoring a BOM
@@ -87,7 +89,7 @@ Catalog verification proves product identity; it does not prove the app saved th
 | ---------- | -------- | ----------------------------------------- |
 | `id`       | yes      | product **SKU**                           |
 | `name`     | yes      | product name                              |
-| `quantity` | yes      | string                                    |
+| `quantity` | yes      | integer string from 1 to 999              |
 | `note`     | yes      | remark (may be empty string if UI allows) |
 | `buy_url`  | yes      | purchase link                             |
 
@@ -103,7 +105,7 @@ Pick products with `app bom search` (filters `material_options` from `get_produc
 | Field      | Required | Notes                                                                                       |
 | ---------- | -------- | ------------------------------------------------------------------------------------------- |
 | `name`     | yes      | product name                                                                                |
-| `quantity` | yes      | string (Console UI integer stepper; API often string)                                       |
+| `quantity` | yes      | integer string from 1 to 999                                                     |
 | `note`     | no       | optional remark (Console placeholder: optional)                                             |
 | `buy_url`  | no       | optional purchase link (invalid URL may become `""`)                                        |
 | `id`       | **omit** | custom rows must **not** include `id`                                                       |

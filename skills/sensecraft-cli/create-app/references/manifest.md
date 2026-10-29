@@ -68,7 +68,7 @@ Flat ordered array, copied through to the payload unchanged. Blocks before the f
 
 Seeed catalog rows carry `id` (SKU), `quantity`, `name`, `note`, `buy_url` — never `price`/`pic_url` (resolved by SKU server-side). Set `id` from the live `app bom search` result's `sku`, not an internal product ID. Preserve the lookup evidence in review notes. Custom rows carry `name` + `quantity` (required) and optionally `note` / `buy_url` — no `id`, no image, no price. Read [catalog verification and BOM fields](../../references/app-fields.md#catalog-verification-before-authoring-a-bom) before writing rows; custom entries are not API-confirmed catalog products.
 
-Names are non-empty strings and quantities are positive integer strings such as `"1"`. A custom row omits `id` entirely; `"id": null` is not a custom row. Notes and purchase URLs, when supplied, are strings; an optional empty purchase URL is allowed, but a non-empty one must be HTTP(S). Local shape validation cannot prove a catalog match or the correct quantity.
+Names are non-empty strings and quantities are integer strings from `"1"` to `"999"`. A custom row omits `id` entirely; `"id": null` is not a custom row. Notes and purchase URLs, when supplied, are strings; an optional empty purchase URL is allowed, but a non-empty one must be HTTP(S). Local shape validation cannot prove a catalog match or the correct quantity.
 
 ## `sync` — local vs remote bookkeeping
 

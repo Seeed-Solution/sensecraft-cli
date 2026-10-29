@@ -116,9 +116,16 @@ func (s AppService) withViewDetailURL(data json.RawMessage) json.RawMessage {
 		return data
 	}
 	id := stringFromMap(m, "app_id")
+	if appMapBePublic(m) == 2 {
+		delete(m, "console_url")
+	}
 	detail := s.detailURLForApp(id, stringFromMap(m, "app_name"), s.ownsApp(id, m))
 	if detail == "" {
-		return data
+		encoded, err := json.Marshal(m)
+		if err != nil {
+			return data
+		}
+		return encoded
 	}
 	m["detail_url"] = detail
 	encoded, err := json.Marshal(m)
@@ -145,6 +152,9 @@ func (s AppService) withListDetailURLs(data json.RawMessage, public bool) json.R
 			continue
 		}
 		id := stringFromMap(m, "app_id")
+		if appMapBePublic(m) == 2 {
+			delete(m, "console_url")
+		}
 		owned := !public && s.ownsApp(id, m)
 		detail := s.detailURLForApp(id, stringFromMap(m, "app_name"), owned)
 		if detail == "" {

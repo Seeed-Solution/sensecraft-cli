@@ -39,6 +39,16 @@ TOOL_CONFIG_FIELDS = {
     "aily-blockly": {"project_id", "device_id"},
 }
 FLASH_ADDRESSES = {"0x0", "0x4000", "0x10000", "0x90000"}
+# Keep aligned with museDeviceTable (muse: true) and tool-blocks.md.
+MUSE_GADGET_SKUS = {
+    "114993068",  # SenseCAP Indicator
+    "113991315", "113991275",  # SenseCAP Watcher
+    "100073581",  # reTerminal E1001
+    "100017057",  # reTerminal E1002
+    "100069905",  # XIAO 1.47" Touch Display
+    "100056818",  # reTerminal Sticky
+}
+BOM_QUANTITY_MAX = 999
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 QUANTITY_RE = re.compile(r"^[1-9][0-9]*$")
 # Shapes that must never appear in fields that get published. Matches
@@ -312,6 +322,10 @@ def main():
                         vio(f"{label}: config.{key} must be a JSON boolean")
                 if cfg.get("muse_gadget") is True and cfg.get("full_flash") is True:
                     vio(f"{label}: config.full_flash must be false when config.muse_gadget is true")
+                elif cfg.get("muse_gadget") is True or cfg.get("full_flash") is True:
+                    device_id = cfg.get("device_id")
+                    if not isinstance(device_id, str) or device_id.strip() not in MUSE_GADGET_SKUS:
+                        vio(f"{label}: config.muse_gadget and config.full_flash can be true only for a Muse device SKU")
             if block_type == "node-red":
                 if cfg.get("flow_data") is not None and not isinstance(cfg["flow_data"], (dict, list)):
                     vio(f"{label}: config.flow_data must be an object or array, not a JSON string")
@@ -348,8 +362,9 @@ def main():
                         vio(f"bom.materials[{i}] (catalog row): missing {req!r}")
             if not isinstance(row.get("name"), str) or not row["name"].strip():
                 vio(f"bom.materials[{i}].name must be a non-empty string")
-            if not isinstance(row.get("quantity"), str) or not QUANTITY_RE.fullmatch(row["quantity"]):
-                vio(f"bom.materials[{i}].quantity must be a positive integer string")
+            quantity = row.get("quantity")
+            if not isinstance(quantity, str) or not QUANTITY_RE.fullmatch(quantity) or int(quantity) > BOM_QUANTITY_MAX:
+                vio(f"bom.materials[{i}].quantity must be an integer string from 1 to {BOM_QUANTITY_MAX}")
             if "note" in row and not isinstance(row["note"], str):
                 vio(f"bom.materials[{i}].note must be a string")
             if "buy_url" in row and row["buy_url"] != "" and not http_url(row["buy_url"]):

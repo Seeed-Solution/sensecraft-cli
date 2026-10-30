@@ -206,7 +206,7 @@ sensecraft-cli app delete --id <app_id> --yes
 sensecraft-cli app activity list
 ```
 
-The returned `guide_url` is the source for requirements and official rules; requirements are not included as a structured CLI field. Read candidate guides and compare them with the project before selecting an activity. Follow [activity selection during authoring](app-fields.md#activity-selection-during-app-authoring) for choosing a match, choosing none, or asking the user with options. Do not confuse `priority_activity_id` (list ordering) with `activity_id` (joining).
+The returned `guide_url` is the source for requirements and official rules; requirements are not included as a structured CLI field. Read candidate guides and compare them with the project before selecting an activity. Follow [activity selection during authoring](app-fields.md#activity-selection-during-app-authoring) for presenting the candidates, no-activity option, and recommendation that the user chooses from. Do not confuse `priority_activity_id` (list ordering) with `activity_id` (joining).
 
 ### `app like` / `app unlike` / `app collect` / `app uncollect` / `app mark-deploy` (L2)
 

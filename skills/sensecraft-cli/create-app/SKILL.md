@@ -46,7 +46,7 @@ Read the applicable references in the table **before** doing each part. Build ev
 
 **App information.** Read [app-fields.md](../references/app-fields.md) in full before synthesizing these fields, including its activity selection guidance. Keep the project's name unless the user chooses a change. Write an excerpt for the intended reader: what it does, who uses it, and the useful outcome. Propose a scene label and its real ID from `app_scenarios_array`. Preserve known choices for `allow_clone` and `allow_commerce`; if unknown, ask rather than inherit template defaults or infer permissions from the license. Resolve author from the authenticated account when established; identify the project license separately. Inspect cover/gallery candidates and keep their order explicit. No cover is allowed for a private draft; note the publishing requirement.
 
-**Activity participation.** Use the project understanding from discovery and follow [app-fields.md § Activity selection](../references/app-fields.md#activity-selection-during-app-authoring) to decide whether to join an activity. Record the resolved selection in `info.activity_id` and the rationale in the review.
+**Activity participation.** Whether to join, and which activity, is the user's decision: present the candidates from discovery with a recommendation and ask. Follow [app-fields.md § Activity selection](../references/app-fields.md#activity-selection-during-app-authoring). Record the user's selection in `info.activity_id` and the rationale in the review.
 
 **Deployment.** Read all of [tool-blocks.md](../references/tool-blocks.md), then map the complete first-time user journey to its supported blocks. For each action, record prerequisites, the chosen tool, verified config/artifact source, and the observable result. Inspect real artifact existence, target/architecture, build configuration, and required runtime inputs. A firmware file does not establish a model-deploy step; source code alone does not establish a flashable image. Place each tool directly after its instructions in a flat `deployment.blocks` array.
 
@@ -58,7 +58,7 @@ Record the query and selected result in review notes. Multiple plausible variant
 
 ## 3. Resolve uncertain decisions
 
-Present a concise project summary, proposed fields, activity selection or reason for none, deployment actions/tools, BOM matches, and actual gaps. Batch questions about consequential choices: name/language/audience when unclear, scene, clone/commercial permissions, uncertain activity eligibility/selection, hardware variant and BOM scope/quantity, assets, or an unsupported deployment path. Include a recommendation and why; reuse answers already in the conversation.
+Present a concise project summary, proposed fields, activity candidates with a recommendation, deployment actions/tools, BOM matches, and actual gaps. Batch questions about consequential choices: name/language/audience when unclear, scene, clone/commercial permissions, activity choice (join which activity or none), hardware variant and BOM scope/quantity, assets, or an unsupported deployment path. Include a recommendation and why; reuse answers already in the conversation.
 
 Ask only for uncertainty that affects correctness or the user's choice. Do not require an arbitrary one-round limit: a new material conflict can need a follow-up. Continue independent preparation while waiting, but do not commit guessed decisions or perform dependent uploads. Review is not an extra approval gate when the requested creation and all necessary decisions are already authorized.
 
@@ -94,7 +94,7 @@ Update the review notes with corrections, evidence, remaining gaps, and readines
 
 1. Read the upload references. Run `sensecraft-cli auth info`. If no Access Key is active, use the split `auth init` flow in [`../SKILL.md`](../SKILL.md). Do not run bare `auth init`. Recheck the environment and that selected files still match their reviewed hashes. Upload only reviewed assets; reuse unchanged URLs. Images: `file upload --path <image> --type 1 --for-app`. Firmware: `--type 4`. Other artifacts: select the actual type/flags from the reference. App images use at most 16 JPG/JPEG/PNG/GIF/WebP files, each ≤5 MB; other artifacts are ≤100 MB.
 
-   For Muse firmware, scan the exact file selected for upload before `file upload --type 4`. A complete SDK token is `mgst_` followed by 43 characters from `[A-Za-z0-9_-]`. The short `mgst_` prefix used by firmware format validation is not a credential match. Keep the scan quiet so matching values stay local:
+   For Muse Gadget firmware, scan the exact file selected for upload before `file upload --type 4`. A complete SDK token is `mgst_` followed by 43 characters from `[A-Za-z0-9_-]`. The short `mgst_` prefix used by firmware format validation is not a credential match. Keep the scan quiet so matching values stay local:
 
    ```bash
    grep -aqE 'mgst_[A-Za-z0-9_-]{43}' <firmware-file>

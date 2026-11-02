@@ -44,11 +44,11 @@ When docs and code disagree, inspect enough to identify the conflict. Use establ
 
 ## Ask after discovery has made the choice concrete
 
-Read the field and tool-block references before proposing options. After discovery, run `app activity list` and read the guides/rules for plausible activities per [app-fields.md](../../references/app-fields.md#activity-selection-during-app-authoring); the public activity list does not need an Access Key. Use the gathered project facts to choose a clear fit or none, and ask only when the fit or choice is uncertain. After the agent establishes auth, resolve scene IDs and BOM catalog candidates through the real CLI reads. Record the queries, selected results, source links, and lookup time; offline/sandbox data is not live confirmation. Then batch remaining decisions with a recommendation and a short reason. Typical questions concern:
+Read the field and tool-block references before proposing options. After discovery, run `app activity list` and read the guides/rules for plausible activities per [app-fields.md](../../references/app-fields.md#activity-selection-during-app-authoring); the public activity list does not need an Access Key. Use the gathered project facts to rank the candidates, then ask the user to choose an activity or none. After the agent establishes auth, resolve scene IDs and BOM catalog candidates through the real CLI reads. Record the queries, selected results, source links, and lookup time; offline/sandbox data is not live confirmation. Then batch remaining decisions with a recommendation and a short reason. Typical questions concern:
 
 - Product framing or language when the conversation and project do not establish it.
 - Clone and commercial-use choices; a project license alone does not answer these platform settings.
-- Activity options plus no participation when eligibility, missing requirements, or the best candidate is uncertain. Include actual dates, rules and project fit; do not ask a generic opt-in question for every new app.
+- Activity choice for every new app: which candidate to join, or none. Include actual dates, rules, fit and gaps, and a recommendation; never ask a generic opt-in question without candidates.
 - Similar hardware variants, optional accessories, unknown quantities, or a custom product fallback.
 - Missing deployable files, an unsupported action, or a choice to upload an explicitly incomplete draft.
 - Cover selection or an asset with unclear redistribution rights.

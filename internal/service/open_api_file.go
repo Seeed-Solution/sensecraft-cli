@@ -53,6 +53,7 @@ func GetFileService(ctx app.AICmdContext) FileService {
 
 type FileUploadParams struct {
 	Path     string
+	Name     string
 	FileType int
 	// Checksum computes local MD5 (Console with-checksum).
 	Checksum bool
@@ -126,9 +127,9 @@ func (s FileService) UploadFile(p FileUploadParams) (FileUploadResult, error) {
 	if info.IsDir() {
 		return FileUploadResult{}, fmt.Errorf("path is a directory: %s", path)
 	}
-	fileName := strings.ReplaceAll(filepath.Base(path), " ", "")
-	if fileName == "" {
-		return FileUploadResult{}, fmt.Errorf("invalid file name")
+	fileName, err := uploadguard.StoredFileName(path, p.Name)
+	if err != nil {
+		return FileUploadResult{}, err
 	}
 	if err := validateUploadFile(fileType, path, info.Size()); err != nil {
 		return FileUploadResult{}, err

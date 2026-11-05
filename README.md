@@ -93,12 +93,15 @@ ls "$(npm root -g)/@seeed-studio/sensecraft-cli/skills"
 | Command | Description |
 |---------|-------------|
 | `auth add` | Verify an Access Key, save it, and make it active |
-| `auth info` | Show site, organization ID, and Key ID |
+| `auth info` | Show local profile metadata; add `--json` for structured output |
 
 ```bash
 sensecraft-cli auth add --key-id <Key ID> --access-key <Access Key> --site Global
 sensecraft-cli auth info
+sensecraft-cli auth info --json
 ```
+
+`auth info --json` returns `{ "profiles": [...] }`. Each profile contains only `site`, `org_id`, `key_id`, `kind`, `created_at`, and `active`.
 
 | `--site` | SenseCAP OpenAPI | SenseCraft AI OpenAPI |
 |----------|------------------|------------------------|
@@ -136,9 +139,23 @@ sensecraft-cli recamera check --model-id <id>
 
 `--sort` on `app list` is `popular`, `newest`, or `likes`. Common `--uniform-type` values: `40` reCamera, `32` XIAO ESP32S3, `53` reCamera Pro.
 
+`app create` snapshots your exact-name matches before creating. After a client timeout, it continues saving only when exactly one new app with that name appears; success includes `recovered_after_timeout: true` and the usual app ID and URLs. No new match returns the original error, and multiple candidates stop with their IDs. Inspect `app list --mine --name "<name>"` to resolve an uncertain result. The client timeout remains 15 seconds.
+
+For an app never published, `app view --id <id>` returns only its name. Read and verify draft content with `app view --id <id> --sketch`. Before CLI updates, close that app's CodeCraft Hub editor page and reopen it after verification: an open editor saves the copy it loaded and can replace CLI changes made meanwhile.
+
+`app bom search --name "XIAO ESP32-S3 1.47"` matches every query token against the product name, SKU, category, note or description, ignoring case and punctuation. `1.47 Touch`, `Touch Display ESP32-S3`, and the exact SKU also work. `ESP32S3` and `ESP32-S3` match alike; results keep catalog order. Catalog rows retain `block_support` and add boolean `block_supported` (`true` for `"是"`).
+
+`file upload --name <file-name>` chooses the stored name. Omitting it keeps the local basename with spaces removed. Type `4` warns on stderr that uploading the same organisation's file name replaces its earlier contents at the same URL. For Muse Gadget, upload the **application image** built as `muse-gadget.bin` and linked at `0x20000`, using each app's own stored name:
+
+```bash
+sensecraft-cli file upload --path ./build/muse-gadget.bin --type 4 --name clock-muse-gadget.bin
+```
+
+A renamed application image has been verified to flash and boot from the Hub draft page. Set each app's `firmware_url` to its returned URL. After creating several apps, read their drafts with `--sketch` and verify that those URLs differ.
+
 ## Advanced
 
-Successful data commands print indented JSON on stdout. `auth add` and `auth info` print text. Failures go to stderr with a non-zero exit code.
+Successful data commands print indented JSON on stdout. Object outputs containing `list` gain `count` when missing, while existing keys such as `page` and server-provided counts are preserved; the fallback is the current list length. `auth add` and default `auth info` print text; `auth info --json` prints profile metadata. Failures go to stderr with a non-zero exit code.
 
 `sensecraft-cli --version` prints the npm package version. A binary from plain `go build` prints `dev`.
 

@@ -22,6 +22,7 @@ Auth: **Access Key**. The China site supports SenseCraft Data only; file upload 
 6. Upload alone is not L2; attaching to a model/app (`--id` / `--model-id` / `--app-id`) **is L2**. Follow [confirmation.md](confirmation.md): ask first, wait for `确认`, then `--yes`. Never pass `--yes` on the same turn as the first request. `--unlinked` is an explicit orphan opt-in (not L2).
 7. Do not pass oversized files or more than 16 app image URLs; CLI rejects them before upload/update.
 8. Types `3`–`6` have no model/app attach path and upload directly (no `--unlinked` needed).
+   For type `4`, choose each app's stored name with `--name <project>-muse-gadget.bin`. Organisation and file name identify the stored object; the same name replaces earlier contents at the same URL. When `--name` is omitted, CLI keeps the existing default name and prints this warning on stderr. For Muse Gadget, upload the application image built as `muse-gadget.bin` and linked at `0x20000`; after creating several apps, compare their saved `firmware_url` values for distinct URLs.
 9. **Security gates**: empty (0 B) files rejected; type 2–6 ≤ **100 MB**; every image ≤ **5 MB**. The CLI does not count uploads. A rate limit comes back as `11209` or `11210`.
 
 ## Examples

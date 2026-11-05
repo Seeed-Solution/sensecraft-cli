@@ -44,7 +44,7 @@ func (s AppService) ListActivities() (json.RawMessage, error) {
 		return nil, err
 	}
 	views := currentActivityViews(items, activityNow())
-	raw, err := json.Marshal(map[string]any{"list": views})
+	raw, err := json.Marshal(map[string]any{"list": views, "count": len(views)})
 	if err != nil {
 		return nil, err
 	}

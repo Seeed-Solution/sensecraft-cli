@@ -240,6 +240,7 @@ func (s ModelService) UpdateModel(p ModelUpdateParams) (json.RawMessage, error) 
 
 type ModelUploadParams struct {
 	Path    string
+	Name    string
 	ModelID string
 	Yes     bool
 	// Unlinked explicitly allows an orphan OSS object for brand-new model create.
@@ -283,6 +284,7 @@ func (s ModelService) UploadAndAttach(p ModelUploadParams) (FileAttachResult, er
 	files := FileService{client: s.client, sandbox: s.sandbox}
 	up, err := files.UploadFile(FileUploadParams{
 		Path:     p.Path,
+		Name:     p.Name,
 		FileType: FileTypeFile,
 		Checksum: true,
 	})

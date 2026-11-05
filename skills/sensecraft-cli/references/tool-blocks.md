@@ -75,16 +75,16 @@ Write every field below inside **`block.config`**. Keep `id` and `type` on the b
 
 `muse_gadget: true` is kept only for these SKUs. Any other device written `true` is reset to `false` by the editor. `full_flash` uses the same SKU list:
 
-| Device | `device_id` (SKU) |
-|--------|-------------------|
-| SenseCAP Indicator D1 / D1S / D1L / D1Pro | `114993068` (aliases on the same row are kept) |
-| SenseCAP Watcher | `113991315` or `113991275` |
-| reTerminal E1001 | `100073581` |
-| reTerminal E1002 | `100017057` |
-| XIAO 1.47" Touch Display | `100069905` |
-| reTerminal Sticky | `100056818` |
+| Device | `device_id` (SKU) | Muse application image |
+|--------|-------------------|------------------------|
+| SenseCAP Indicator D1 / D1S / D1L / D1Pro | `114993068` (aliases on the same row are kept) | `muse-gadget.bin` linked at `0x20000`, stored under this app's own name |
+| SenseCAP Watcher | `113991315` or `113991275` | `muse-gadget.bin` linked at `0x20000`, stored under this app's own name |
+| reTerminal E1001 | `100073581` | `muse-gadget.bin` linked at `0x20000`, stored under this app's own name |
+| reTerminal E1002 | `100017057` | `muse-gadget.bin` linked at `0x20000`, stored under this app's own name |
+| XIAO 1.47" Touch Display | `100069905` | `muse-gadget.bin` linked at `0x20000`, stored under this app's own name |
+| reTerminal Sticky | `100056818` | `muse-gadget.bin` linked at `0x20000`, stored under this app's own name |
 
-When `muse_gadget` is `true`, set `full_flash` to `false`. The editor hides that checkbox until Muse is turned off. `firmware_url` must be `muse-gadget.bin` linked at `0x20000`. A binary linked at `0x90000` or `0x10000` will not boot. Checking the box does not change `flash_address`: E100x stays `0x90000`, Sticky / Indicator / 1.47" Touch stay `0x0`, Watcher stays on the XIAO address rule.
+When `muse_gadget` is `true`, set `full_flash` to `false`. The editor hides that checkbox until Muse is turned off. `firmware_url` must point to the Muse Gadget **application image**, built as `muse-gadget.bin` and linked at **`0x20000`**. Upload it with `file upload --path <build-dir>/muse-gadget.bin --type 4 --name <project>-muse-gadget.bin`, using a distinct stored file name for each app. Type-4 uploads with the same organisation and stored name replace the earlier contents at the same URL. A renamed application image has been verified to flash and boot from the Hub draft page. After creating several apps, read each with `app view --id <app_id> --sketch` and check that their `firmware_url` values differ. Keep `firmware_name` consistent with the stored name. Checking the box keeps the device-default `flash_address`: E100x stays `0x90000`, Sticky / Indicator / 1.47" Touch stay `0x0`, Watcher stays on the XIAO address rule; the Muse flash flow writes the application image at `0x20000`.
 
 `full_flash: true` with `muse_gadget: false` is the switch back from a Muse image to another firmware. E1001 / E1002 then also rewrite the stock bootloader at `0x0` and the partition table at `0x8000`; the app stays at `0x90000`. Indicator, 1.47" Touch, Sticky, and Watcher non-Muse images are already merged at `0x0`, so the flag only turns on erase-all. Do not put the reTerminal stock bootloader into those images, and do not put it into a Muse image.
 

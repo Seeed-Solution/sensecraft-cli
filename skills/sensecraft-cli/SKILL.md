@@ -51,7 +51,7 @@ SenseCraft Data: [`references/data.md`](references/data.md).
 
 Bare `auth init` asks the user to pick Global or China. The split flow takes `--site` instead. The China site supports SenseCraft Data only. To use SenseCraft AI or CodeCraft Hub, select Global. Do not point the CLI at another host. The login access token stays in the local pending file and is not printed.
 
-`auth info` shows the active Access Key (site, org, key id). Secrets are not printed.
+`auth info` shows local Access Key metadata as text. `auth info --json` returns `{ "profiles": [...] }` with `site`, `org_id`, `key_id`, `kind`, `created_at`, and `active` only. Secrets are not printed.
 
 ## Intent → skill / command routing
 

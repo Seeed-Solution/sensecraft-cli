@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"unicode"
 
 	"sensecraft-cloud-terminal/internal/client"
 	"sensecraft-cloud-terminal/internal/enum"
@@ -117,25 +118,35 @@ func filterMaterialOptions(raw json.RawMessage, keyword string) (json.RawMessage
 		return nil, err
 	}
 	opts, _ := root["material_options"].([]any)
-	kw := strings.ToLower(strings.TrimSpace(keyword))
+	tokens := normalizedProductTokens(keyword)
 	out := make([]any, 0)
 	for _, item := range opts {
 		m, ok := item.(map[string]any)
 		if !ok {
 			continue
 		}
-		if kw == "" {
-			out = append(out, m)
-			continue
+		fields := make([]string, 0, 5)
+		for _, key := range []string{"name", "sku", "classify", "note", "description"} {
+			fields = append(fields, strings.Join(normalizedProductTokens(stringFromMap(m, key)), ""))
 		}
-		hay := strings.ToLower(strings.Join([]string{
-			stringFromMap(m, "name"),
-			stringFromMap(m, "sku"),
-			stringFromMap(m, "classify"),
-			stringFromMap(m, "note"),
-			stringFromMap(m, "description"),
-		}, " "))
-		if strings.Contains(hay, kw) {
+		matches := true
+		for _, token := range tokens {
+			found := false
+			for _, field := range fields {
+				if strings.Contains(field, token) {
+					found = true
+					break
+				}
+			}
+			if !found {
+				matches = false
+				break
+			}
+		}
+		if matches {
+			if support, exists := m["block_support"]; exists {
+				m["block_supported"] = support == "\u662f"
+			}
 			out = append(out, m)
 		}
 	}
@@ -143,6 +154,24 @@ func filterMaterialOptions(raw json.RawMessage, keyword string) (json.RawMessage
 		"list":  out,
 		"count": len(out),
 	})
+}
+
+// normalizedProductTokens splits on whitespace and removes punctuation from each token.
+// normalizedProductTokens 按空白分词并移除各词中的标点。
+func normalizedProductTokens(value string) []string {
+	tokens := make([]string, 0)
+	for _, word := range strings.Fields(strings.ToLower(value)) {
+		word = strings.Map(func(r rune) rune {
+			if unicode.IsLetter(r) || unicode.IsDigit(r) {
+				return r
+			}
+			return -1
+		}, word)
+		if word != "" {
+			tokens = append(tokens, word)
+		}
+	}
+	return tokens
 }
 
 func sandboxBOMCatalog(keyword string) json.RawMessage {
@@ -165,13 +194,7 @@ func sandboxBOMCatalog(keyword string) json.RawMessage {
 			"buy_url":  "https://www.seeedstudio.com/",
 		},
 	}
-	kw := strings.ToLower(strings.TrimSpace(keyword))
-	filtered := make([]map[string]any, 0)
-	for _, it := range items {
-		if kw == "" || strings.Contains(strings.ToLower(it["name"].(string)), kw) || strings.Contains(strings.ToLower(it["sku"].(string)), kw) {
-			filtered = append(filtered, it)
-		}
-	}
-	raw, _ := json.Marshal(map[string]any{"list": filtered, "count": len(filtered)})
-	return raw
+	raw, _ := json.Marshal(map[string]any{"material_options": items})
+	filtered, _ := filterMaterialOptions(raw, keyword)
+	return filtered
 }

@@ -213,12 +213,13 @@ func TestListActivitiesPrintsCurrentWindow(t *testing.T) {
 		t.Fatal(err)
 	}
 	var body struct {
-		List []map[string]any `json:"list"`
+		Count int              `json:"count"`
+		List  []map[string]any `json:"list"`
 	}
 	if err := json.Unmarshal(raw, &body); err != nil {
 		t.Fatal(err)
 	}
-	if len(body.List) != 1 {
+	if len(body.List) != 1 || body.Count != 1 {
 		t.Fatalf("list=%s", raw)
 	}
 	item := body.List[0]

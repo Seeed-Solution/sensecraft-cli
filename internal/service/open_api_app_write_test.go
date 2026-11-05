@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"sensecraft-cloud-terminal/internal/app"
@@ -528,7 +529,11 @@ func TestRejectUnownedAppWriteLiveAuthor(t *testing.T) {
 }
 
 func TestCreateAppKeepsNameWhenAPIOmitsIt(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	api := newHandlerAIClient(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == enum.AIApiPathAppList {
+			_, _ = io.WriteString(w, `{"code":0,"data":{"list":[]}}`)
+			return
+		}
 		if r.URL.Path != enum.AIApiPathAppCreate {
 			t.Errorf("unexpected %s %s", r.Method, r.URL.Path)
 			http.NotFound(w, r)
@@ -539,8 +544,7 @@ func TestCreateAppKeepsNameWhenAPIOmitsIt(t *testing.T) {
 			"data": map[string]any{"app_id": "11641"},
 		})
 	}))
-	t.Cleanup(srv.Close)
-	s := appServiceForTest(t, srv)
+	s := AppService{client: api, remoteType: "Global"}
 	raw, err := s.CreateApp(AppCreateParams{Name: "reTerminal Sticky"})
 	if err != nil {
 		t.Fatal(err)
@@ -552,6 +556,9 @@ func TestCreateAppKeepsNameWhenAPIOmitsIt(t *testing.T) {
 	if got["app_name"] != "reTerminal Sticky" {
 		t.Fatalf("app_name: %#v", got["app_name"])
 	}
+	if _, recovered := got["recovered_after_timeout"]; recovered {
+		t.Fatal("normal create was flagged as recovered")
+	}
 	detail, _ := got["detail_url"].(string)
 	if !strings.Contains(detail, "/view-application/11641-reterminal-sticky") {
 		t.Fatalf("detail_url: %s", detail)
@@ -561,8 +568,10 @@ func TestCreateAppKeepsNameWhenAPIOmitsIt(t *testing.T) {
 func TestCreateAppWritesPayloadWhenSketchIsMissing(t *testing.T) {
 	var updateBody map[string]any
 	var updateCalls int
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	api := newHandlerAIClient(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
+		case enum.AIApiPathAppList:
+			_, _ = io.WriteString(w, `{"code":0,"data":{"list":[]}}`)
 		case enum.AIApiPathAppCreate:
 			_ = json.NewEncoder(w).Encode(map[string]any{
 				"code": 0,
@@ -583,9 +592,7 @@ func TestCreateAppWritesPayloadWhenSketchIsMissing(t *testing.T) {
 			http.NotFound(w, r)
 		}
 	}))
-	t.Cleanup(srv.Close)
-
-	s := appServiceForTest(t, srv)
+	s := AppService{client: api, remoteType: "Global"}
 
 	dir := t.TempDir()
 	path := filepath.Join(dir, "app.json")
@@ -609,6 +616,185 @@ func TestCreateAppWritesPayloadWhenSketchIsMissing(t *testing.T) {
 	}
 	if got["app_id"] != "11567" {
 		t.Fatalf("app_id: %#v", got)
+	}
+}
+
+func TestCreateAppTimeoutRecovery(t *testing.T) {
+	for _, tt := range []struct {
+		name       string
+		newIDs     []string
+		lookupFail bool
+		updateFail bool
+		nameOnly   bool
+		business   bool
+		wantError  string
+	}{
+		{name: "recovers and updates", newIDs: []string{"13467"}},
+		{name: "recovers name only", newIDs: []string{"13467"}, nameOnly: true},
+		{name: "preexisting only", wantError: "context deadline exceeded"},
+		{name: "ambiguous", newIDs: []string{"13468", "13467"}, wantError: "candidate app IDs: 13467, 13468"},
+		{name: "lookup failure", lookupFail: true, wantError: "app lookup after timeout failed"},
+		{name: "update failure retains ID", newIDs: []string{"13467"}, updateFail: true, wantError: "created app_id=13467 but update failed"},
+		{name: "business error", business: true, wantError: "code=11202"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			var started atomic.Bool
+			var creates, lookups, updates atomic.Int32
+			api := newHandlerAIClient(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				switch r.URL.Path {
+				case enum.AIApiPathAppList:
+					lookups.Add(1)
+					if r.URL.Query().Get("app_name") != "Snake" || r.URL.Query().Get("be_public") != "" {
+						t.Error("lookup must use the owned app name query")
+					}
+					if started.Load() && tt.lookupFail {
+						http.Error(w, "lookup unavailable", http.StatusServiceUnavailable)
+						return
+					}
+					rows := []map[string]any{{"app_id": "13466", "app_name": "Snake"}}
+					if started.Load() {
+						rows = append(rows, map[string]any{"app_id": "99999", "app_name": "Snake game"})
+						for _, id := range tt.newIDs {
+							rows = append(rows, map[string]any{"app_id": id, "app_name": "Snake"})
+						}
+					}
+					_ = json.NewEncoder(w).Encode(map[string]any{"code": 0, "data": map[string]any{"list": rows}})
+				case enum.AIApiPathAppCreate:
+					creates.Add(1)
+					_, _ = io.Copy(io.Discard, r.Body)
+					started.Store(true)
+					if tt.business {
+						_, _ = io.WriteString(w, `{"code":11202,"msg":"invalid request"}`)
+						return
+					}
+					<-r.Context().Done()
+				case enum.AIApiPathAppView:
+					_, _ = io.WriteString(w, `{"code":11306,"msg":"Not Found the resources"}`)
+				case enum.AIApiPathAppUpdate:
+					updates.Add(1)
+					var body map[string]any
+					if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+						t.Error(err)
+					}
+					if body["app_id"] != "13467" || body["excerpt"] != "a board game" {
+						t.Errorf("unexpected update body: %#v", body)
+					}
+					if tt.updateFail {
+						_, _ = io.WriteString(w, `{"code":11202,"msg":"update rejected"}`)
+					} else {
+						_, _ = io.WriteString(w, `{"code":0,"data":{"app_id":"13467"}}`)
+					}
+				default:
+					t.Errorf("unexpected path: %s", r.URL.Path)
+					http.NotFound(w, r)
+				}
+			}))
+			s := AppService{client: api}
+			params := AppCreateParams{Name: "Snake"}
+			if !tt.nameOnly {
+				params.FromJSON = filepath.Join(t.TempDir(), "app.json")
+				if err := os.WriteFile(params.FromJSON, []byte(`{"excerpt":"a board game"}`), 0o600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			raw, err := s.CreateApp(params)
+			if creates.Load() != 1 {
+				t.Fatalf("create calls=%d", creates.Load())
+			}
+			if tt.wantError != "" {
+				if err == nil || !strings.Contains(err.Error(), tt.wantError) {
+					t.Fatalf("want %q, got %v", tt.wantError, err)
+				}
+				if !tt.business && !tt.updateFail && !errors.Is(err, context.DeadlineExceeded) {
+					t.Fatalf("original timeout lost: %v", err)
+				}
+				if !tt.updateFail && updates.Load() != 0 {
+					t.Fatal("unexpected update after failed recovery")
+				}
+				if tt.business && lookups.Load() != 1 {
+					t.Fatal("business errors must not trigger recovery")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			var result map[string]any
+			if err := json.Unmarshal(raw, &result); err != nil {
+				t.Fatal(err)
+			}
+			if result["app_id"] != "13467" || result["app_name"] != "Snake" || result["recovered_after_timeout"] != true || result["console_url"] == nil || result["detail_url"] == nil {
+				t.Fatalf("incomplete recovery output: %s", raw)
+			}
+			if !tt.nameOnly && updates.Load() != 1 {
+				t.Fatal("recovered app payload was not saved exactly once")
+			}
+		})
+	}
+}
+
+func TestCreateAppSnapshotFailureSkipsRecovery(t *testing.T) {
+	api := newHandlerAIClient(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case enum.AIApiPathAppList:
+			http.Error(w, "unavailable", http.StatusServiceUnavailable)
+		case enum.AIApiPathAppCreate:
+			_ = json.NewEncoder(w).Encode(map[string]any{"code": 0, "data": map[string]any{"app_id": "13470"}})
+		default:
+			t.Errorf("unexpected request: %s", r.URL.Path)
+		}
+	}))
+	out, err := (AppService{client: api}).CreateApp(AppCreateParams{Name: "Snake"})
+	if err != nil || !strings.Contains(string(out), "13470") {
+		t.Fatalf("out=%s error=%v", out, err)
+	}
+}
+
+func TestAppIDsWithExactNamePaginates(t *testing.T) {
+	var pages []string
+	api := newHandlerAIClient(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		page := r.URL.Query().Get("page")
+		if r.URL.Query().Get("length") != "20" {
+			t.Error("lookup must use the default page length")
+		}
+		pages = append(pages, page)
+		rows := make([]map[string]any, 0)
+		if page == "1" {
+			for i := 0; i < 20; i++ {
+				rows = append(rows, map[string]any{"app_id": fmt.Sprint(i), "app_name": "Snake game"})
+			}
+		} else {
+			rows = append(rows, map[string]any{"app_id": "13466", "app_name": "Snake"})
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"code": 0, "data": map[string]any{"list": rows}})
+	}))
+	ids, err := (AppService{client: api}).appIDsWithExactName("Snake")
+	if err != nil || len(ids) != 1 || !ids["13466"] || strings.Join(pages, ",") != "1,2" {
+		t.Fatalf("ids=%v pages=%v error=%v", ids, pages, err)
+	}
+}
+
+func TestAppIDsWithExactNameValidatesLists(t *testing.T) {
+	for _, tt := range []struct {
+		name    string
+		payload string
+		wantErr bool
+	}{
+		{"missing list", `{}`, true},
+		{"invalid list", `{"list":"invalid"}`, true},
+		{"missing identity", `{"list":[{"app_name":"Snake"}]}`, true},
+		{"null list", `{"list":null}`, false},
+		{"different whitespace", `{"list":[{"app_id":"1","app_name":" Snake "}]}`, false},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			api := newHandlerAIClient(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				_, _ = io.WriteString(w, tt.payload)
+			}))
+			ids, err := (AppService{client: api}).appIDsWithExactName("Snake")
+			if (err != nil) != tt.wantErr || len(ids) != 0 {
+				t.Fatalf("ids=%v error=%v, want error=%v", ids, err, tt.wantErr)
+			}
+		})
 	}
 }
 

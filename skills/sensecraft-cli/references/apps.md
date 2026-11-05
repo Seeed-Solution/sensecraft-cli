@@ -19,7 +19,7 @@ Child skill: [`../create-app/SKILL.md`](../create-app/SKILL.md) — turn a local
    **`app create` is not L2** — including `--from-json` with full fields (create + internal follow-up `update_app` on the **new** `app_id` only). Prefer one-shot create when the payload is ready. Still tell the user what will be created before running create.
 3. **Privacy values**: submit review → `privacy` / flow uses **`2`** (pending); unpublish/private → **`0`**. **Never send `1`** (ops-approved public; Admin only).
 4. Tool-block **configuration** may be written into `deployment.blocks`. **Executing** flash / USB deploy / container install on hardware is **L3**. Classic reCamera (`40`): [`sensecraft-recamera`](recamera.md) (`check` / `open`). Other benches: Console `/ai/device/local/32|36|37|41|52`. `flash-firmware` run is out of scope this pass.
-5. Parse indented JSON on stdout; on failure read stderr + exit code. After `app update`, **re-read** the app — success body may be `{}`.
+5. Parse indented JSON on stdout; on failure read stderr + exit code. After `app update`, **re-read** with `app view --id <app_id> --sketch` — success body may be `{}`. For an app never published, `app view` without `--sketch` returns only its name; use `--sketch` for the saved draft.
 6. **Rename / edit info**: sparse `{"app_name":"…"}` is OK (CLI merges other info fields from sketch). Do not invent HTTP; do **not** put `be_public=1` in user JSON. For **already published** apps the CLI injects `be_public=1` (Console info save) and returns `sketch_saved` — plaza copy is unchanged until `app publish`.
 7. **Lifecycle vs Console**: edit / publish / unpublish / delete / BOM / cover only for **your** apps (`user_id` == profile). Another user's plaza app cannot be edited. `be_public=2` locks owner edit. `be_public=1` owner may save sketch then `app publish` (草稿). Delete only `be_public=0`.
 8. **Never blind-retry `app create`**: names are not unique. If create output lacks `app_id` or looks empty, run `app list --mine` before creating again.
@@ -55,6 +55,8 @@ sensecraft-cli app view --id <app_id>
 Summarize: name, excerpt, scene, tool-block types used, BOM highlights, deploy steps.
 
 ### Rename an existing app (L2)
+
+Have the user close this app's CodeCraft Hub editor page before CLI updates and reopen it after verification. The open editor saves the copy it loaded and can replace CLI changes made meanwhile. Apply this sequence to info, deployment, BOM, cover, and activity updates.
 
 ```bash
 # Confirm with the user first. Sparse name-only JSON is OK — CLI merges other info fields.
@@ -103,6 +105,8 @@ sensecraft-cli app bom set --id <app_id> --from-json ./materials.json --yes
 
 Seeed rows need `id`(=SKU). Custom rows omit `id`. No manual custom image upload.
 
+`app bom search` matches every normalized query token against the product name, SKU, category, note or description, ignoring case and punctuation. `XIAO ESP32-S3 1.47`, `1.47 Touch`, and `Touch Display ESP32S3` match `XIAO 1.47" Touch Display (ESP32-S3)`; exact SKU searches also work. Results keep catalog order and return `{count, list}`. Catalog rows retain `block_support` and add boolean `block_supported` (`true` for `"是"`). `app list` keeps its existing keys, including `page`, and adds `count` when missing; that fallback counts the current page.
+
 ### Author path
 
 For a local project/repository or an existing `codecraft-app.json`, use [create-app](../create-app/SKILL.md) for the full discovery, writing review, BOM verification, and manifest workflow. The abbreviated commands below apply to content that is already authored and reviewed; do not bypass that workflow by uploading a developer README directly.
@@ -122,12 +126,13 @@ For a local project/repository or an existing `codecraft-app.json`, use [create-
    sensecraft-cli app create --from-json ./app.json
    # CLI returns app_id + console_url + detail_url (even if update_app body was {}).
    # detail_url is https://codecraft.seeed.cc/hub/view-application/<id>-<slug>
-   # (test AI host or remote_type Develop → https://test-codecraft.seeed.cc/hub). No query. The site shows the author's draft when they are logged in.
+   # (test AI host or remote_type Develop → https://test-codecraft.seeed.cc/hub). No query.
    # A non-empty web_link on a list item is the link to give the user.
    # Restore JSON may have pic_url (list) or images[] (view); CLI writes both.
    # Show links to the user. NEVER re-run create because stdout looked empty —
    # check first: app list --mine --name "<name>"
    ```
+   After a client timeout, the CLI resumes only when exactly one new exact-name app is found compared with the pre-create snapshot; success includes `recovered_after_timeout: true`. Multiple candidates are reported by ID for inspection.
    Incremental path (empty shell, then L2 edit of existing app):
    ```bash
    sensecraft-cli app create --name "My App"

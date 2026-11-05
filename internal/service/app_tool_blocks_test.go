@@ -170,8 +170,11 @@ func TestMalformedToolRejectedBeforeCreateOrUpdateWrites(t *testing.T) {
 
 func TestCreateAndUpdatePersistRendererReadableConfig(t *testing.T) {
 	var writes []map[string]any
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	api := newHandlerAIClient(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		data := map[string]any{"app_id": "12345", "be_public": 0}
+		if r.URL.Path == enum.AIApiPathAppList {
+			data = map[string]any{"list": []any{}}
+		}
 		if r.URL.Path == enum.AIApiPathAppUpdate {
 			var body map[string]any
 			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
@@ -181,8 +184,7 @@ func TestCreateAndUpdatePersistRendererReadableConfig(t *testing.T) {
 		}
 		_ = json.NewEncoder(w).Encode(map[string]any{"code": 0, "data": data})
 	}))
-	defer srv.Close()
-	s := appServiceForTest(t, srv)
+	s := AppService{client: api, remoteType: "Global"}
 	blocks := []any{
 		map[string]any{"id": "intro", "type": "paragraph", "content": "Connect the Watcher."},
 		map[string]any{"id": "step", "type": "step", "title": "Flash firmware", "content": "Flash firmware"},

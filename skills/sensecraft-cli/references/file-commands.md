@@ -9,6 +9,7 @@ Acquires an OSS POST policy, uploads the local file with multipart/form-data, an
 | Flag | Required | Default | Notes |
 |------|----------|---------|-------|
 | `--path` | yes | — | Local file |
+| `--name` | no | local basename with spaces removed | Stored file name; local file contents and path stay the same |
 | `--type` | no | `2` | `1=image`, `2=file/model`, `3=app`, `4=firmware`, `5=static resource`, `6=archive/zip` |
 | `--flow-id` | type 5 | — | Required for static resources; omitted for other types |
 | `--checksum` | no | false | Compute local MD5 and include it in output |
@@ -31,6 +32,8 @@ Acquires an OSS POST policy, uploads the local file with multipart/form-data, an
 
 `--model-id` and `--app-id` are mutually exclusive. Types `1`/`2` without attach/`--for-app`/`--unlinked` exit non-zero **before** the OSS POST (`ErrAttachRequired`). Types `3`–`6` upload directly. Type `5` without `--flow-id` exits before acquire.
 
+Without `--name`, type `4` prints a stderr warning: uploads replace any earlier file with the same name in the organisation. Choose a distinct stored name for each app, for example `--name <project>-muse-gadget.bin`. Omitting `--name` keeps the existing naming behavior. The explicit name must be a file name, with directory separators and control characters excluded.
+
 ```bash
 sensecraft-cli file upload --path ./cover.png --type 1 --for-app
 sensecraft-cli file upload --path ./cover.png --type 1 --app-id <app_id> --yes
@@ -39,6 +42,7 @@ sensecraft-cli file upload --path ./model.rknn --type 2 --checksum --unlinked
 sensecraft-cli file upload --path ./model.rknn --model-id <model_id> --yes
 sensecraft-cli file upload --path ./application.zip --type 3 --checksum
 sensecraft-cli file upload --path ./firmware.bin --type 4 --checksum
+sensecraft-cli file upload --path ./muse-gadget.bin --type 4 --name clock-muse-gadget.bin
 sensecraft-cli file upload --path ./manual.pdf --type 5 --flow-id <flow_id>
 sensecraft-cli file upload --path ./dataset.zip --type 6 --checksum
 ```

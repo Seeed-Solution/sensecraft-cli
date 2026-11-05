@@ -93,12 +93,15 @@ ls "$(npm root -g)/@seeed-studio/sensecraft-cli/skills"
 | 命令 | 说明 |
 |------|------|
 | `auth add` | 校验 Access Key，写入本机，并设为当前钥匙 |
-| `auth info` | 显示站点、组织 ID 和 Key ID |
+| `auth info` | 显示本地认证摘要；加 `--json` 输出结构化数据 |
 
 ```bash
 sensecraft-cli auth add --key-id <Key ID> --access-key <Access Key> --site Global
 sensecraft-cli auth info
+sensecraft-cli auth info --json
 ```
+
+`auth info --json` 返回 `{ "profiles": [...] }`，每项仅含 `site`、`org_id`、`key_id`、`kind`、`created_at` 和 `active`。
 
 | `--site` | SenseCAP OpenAPI | SenseCraft AI OpenAPI |
 |----------|------------------|------------------------|
@@ -136,9 +139,23 @@ sensecraft-cli recamera check --model-id <id>
 
 `app list --sort` 取 `popular`、`newest` 或 `likes`。常用 `--uniform-type`：`40` reCamera，`32` XIAO ESP32S3，`53` reCamera Pro。
 
+`app create` 会先记录自己的精确同名应用。创建请求超时后，只有恰好新增一个同名应用时才继续保存，并返回 `recovered_after_timeout: true`、应用 ID 和常规链接；没有新增则返回原错误，多个候选则停止并列出 ID。结果不确定时，用 `app list --mine --name "<名称>"` 核对。客户端超时保持为 15 秒。
+
+从未发布的应用，用 `app view --id <id>` 只能读到名称；读取和核对已保存草稿请用 `app view --id <id> --sketch`。执行 CLI 更新前，先关闭该应用的 CodeCraft Hub 编辑页，验证后再重新打开：打开的编辑页会保存它加载时的副本，可能覆盖期间通过 CLI 做的修改。
+
+`app bom search --name "XIAO ESP32-S3 1.47"` 会逐词匹配产品名称、SKU、分类、备注或描述，忽略大小写和标点；`1.47 Touch`、`Touch Display ESP32-S3` 和完整 SKU 也能匹配。`ESP32S3` 与 `ESP32-S3` 等价，结果保持目录原顺序。目录保留原始 `block_support`，同时增加布尔值 `block_supported`（`"是"` 对应 `true`）。
+
+`file upload --name <文件名>` 可指定存储名称；省略时沿用本地文件名去空格的规则。类型 `4` 会在 stderr 提醒：同一组织内，同名上传会替换原文件内容，URL 保持相同。Muse Gadget 应上传构建产物 `muse-gadget.bin`，它是链接在 `0x20000` 的**应用镜像**，并为每个应用指定独立的存储名称：
+
+```bash
+sensecraft-cli file upload --path ./build/muse-gadget.bin --type 4 --name clock-muse-gadget.bin
+```
+
+重命名后的应用镜像已在硬件上验证可从 Hub 草稿页烧录并启动。将各自返回的 URL 写入对应应用的 `firmware_url`；连续创建多个应用后，用 `--sketch` 读取草稿，确认这些 URL 互不相同。
+
 ## 进阶
 
-成功的数据命令把缩进 JSON 打到 stdout。`auth add` 和 `auth info` 打可读文本。失败在 stderr，退出码非 0。
+成功的数据命令把缩进 JSON 打到 stdout。含 `list` 的对象会在缺少 `count` 时补上当前列表长度；`page` 等原字段及服务器已有的 `count` 保持原值。`auth add` 和默认的 `auth info` 打可读文本，`auth info --json` 输出认证摘要。失败在 stderr，退出码非 0。
 
 `sensecraft-cli --version` 打印 npm 包版本。直接 `go build` 的二进制打印 `dev`。
 

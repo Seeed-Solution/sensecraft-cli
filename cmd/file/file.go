@@ -24,6 +24,7 @@ func NewFileCmd() *cobra.Command {
 func newFileUploadCmd() *cobra.Command {
 	var (
 		path     string
+		name     string
 		fileType int
 		flowID   string
 		checksum bool
@@ -55,6 +56,9 @@ Association (types 1–2) is required before any OSS upload:
   --unlinked              explicit orphan for later create/update JSON (pic_url / model create)
 
 Types 3–6 have no model/app attach path and upload directly.
+Use --name to choose the stored file name; the default uses the local file name.
+Type 4 replaces any earlier file with the same name in the organisation.
+Use --name <project>-muse-gadget.bin for each project's firmware.
 Without association flags: interactive TTY guides; agents must ask first.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx, err := cmdctx.GetAICmdContext()
@@ -80,6 +84,7 @@ Without association flags: interactive TTY guides; agents must ask first.`,
 			if modelID != "" {
 				result, err := service.GetModelService(ctx).UploadAndAttach(service.ModelUploadParams{
 					Path:    path,
+					Name:    name,
 					ModelID: modelID,
 					Yes:     yes,
 				})
@@ -97,6 +102,7 @@ Without association flags: interactive TTY guides; agents must ask first.`,
 				}
 				up, err := service.GetFileService(ctx).UploadFile(service.FileUploadParams{
 					Path:     path,
+					Name:     name,
 					FileType: service.FileTypeImage,
 					Checksum: checksum,
 				})
@@ -117,8 +123,12 @@ Without association flags: interactive TTY guides; agents must ask first.`,
 				}
 				fileType = service.FileTypeImage
 			}
+			if fileType == service.FileTypeFirmware && name == "" {
+				fmt.Fprintln(cmd.ErrOrStderr(), "Warning: firmware uploads replace any earlier file with the same name in the organisation. Use --name <project>-muse-gadget.bin to give each project's firmware its own stored name.")
+			}
 			result, err := service.GetFileService(ctx).UploadFile(service.FileUploadParams{
 				Path:     path,
+				Name:     name,
 				FileType: fileType,
 				Checksum: checksum,
 				FlowID:   flowID,
@@ -136,6 +146,7 @@ Without association flags: interactive TTY guides; agents must ask first.`,
 		},
 	}
 	cmd.Flags().StringVar(&path, "path", "", "Local file path (required)")
+	cmd.Flags().StringVar(&name, "name", "", "Stored file name (defaults to the local file name with spaces removed)")
 	cmd.Flags().IntVar(&fileType, "type", service.FileTypeFile, "Upload file_type (default 2=model/file)")
 	cmd.Flags().StringVar(&flowID, "flow-id", "", "Required when --type 5 (static resource)")
 	cmd.Flags().BoolVar(&checksum, "checksum", false, "Compute local MD5 checksum")

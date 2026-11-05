@@ -145,9 +145,9 @@ func newAppActivityListCmd() *cobra.Command {
 Prints activities whose current time is between start and end.
 start_time and end_time are UTC, for example 2026-10-18T16:00:00Z.
 
-{ "list": [ { activity_id, name, guide_url, start_time, end_time } ] }
+{ "count": N, "list": [ { activity_id, name, guide_url, start_time, end_time } ] }
 
-An empty result is { "list": [] }.`,
+An empty result is { "count": 0, "list": [] }.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			remoteType := ""
 			if !sandbox {

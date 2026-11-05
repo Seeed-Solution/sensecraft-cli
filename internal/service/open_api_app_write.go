@@ -5,7 +5,9 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"net"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -245,10 +247,21 @@ func (s AppService) CreateApp(p AppCreateParams) (json.RawMessage, error) {
 		}
 	}
 
+	// Timeout recovery runs only when this snapshot succeeds.
+	// 仅在快照成功时启用超时恢复。
+	before, snapshotErr := s.appIDsWithExactName(name)
+	recovered := false
 	created, err := s.client.Post(enum.AIApiPathAppCreate, map[string]any{"app_name": name})
 	if err != nil {
+		var timeout net.Error
 		if errors.Is(err, client.ErrSandboxMode) {
 			created = sandboxAppCreate(name)
+		} else if snapshotErr == nil && errors.As(err, &timeout) && timeout.Timeout() {
+			created, err = s.recoverAppCreate(name, before, err)
+			if err != nil {
+				return nil, err
+			}
+			recovered = true
 		} else {
 			return nil, err
 		}
@@ -258,20 +271,92 @@ func (s AppService) CreateApp(p AppCreateParams) (json.RawMessage, error) {
 	if appID == "" {
 		return created, nil
 	}
-	if extra == nil {
-		// create_app often returns only app_id. Keep the name we sent so the
-		// detail link still gets the title slug.
-		return attachCompileNotes(s.withAppConsoleURL(ensureAppIdentity(created, appID, name)), notes), nil
+	result := created
+	if extra != nil {
+		// A just-created app has no sketch yet. The patch accepts a missing sketch.
+		// 新建应用尚无草稿，补充字段时允许草稿不存在。
+		updated, err := s.applyAppPatch(appID, extra, true)
+		if err != nil {
+			return nil, fmt.Errorf("created app_id=%s but update failed: %w", appID, err)
+		}
+		result = finalizeAppCreateResult(created, updated, appID, name)
 	}
-	// A just-created app has no sketch yet. view_sketch=1 returns 11306
-	// ("Not Found the resources"); still write the rest of the payload.
-	updated, err := s.applyAppPatch(appID, extra, true)
+	result = attachCompileNotes(s.withAppConsoleURL(ensureAppIdentity(result, appID, name)), notes)
+	if recovered {
+		result = attachAppJSONMeta(result, map[string]any{"recovered_after_timeout": true})
+	}
+	return result, nil
+}
+
+// appIDsWithExactName collects owned exact-name matches across all result pages.
+// appIDsWithExactName 收集所有结果页中属于调用者的精确同名应用。
+func (s AppService) appIDsWithExactName(name string) (map[string]bool, error) {
+	ids := map[string]bool{}
+	if s.sandbox {
+		return ids, nil
+	}
+	seen := map[string]bool{}
+	const length = 20
+	for page := 1; ; page++ {
+		raw, err := s.ListApps(AppListParams{Mine: true, Name: name, Page: page, Length: length})
+		if err != nil {
+			return nil, err
+		}
+		var result struct {
+			List json.RawMessage `json:"list"`
+		}
+		if err := json.Unmarshal(raw, &result); err != nil || len(result.List) == 0 {
+			return nil, fmt.Errorf("app name lookup returned an invalid list")
+		}
+		var rows []map[string]any
+		if err := json.Unmarshal(result.List, &rows); err != nil {
+			return nil, fmt.Errorf("app name lookup returned an invalid list")
+		}
+		newIDs := 0
+		for _, item := range rows {
+			id := stringFromMap(item, "app_id")
+			if id == "" {
+				return nil, fmt.Errorf("app name lookup returned a row without app_id")
+			}
+			if !seen[id] {
+				seen[id] = true
+				newIDs++
+			}
+			if item["app_name"] == name {
+				ids[id] = true
+			}
+		}
+		if len(rows) < length {
+			return ids, nil
+		}
+		if newIDs == 0 {
+			return nil, fmt.Errorf("app name lookup pagination did not advance")
+		}
+	}
+}
+
+// recoverAppCreate selects the unique exact-name app absent from the snapshot.
+// recoverAppCreate 选择快照中不存在的唯一精确同名应用。
+func (s AppService) recoverAppCreate(name string, before map[string]bool, createErr error) (json.RawMessage, error) {
+	after, err := s.appIDsWithExactName(name)
 	if err != nil {
-		return nil, fmt.Errorf("created app_id=%s but update failed: %w", appID, err)
+		return nil, fmt.Errorf("%w; app lookup after timeout failed: %v", createErr, err)
 	}
-	// aiserver update_app often returns {} / null — never drop the known app_id
-	// (Agents would retry create and spawn duplicates).
-	return attachCompileNotes(s.withAppConsoleURL(finalizeAppCreateResult(created, updated, appID, name)), notes), nil
+	var candidates []string
+	for id := range after {
+		if !before[id] {
+			candidates = append(candidates, id)
+		}
+	}
+	sort.Strings(candidates)
+	switch len(candidates) {
+	case 0:
+		return nil, createErr
+	case 1:
+		return ensureAppIdentity(nil, candidates[0], name), nil
+	default:
+		return nil, fmt.Errorf("%w; ambiguous create recovery, candidate app IDs: %s", createErr, strings.Join(candidates, ", "))
+	}
 }
 
 // finalizeAppCreateResult prefers an update body that still carries identity;

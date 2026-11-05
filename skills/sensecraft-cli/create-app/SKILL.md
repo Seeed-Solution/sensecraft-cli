@@ -94,6 +94,14 @@ Update the review notes with corrections, evidence, remaining gaps, and readines
 
 1. Read the upload references. Run `sensecraft-cli auth info`. If no Access Key is active, use the split `auth init` flow in [`../SKILL.md`](../SKILL.md). Do not run bare `auth init`. Recheck the environment and that selected files still match their reviewed hashes. Upload only reviewed assets; reuse unchanged URLs. Images: `file upload --path <image> --type 1 --for-app`. Firmware: `--type 4`. Other artifacts: select the actual type/flags from the reference. App images use at most 16 JPG/JPEG/PNG/GIF/WebP files, each ≤5 MB; other artifacts are ≤100 MB.
 
+   For Muse Gadget, select the **application image** built as `muse-gadget.bin` and linked at **`0x20000`**. Give each app its own stored file name:
+
+   ```bash
+   sensecraft-cli file upload --path <build-dir>/muse-gadget.bin --type 4 --name <project>-muse-gadget.bin
+   ```
+
+   Type-4 storage is scoped by organisation and file name: uploading the same name replaces its earlier contents at the same URL. Keep each app's stored name distinct. A renamed application image has been verified to flash and boot from the Hub draft page. Set `firmware_url` to that app's returned URL; keep the tool's device-default `flash_address` from the reference.
+
    For Muse Gadget firmware, scan the exact file selected for upload before `file upload --type 4`. A complete SDK token is `mgst_` followed by 43 characters from `[A-Za-z0-9_-]`. The short `mgst_` prefix used by firmware format validation is not a credential match. Keep the scan quiet so matching values stay local:
 
    ```bash
@@ -107,8 +115,8 @@ Update the review notes with corrections, evidence, remaining gaps, and readines
    ```bash
    sensecraft-cli app create --from-json .sensecraft/codecraft-app.payload.json
    ```
-   Parse successful stdout for `app_id`, `console_url`, and `detail_url`. Record the ID and local UTC `created_at` immediately, before verification. On any ambiguous failure or missing ID/URLs, run `app list --mine --name "<app_name>"` before deciding whether creation happened; do not blindly retry. An internal follow-up save may fail after creating the app: recover that ID and resume by update.
-5. Re-read `app view --id <app_id> --sketch` and `app bom list --id <app_id> --sketch`. Compare intended fields, image order, blocks/configs, and BOM rows, accounting for documented server normalization. Verify any requested activity association per the activity reference. A create response alone is not proof all sections saved. On a mismatch preserve the ID and report/repair through the update path.
+   Parse successful stdout for `app_id`, `console_url`, and `detail_url`. Record the ID and local UTC `created_at` immediately, before verification. The CLI snapshots exact-name matches before creating; after a client timeout, it resumes the follow-up save only for one newly appeared exact-name app and adds `recovered_after_timeout: true`. Several candidates stop recovery and report their IDs. On any ambiguous failure or missing ID/URLs, run `app list --mine --name "<app_name>"` before deciding whether creation happened; do not blindly retry. An internal follow-up save may fail after creating the app: recover that ID and resume by update.
+5. Re-read `app view --id <app_id> --sketch` and `app bom list --id <app_id> --sketch`. Compare intended fields, image order, blocks/configs, and BOM rows, accounting for documented server normalization. For an app never published, the default `app view` returns only its name; `--sketch` reads the saved draft. After creating several firmware apps, compare their saved `firmware_url` values and verify that each app has a distinct URL. Verify any requested activity association per the activity reference. A create response alone is not proof all sections saved. On a mismatch preserve the ID and report/repair through the update path.
 6. Only after verification, advance `sync.last_pushed_*` using the manifest contract and snapshot. Delete only transient payloads created by this session after success; preserve prior files and failure evidence.
 7. Report app name, ID, returned editor/detail links, counts, manifest revision/path, activity choice/result, and readiness. State **private draft (`be_public=0`)**; private and deployment-ready are separate facts. Missing cover affects publishing; missing tool inputs affect deployment. Never claim the hardware was flashed or the app is public. Publish/unpublish/delete/clone use [apps.md](../references/apps.md).
 
@@ -117,6 +125,8 @@ Update the review notes with corrections, evidence, remaining gaps, and readines
 Read the references for the affected sections before editing them. Preserve the same discovery, synthesis, and review standards, scaled to the requested change.
 
 Handle activity participation on updates per [app-fields.md](../references/app-fields.md#activity-selection-during-app-authoring) and the manifest projection rules.
+
+Have the user close this app's CodeCraft Hub editor page before CLI updates, then reopen it after verification. An open editor saves the copy it loaded and can replace changes made through the CLI meanwhile.
 
 1. Edit the manifest first, increment `sync.local_revision`, and validate. Recheck auth: `identity.remote_type` and `org_id` must match. A mismatch requires switching auth or an explicit decision to adopt the environment; do not write across environments silently.
 2. Read `app view --id <app_id> --sketch`. Under review (`be_public=2`) → stop and explain the lock. Compare with the last verified baseline per [manifest sync](references/manifest.md#sync--local-vs-remote-bookkeeping). Detect outside edits, merge non-conflicting changes, and present conflicts as concrete choices. No verified baseline after a partial create → inspect current remote state and reconcile; never assume it is empty.

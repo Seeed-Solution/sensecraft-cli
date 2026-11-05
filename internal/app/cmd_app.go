@@ -79,9 +79,7 @@ func (ctx CmdContext) LogError(err error, fields map[string]string) {
 }
 
 func (ctx CmdContext) PrintJsonData(data interface{}) error {
-	enc := json.NewEncoder(ctx.stdout)
-	enc.SetIndent("", "  ")
-	return enc.Encode(data)
+	return printJSONData(ctx.stdout, data)
 }
 
 func (ctx CmdContext) PrintRawData(raw json.RawMessage) error {
@@ -99,9 +97,32 @@ func (ctx AICmdContext) LogError(err error, fields map[string]string) {
 }
 
 func (ctx AICmdContext) PrintJsonData(data interface{}) error {
-	enc := json.NewEncoder(ctx.stdout)
+	return printJSONData(ctx.stdout, data)
+}
+
+// printJSONData adds the current list length when the response has no count.
+// printJSONData 在响应缺少 count 时补充当前列表长度。
+func printJSONData(out io.Writer, data any) error {
+	raw, err := json.Marshal(data)
+	if err != nil {
+		return err
+	}
+	var root map[string]json.RawMessage
+	if json.Unmarshal(raw, &root) == nil && root != nil {
+		if list, exists := root["list"]; exists {
+			var rows []json.RawMessage
+			if _, counted := root["count"]; !counted && json.Unmarshal(list, &rows) == nil {
+				root["count"], _ = json.Marshal(len(rows))
+				raw, err = json.Marshal(root)
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
+	enc := json.NewEncoder(out)
 	enc.SetIndent("", "  ")
-	return enc.Encode(data)
+	return enc.Encode(json.RawMessage(raw))
 }
 
 func (ctx AICmdContext) PrintRawData(raw json.RawMessage) error {

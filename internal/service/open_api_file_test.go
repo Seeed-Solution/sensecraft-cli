@@ -261,6 +261,62 @@ func newUploadServer(t *testing.T, body string, ossStatus int, ossBody string) (
 	return srv, cap
 }
 
+func TestUploadFirmwareStoredName(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "muse-gadget.bin")
+	if err := os.WriteFile(path, []byte("application-image"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"", "snake-muse-gadget.bin", "clock-muse-gadget.bin"} {
+		t.Run(name, func(t *testing.T) {
+			want := name
+			if want == "" {
+				want = "muse-gadget.bin"
+			}
+			body := `{"code":0,"data":{
+				"host":"{{HOST}}","policy":"policy","signature":"signature","OSSAccessKeyId":"test-id","security_token":"test-token",
+				"key":"firmware/` + want + `","file_url":"https://cdn.example/` + want + `","max_bytes":104857600
+			}}`
+			var storedName, postedName, uploaded string
+			handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method == http.MethodGet {
+					storedName = r.URL.Query().Get("file_name")
+					_, _ = io.WriteString(w, strings.ReplaceAll(body, "{{HOST}}", "https://oss.example"))
+					return
+				}
+				if err := r.ParseMultipartForm(1024); err != nil {
+					t.Error(err)
+					return
+				}
+				file, header, err := r.FormFile("file")
+				if err != nil {
+					t.Error(err)
+					return
+				}
+				defer file.Close()
+				postedName = header.Filename
+				contents, _ := io.ReadAll(file)
+				uploaded = string(contents)
+				w.WriteHeader(http.StatusNoContent)
+			})
+			previous := http.DefaultTransport
+			http.DefaultTransport = handlerTransport{handler: handler}
+			t.Cleanup(func() { http.DefaultTransport = previous })
+			files := FileService{client: newHandlerAIClient(handler)}
+			result, err := files.UploadFile(FileUploadParams{Path: path, Name: name, FileType: FileTypeFirmware})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if storedName != want || postedName != want || result.FileName != want || result.FileURL != "https://cdn.example/"+want || uploaded != "application-image" {
+				t.Fatal("stored name, upload bytes, or result did not match")
+			}
+			sandbox, err := (FileService{sandbox: true}).UploadFile(FileUploadParams{Path: path, Name: name, FileType: FileTypeFirmware})
+			if err != nil || sandbox.FileName != want || !strings.HasSuffix(sandbox.FileURL, want) {
+				t.Fatalf("sandbox name mismatch, error=%v", err)
+			}
+		})
+	}
+}
+
 func uploadService(srv *httptest.Server) FileService {
 	return FileService{client: client.NewAIApiClientAt(srv.URL, srv.Client())}
 }

@@ -6,6 +6,9 @@ package uploadguard
 import (
 	"errors"
 	"fmt"
+	"path/filepath"
+	"strings"
+	"unicode"
 )
 
 // Business caps from the OpenAPI upload spec. Every image is 5MB.
@@ -15,6 +18,18 @@ const (
 )
 
 var ErrEmptyUpload = errors.New("empty file uploads are not allowed (0 bytes)")
+
+// StoredFileName returns the explicit stored name or the local basename with spaces removed.
+// StoredFileName 返回指定的存储文件名，默认使用去除空格的本地文件名。
+func StoredFileName(path, name string) (string, error) {
+	if name == "" {
+		name = strings.ReplaceAll(filepath.Base(path), " ", "")
+	}
+	if strings.TrimSpace(name) == "" || name == "." || name == ".." || strings.ContainsAny(name, `/\`) || strings.IndexFunc(name, unicode.IsControl) >= 0 {
+		return "", fmt.Errorf("invalid file name: use a file name without directory separators or control characters")
+	}
+	return name, nil
+}
 
 // ValidateOSSUploadSize checks the local file before acquire_file_url.
 // fileType 1 is an image (5MB). Types 2–6 are 100MB.

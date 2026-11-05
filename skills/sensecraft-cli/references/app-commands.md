@@ -8,8 +8,11 @@ Target binary: `sensecraft-cli` (this repo). Auth: active **SenseCAP Access Key*
 
 ```bash
 sensecraft-cli auth info
+sensecraft-cli auth info --json
 sensecraft-cli auth init --site Global --no-wait   # split flow; see SKILL.md
 ```
+
+`auth info` defaults to text. `--json` returns `{ "profiles": [...] }`; each profile contains only `site`, `org_id`, `key_id`, `kind`, `created_at`, and `active`.
 
 ## Commands
 
@@ -18,6 +21,8 @@ sensecraft-cli auth init --site Global --no-wait   # split flow; see SKILL.md
 **Status: implemented.**
 
 List apps.
+
+Output retains server keys such as `list` and `page`. If `count` is absent, CLI adds the current page's list length; an existing server count is preserved.
 
 | Flag                  | Default                 | Notes                                                        |
 | --------------------- | ----------------------- | ------------------------------------------------------------ |
@@ -63,6 +68,8 @@ sensecraft-cli app list --public --mark-type 1
 sensecraft-cli app view --id <app_id>
 sensecraft-cli app view --id <app_id> --sketch
 ```
+
+For an app never published, the default view returns only its name. Read saved draft fields, deployment blocks, and other draft content with `--sketch`.
 
 ### `app fields`
 
@@ -115,7 +122,9 @@ Rejects `be_public=1` / `privacy=1`. Do **not** confuse with `app update` (exist
 - edit: `/application/edit?id=<app_id>`
 - app detail: `/view-application/<app_id>-<slug>`
 
-Owner and plaza links are the same path. Do not append `from`, `section`, `state`, or `tab`. The site shows the author's draft when they are logged in, and the published page to everyone else. If a list item has a non-empty `web_link`, give the user that URL instead of `view-application`. Model and legal pages stay on `sensecraft.seeed.cc`.
+Owner and plaza links are the same path. Do not append `from`, `section`, `state`, or `tab`. If a list item has a non-empty `web_link`, give the user that URL instead of `view-application`. Model and legal pages stay on `sensecraft.seeed.cc`.
+
+Before `create_app`, CLI snapshots the caller's exact-name matches across pages using the same lookup as `app list --mine --name`. After a client timeout, exactly one new exact-name app resumes the normal follow-up save and returns `recovered_after_timeout: true` with the usual ID and URLs. No new match returns the original error; multiple new matches stop and report candidate IDs. A failed lookup stops recovery. The existing 15-second client timeout is retained: longer waits alone cannot resolve a server-side create whose response was lost.
 
 **Do not retry create blindly:**
 
@@ -138,6 +147,8 @@ sensecraft-cli app create --name "My App"
 
 #### `app update` (L2)
 
+Have the user close the app's CodeCraft Hub editor page before CLI updates and reopen it after verification. An open editor saves the copy it loaded and can replace CLI changes made meanwhile; this also applies to BOM, cover, and activity changes.
+
 | Flag            | Notes                                                                                                      |
 | --------------- | ---------------------------------------------------------------------------------------------------------- |
 | `--id`          | required                                                                                                   |
@@ -152,7 +163,7 @@ Rejects `be_public=1` / `privacy=1` in **user** payload. If the app is already p
 
 **Info patch merge:** if `--from-json` touches any of `app_name` / `excerpt` / `scene` / `allow_clone` / `allow_commerce` / `images` / `license` / `author`, CLI loads `view_app` (sketch) and fills missing info keys before `update_app`. Sparse `{"app_name":"…"}` rename is OK. Materials/deployment-only JSON is **not** force-merged with info. Private info saves still do **not** copy `be_public` from the existing view.
 
-**Always verify** after update (`app view` / `app list`) — API may return `{}` on success.
+**Always verify** after update (`app view --id <app_id> --sketch`) — API may return `{}` on success.
 
 ```bash
 # Ask the user before changing an existing app:
@@ -200,7 +211,7 @@ sensecraft-cli app delete --id <app_id> --yes
 
 ### `app activity list`
 
-**Status: implemented.** Read-only. No Access Key. `GET /activity/list` with no `time` query. stdout is `{ "list": [...] }` for activities in progress now: numeric `activity_id`, `name`, `guide_url`, and `start_time` / `end_time` as UTC timestamps (`2026-10-18T16:00:00Z`). Rows outside that window, or missing an id, name, or either time, are dropped. Tag ids are not shown.
+**Status: implemented.** Read-only. No Access Key. `GET /activity/list` with no `time` query. stdout is `{ "count": N, "list": [...] }` for activities in progress now: numeric `activity_id`, `name`, `guide_url`, and `start_time` / `end_time` as UTC timestamps (`2026-10-18T16:00:00Z`). Rows outside that window, or missing an id, name, or either time, are dropped. Tag ids are not shown. Empty result is `{ "count": 0, "list": [] }`.
 
 ```bash
 sensecraft-cli app activity list
@@ -245,6 +256,8 @@ sensecraft-cli app clone --id <source_app_id> --name "New name" --yes
 | `search [--name]`            | `get_production_options` → filter `material_options` |
 | `list --id [--sketch]`       | materials from `view_app`; use `--sketch` to verify saved draft rows |
 | `set --id --from-json --yes` | `update_app` materials[] (L2)                        |
+
+Search returns `{count, list}` in catalog order. Every query token must occur in the product name, SKU, category, note or description after case and punctuation normalization; `ESP32S3` and `ESP32-S3` are equivalent. `XIAO ESP32-S3 1.47`, `1.47 Touch`, and `Touch Display ESP32-S3` all find `XIAO 1.47" Touch Display (ESP32-S3)`. An exact SKU query also matches. Each returned catalog `block_support` is preserved, with `block_supported: true` for `"是"` and `false` otherwise.
 
 ```bash
 sensecraft-cli app bom search --name "XIAO"

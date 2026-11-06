@@ -27,6 +27,7 @@ func newFileUploadCmd() *cobra.Command {
 		fileType int
 		flowID   string
 		checksum bool
+		name     string
 		modelID  string
 		appID    string
 		forApp   bool
@@ -55,7 +56,10 @@ Association (types 1–2) is required before any OSS upload:
   --unlinked              explicit orphan for later create/update JSON (pic_url / model create)
 
 Types 3–6 have no model/app attach path and upload directly.
-Without association flags: interactive TTY guides; agents must ask first.`,
+Without association flags: interactive TTY guides; agents must ask first.
+
+--name is the file_name sent with the upload. The server may rewrite part of
+that name. Use the returned file_url; do not build a URL from --name.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx, err := cmdctx.GetAICmdContext()
 			if err != nil {
@@ -82,6 +86,7 @@ Without association flags: interactive TTY guides; agents must ask first.`,
 					Path:    path,
 					ModelID: modelID,
 					Yes:     yes,
+					Name:    name,
 				})
 				if err != nil {
 					return err
@@ -99,6 +104,7 @@ Without association flags: interactive TTY guides; agents must ask first.`,
 					Path:     path,
 					FileType: service.FileTypeImage,
 					Checksum: checksum,
+					Name:     name,
 				})
 				if err != nil {
 					return err
@@ -122,6 +128,7 @@ Without association flags: interactive TTY guides; agents must ask first.`,
 				FileType: fileType,
 				Checksum: checksum,
 				FlowID:   flowID,
+				Name:     name,
 			})
 			if err != nil {
 				return err
@@ -136,6 +143,7 @@ Without association flags: interactive TTY guides; agents must ask first.`,
 		},
 	}
 	cmd.Flags().StringVar(&path, "path", "", "Local file path (required)")
+	cmd.Flags().StringVar(&name, "name", "", "file_name sent to the server; it may rewrite the stored name, so use the returned file_url")
 	cmd.Flags().IntVar(&fileType, "type", service.FileTypeFile, "Upload file_type (default 2=model/file)")
 	cmd.Flags().StringVar(&flowID, "flow-id", "", "Required when --type 5 (static resource)")
 	cmd.Flags().BoolVar(&checksum, "checksum", false, "Compute local MD5 checksum")

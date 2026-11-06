@@ -19,7 +19,7 @@ Child skill: [`../create-app/SKILL.md`](../create-app/SKILL.md) — turn a local
    **`app create` is not L2** — including `--from-json` with full fields (create + internal follow-up `update_app` on the **new** `app_id` only). Prefer one-shot create when the payload is ready. Still tell the user what will be created before running create.
 3. **Privacy values**: submit review → `privacy` / flow uses **`2`** (pending); unpublish/private → **`0`**. **Never send `1`** (ops-approved public; Admin only).
 4. Tool-block **configuration** may be written into `deployment.blocks`. **Executing** flash / USB deploy / container install on hardware is **L3**. Classic reCamera (`40`): [`sensecraft-recamera`](recamera.md) (`check` / `open`). Other benches: Console `/ai/device/local/32|36|37|41|52`. `flash-firmware` run is out of scope this pass.
-5. Parse indented JSON on stdout; on failure read stderr + exit code. After `app update`, **re-read** the app — success body may be `{}`.
+5. Parse indented JSON on stdout; on failure read stderr + exit code. After `app update`, **re-read** with `app view --id <app_id> --sketch` — success body may be `{}`. For an app never published, `app view` without `--sketch` returns only its name; use `--sketch` for the saved draft.
 6. **Rename / edit info**: sparse `{"app_name":"…"}` is OK (CLI merges other info fields from sketch). Do not invent HTTP; do **not** put `be_public=1` in user JSON. For **already published** apps the CLI injects `be_public=1` (Console info save) and returns `sketch_saved` — plaza copy is unchanged until `app publish`.
 7. **Lifecycle vs Console**: edit / publish / unpublish / delete / BOM / cover only for **your** apps (`user_id` == profile). Another user's plaza app cannot be edited. `be_public=2` locks owner edit. `be_public=1` owner may save sketch then `app publish` (草稿). Delete only `be_public=0`.
 8. **Never blind-retry `app create`**: names are not unique. If create output lacks `app_id` or looks empty, run `app list --mine` before creating again.
@@ -55,6 +55,8 @@ sensecraft-cli app view --id <app_id>
 Summarize: name, excerpt, scene, tool-block types used, BOM highlights, deploy steps.
 
 ### Rename an existing app (L2)
+
+Have the user close this app's CodeCraft Hub editor page before CLI updates and reopen it after verification. The open editor saves the copy it loaded and can replace CLI changes made meanwhile. Apply this sequence to info, deployment, BOM, cover, and activity updates.
 
 ```bash
 # Confirm with the user first. Sparse name-only JSON is OK — CLI merges other info fields.
@@ -102,6 +104,8 @@ sensecraft-cli app bom set --id <app_id> --from-json ./materials.json --yes
 ```
 
 Seeed rows need `id`(=SKU). Custom rows omit `id`. No manual custom image upload.
+
+`app bom search` matches every normalized query token against the product name, SKU, category, note or description, ignoring case and punctuation. `XIAO ESP32-S3 1.47`, `1.47 Touch`, and `Touch Display ESP32S3` match `XIAO 1.47" Touch Display (ESP32-S3)`; exact SKU searches also work. Results keep catalog order and return `{count, list}`. Catalog rows retain `block_support` and add boolean `block_supported` (`true` for `"是"`). Object outputs that contain `list` and have no `count` gain `count` for the current result; existing `page` and a server-provided `count` stay as they are.
 
 ### Author path
 
@@ -185,7 +189,7 @@ Base: `{host}/openapi` with HTTP Basic (`key_id`:`access_key`).
 | Action  | Method | Path                                                             |
 | ------- | ------ | ---------------------------------------------------------------- |
 | List    | GET    | `/flow/app/v2/list_app` (`be_public`, `order_type` `1`/`2`/`3`, `priority_activity_id`, `mark_type` `1`/`0`) |
-| Activities | GET | `/activity/list` (no `time`) |
+| Activities | GET | `/activity/list` (no `time`; server default is now, every activity currently being held) |
 | View    | GET    | `/flow/app/v3/view_app`                                          |
 | Create  | POST   | `/flow/app/v3/create_app`                                        |
 | Update  | POST   | `/flow/app/v3/update_app`                                        |

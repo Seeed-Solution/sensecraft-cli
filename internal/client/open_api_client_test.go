@@ -4,7 +4,15 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 )
+
+func TestDefaultAPITimeout(t *testing.T) {
+	c := NewBaseClient("https://example.invalid")
+	if c.httpClient.Timeout != 45*time.Second {
+		t.Fatalf("timeout=%s", c.httpClient.Timeout)
+	}
+}
 
 func TestAPIError_PermissionDeniedMessage(t *testing.T) {
 	err := APIError{Code: OpenAPIPermissionDenied, Msg: "You have no options permission"}

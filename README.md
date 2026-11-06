@@ -93,12 +93,15 @@ ls "$(npm root -g)/@seeed-studio/sensecraft-cli/skills"
 | Command | Description |
 |---------|-------------|
 | `auth add` | Verify an Access Key, save it, and make it active |
-| `auth info` | Show site, organization ID, and Key ID |
+| `auth info` | Show local profile metadata; add `--json` for structured output |
 
 ```bash
 sensecraft-cli auth add --key-id <Key ID> --access-key <Access Key> --site Global
 sensecraft-cli auth info
+sensecraft-cli auth info --json
 ```
+
+`auth info --json` returns `{ "profiles": [...] }`. Each profile contains only `site`, `org_id`, `key_id`, `kind`, `created_at`, and `active`.
 
 | `--site` | SenseCAP OpenAPI | SenseCraft AI OpenAPI |
 |----------|------------------|------------------------|
@@ -136,9 +139,17 @@ sensecraft-cli recamera check --model-id <id>
 
 `--sort` on `app list` is `popular`, `newest`, or `likes`. Common `--uniform-type` values: `40` reCamera, `32` XIAO ESP32S3, `53` reCamera Pro.
 
+For an app never published, `app view --id <id>` returns only its name. Read the saved draft with `app view --id <id> --sketch`.
+
+`app bom search --name "XIAO ESP32-S3 1.47"` matches every query token against the product name, SKU, category, note, or description, ignoring case and punctuation. Results keep catalog order. Catalog rows retain `block_support` and add boolean `block_supported` (`true` for `"是"`).
+
+`file upload --name <file-name>` is the name sent to the server. The server may rewrite part of that name. Use the returned `file_url` as the access link.
+
+`app activity list` returns every activity currently being held, with `count` equal to the number of rows in `list`.
+
 ## Advanced
 
-Successful data commands print indented JSON on stdout. `auth add` and `auth info` print text. Failures go to stderr with a non-zero exit code.
+Successful data commands print indented JSON on stdout. An object that contains `list` and has no `count` gains `count` for the current result; `page` and a count already present are kept. `auth add` and default `auth info` print text; `auth info --json` prints profile metadata. Failures go to stderr with a non-zero exit code.
 
 `sensecraft-cli --version` prints the npm package version. A binary from plain `go build` prints `dev`.
 

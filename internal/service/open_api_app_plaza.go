@@ -12,9 +12,6 @@ import (
 	"sensecraft-cloud-terminal/internal/enum"
 )
 
-// activityNow is the clock for "in progress". Tests replace it.
-var activityNow = time.Now
-
 type ongoingActivity struct {
 	ActivityID int64
 	Name       string
@@ -43,25 +40,22 @@ func (s AppService) ListActivities() (json.RawMessage, error) {
 	if err != nil {
 		return nil, err
 	}
-	views := currentActivityViews(items, activityNow())
-	raw, err := json.Marshal(map[string]any{"list": views})
+	views := currentActivityViews(items)
+	raw, err := json.Marshal(map[string]any{"list": views, "count": len(views)})
 	if err != nil {
 		return nil, err
 	}
 	return raw, nil
 }
 
-func currentActivityViews(items []ongoingActivity, now time.Time) []activityView {
-	out := make([]activityView, 0)
+func currentActivityViews(items []ongoingActivity) []activityView {
+	out := make([]activityView, 0, len(items))
 	for _, it := range items {
 		if it.StartTime == nil || it.EndTime == nil {
 			continue
 		}
 		start := time.Unix(*it.StartTime, 0)
 		end := time.Unix(*it.EndTime, 0)
-		if now.Before(start) || now.After(end) {
-			continue
-		}
 		out = append(out, activityView{
 			ActivityID: it.ActivityID,
 			Name:       it.Name,

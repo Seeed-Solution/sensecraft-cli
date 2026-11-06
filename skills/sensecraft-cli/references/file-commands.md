@@ -9,6 +9,7 @@ Acquires an OSS POST policy, uploads the local file with multipart/form-data, an
 | Flag | Required | Default | Notes |
 |------|----------|---------|-------|
 | `--path` | yes | — | Local file |
+| `--name` | no | local base name | `file_name` sent to `acquire_file_url` and the multipart filename. Spaces are removed |
 | `--type` | no | `2` | `1=image`, `2=file/model`, `3=app`, `4=firmware`, `5=static resource`, `6=archive/zip` |
 | `--flow-id` | type 5 | — | Required for static resources; omitted for other types |
 | `--checksum` | no | false | Compute local MD5 and include it in output |
@@ -30,6 +31,8 @@ Acquires an OSS POST policy, uploads the local file with multipart/form-data, an
 `app create/update --from-json` with `images[]` also enforces **max 16** URLs (Console `maxImageCount`).
 
 `--model-id` and `--app-id` are mutually exclusive. Types `1`/`2` without attach/`--for-app`/`--unlinked` exit non-zero **before** the OSS POST (`ErrAttachRequired`). Types `3`–`6` upload directly. Type `5` without `--flow-id` exits before acquire.
+
+`--name` is only the name sent with the upload. The server may rewrite part of that name for security. Use the returned `file_url` as the access link. Do not build a URL from `--name` or from the printed `file_name`; that name may not be the object that can be opened. stdout `file_name` echoes the name sent, not a name read back from the cloud.
 
 ```bash
 sensecraft-cli file upload --path ./cover.png --type 1 --for-app

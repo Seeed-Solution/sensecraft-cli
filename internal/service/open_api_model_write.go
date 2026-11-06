@@ -245,6 +245,8 @@ type ModelUploadParams struct {
 	// Unlinked explicitly allows an orphan OSS object for brand-new model create.
 	// Without ModelID or Unlinked, UploadAndAttach refuses before any PUT.
 	Unlinked bool
+	// Name is the file_name sent to acquire_file_url. Empty uses the local base name.
+	Name string
 }
 
 // UploadAndAttach uploads a model binary (file_type=2 + checksum).
@@ -285,6 +287,7 @@ func (s ModelService) UploadAndAttach(p ModelUploadParams) (FileAttachResult, er
 		Path:     p.Path,
 		FileType: FileTypeFile,
 		Checksum: true,
+		Name:     p.Name,
 	})
 	if err != nil {
 		return FileAttachResult{}, err

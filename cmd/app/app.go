@@ -139,15 +139,16 @@ func newAppActivityListCmd() *cobra.Command {
 	var sandbox bool
 	cmd := &cobra.Command{
 		Use:   "list",
-		Short: "List activities in progress",
+		Short: "List every activity currently being held",
 		Long: `GET /openapi/activity/list. No Access Key.
 
-Prints activities whose current time is between start and end.
-start_time and end_time are UTC, for example 2026-10-18T16:00:00Z.
+The server returns every activity currently being held. This command does not filter that set again.
+start_time and end_time are converted to UTC, for example 2026-10-18T16:00:00Z.
 
-{ "list": [ { activity_id, name, guide_url, start_time, end_time } ] }
+{ "count": N, "list": [ { activity_id, name, guide_url, start_time, end_time } ] }
 
-An empty result is { "list": [] }.`,
+An empty result is { "count": 0, "list": [] }.
+count is the number of activities in this result.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			remoteType := ""
 			if !sandbox {

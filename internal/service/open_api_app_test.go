@@ -7,7 +7,6 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
-	"time"
 
 	"sensecraft-cloud-terminal/internal/app"
 	"sensecraft-cloud-terminal/internal/enum"
@@ -204,10 +203,6 @@ func TestNormalizeOngoingActivityDropsIncompleteRows(t *testing.T) {
 }
 
 func TestListActivitiesPrintsCurrentWindow(t *testing.T) {
-	prev := activityNow
-	activityNow = func() time.Time { return time.Unix(1793000000, 0) }
-	t.Cleanup(func() { activityNow = prev })
-
 	raw, err := ListPublicActivities("", true)
 	if err != nil {
 		t.Fatal(err)
@@ -239,8 +234,7 @@ func TestListActivitiesPrintsCurrentWindow(t *testing.T) {
 	}
 }
 
-func TestCurrentActivityViewsDropOutsideWindow(t *testing.T) {
-	now := time.Unix(1793000000, 0)
+func TestActivityViewsKeepServerRows(t *testing.T) {
 	start := int64(1792339200)
 	end := int64(1795190399)
 	futureStart := int64(1795190400)
@@ -252,8 +246,14 @@ func TestCurrentActivityViewsDropOutsideWindow(t *testing.T) {
 		{ActivityID: 2, Name: "Later", StartTime: &futureStart, EndTime: &futureEnd},
 		{ActivityID: 3, Name: "Past", StartTime: &pastStart, EndTime: &pastEnd},
 		{ActivityID: 4, Name: "No times"},
-	}, now)
-	if len(views) != 1 || views[0].ActivityID != 1 || views[0].GuideURL != "https://example.com/now" {
+	})
+	if len(views) != 3 {
+		t.Fatalf("views=%#v", views)
+	}
+	if views[0].ActivityID != 1 || views[0].GuideURL != "https://example.com/now" {
+		t.Fatalf("now=%#v", views[0])
+	}
+	if views[1].ActivityID != 2 || views[2].ActivityID != 3 {
 		t.Fatalf("views=%#v", views)
 	}
 	if views[0].StartTime != "2026-10-18T16:00:00Z" || views[0].EndTime != "2026-11-20T15:59:59Z" {
@@ -285,9 +285,6 @@ func TestListPublicActivitiesOmitsKey(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 	t.Setenv(enum.EnvNameAIHost, srv.URL)
-	prev := activityNow
-	activityNow = func() time.Time { return time.Unix(1793000000, 0) }
-	t.Cleanup(func() { activityNow = prev })
 
 	raw, err := ListPublicActivities("Develop", false)
 	if err != nil {
@@ -302,7 +299,10 @@ func TestListPublicActivitiesOmitsKey(t *testing.T) {
 	if err := json.Unmarshal(raw, &body); err != nil {
 		t.Fatal(err)
 	}
-	if len(body.List) != 1 || body.List[0]["name"] != "Now" || body.List[0]["activity_id"] != float64(1) {
+	if len(body.List) != 2 || body.List[0]["name"] != "Now" || body.List[1]["name"] != "Later" {
+		t.Fatalf("list=%s", raw)
+	}
+	if body.List[0]["start_time"] != "2026-10-18T16:00:00Z" || body.List[1]["start_time"] != "2026-11-20T16:00:00Z" {
 		t.Fatalf("list=%s", raw)
 	}
 }

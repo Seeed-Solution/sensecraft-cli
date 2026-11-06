@@ -203,13 +203,14 @@ func TestValidateAppImageCount(t *testing.T) {
 }
 
 type ossCapture struct {
-	query  map[string]string
-	parts  []string
-	fields map[string]string
-	file   []byte
-	fileCT string
-	header http.Header
-	posts  int
+	query    map[string]string
+	parts    []string
+	fields   map[string]string
+	file     []byte
+	fileName string
+	fileCT   string
+	header   http.Header
+	posts    int
 }
 
 func newUploadServer(t *testing.T, body string, ossStatus int, ossBody string) (*httptest.Server, *ossCapture) {
@@ -249,6 +250,7 @@ func newUploadServer(t *testing.T, body string, ossStatus int, ossBody string) (
 			b, _ := io.ReadAll(p)
 			if p.FormName() == "file" {
 				cap.file = b
+				cap.fileName = p.FileName()
 				cap.fileCT = p.Header.Get("Content-Type")
 				continue
 			}
@@ -308,6 +310,53 @@ func TestUploadFilePostsImageForm(t *testing.T) {
 	}
 	if cap.header.Get("Authorization") != "" || cap.header.Get("sensecraft-cli-accessid") != "" || cap.header.Get("sensecraft-cli-version") != "" {
 		t.Fatalf("OSS request carried CLI headers: %v", cap.header)
+	}
+}
+
+func TestUploadFileSendsRequestedNameAndKeepsServerURL(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "local.bin")
+	if err := os.WriteFile(path, []byte("bin"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	body := `{
+		"code":"0",
+		"data":{
+			"host":"{{HOST}}",
+			"policy":"cG9s",
+			"signature":"sig",
+			"OSSAccessKeyId":"STS.id",
+			"security_token":"tok",
+			"key":"oss/rewritten.bin",
+			"file_url":"https://cdn.example/oss/rewritten.bin",
+			"max_bytes":104857600
+		}
+	}`
+	srv, cap := newUploadServer(t, body, http.StatusNoContent, "")
+	res, err := uploadService(srv).UploadFile(FileUploadParams{
+		Path: path, FileType: FileTypeFile, Name: " project muse.bin ",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cap.query["file_name"] != "projectmuse.bin" || cap.fileName != "projectmuse.bin" {
+		t.Fatalf("query %#v multipart %q", cap.query, cap.fileName)
+	}
+	if res.FileName != "projectmuse.bin" || res.FileURL != "https://cdn.example/oss/rewritten.bin" {
+		t.Fatalf("%+v", res)
+	}
+	if cap.fields["key"] != "oss/rewritten.bin" {
+		t.Fatalf("key %#v", cap.fields)
+	}
+}
+
+func TestUploadFileRejectsPathName(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "local.bin")
+	if err := os.WriteFile(path, []byte("bin"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, err := (FileService{}).UploadFile(FileUploadParams{Path: path, FileType: FileTypeFile, Name: `../secret.bin`})
+	if err == nil || !strings.Contains(err.Error(), "invalid file name") {
+		t.Fatalf("got %v", err)
 	}
 }
 

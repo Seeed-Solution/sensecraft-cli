@@ -19,10 +19,37 @@ Child skill: [`../create-app/SKILL.md`](../create-app/SKILL.md) — turn a local
    **`app create` is not L2** — including `--from-json` with full fields (create + internal follow-up `update_app` on the **new** `app_id` only). Prefer one-shot create when the payload is ready. Still tell the user what will be created before running create.
 3. **Privacy values**: submit review → `privacy` / flow uses **`2`** (pending); unpublish/private → **`0`**. **Never send `1`** (ops-approved public; Admin only).
 4. Tool-block **configuration** may be written into `deployment.blocks`. **Executing** flash / USB deploy / container install on hardware is **L3**. Classic reCamera (`40`): [`sensecraft-recamera`](recamera.md) (`check` / `open`). Other benches: Console `/ai/device/local/32|36|37|41|52`. `flash-firmware` run is out of scope this pass.
-5. Parse indented JSON on stdout; on failure read stderr + exit code. After `app update`, **re-read** the app — success body may be `{}`.
+5. Parse indented JSON on stdout; on failure read stderr + exit code. After `app update`, **re-read with `--sketch`** — success body may be `{}`, and default `app view` is the published snapshot (often an empty create shell on private drafts).
 6. **Rename / edit info**: sparse `{"app_name":"…"}` is OK (CLI merges other info fields from sketch). Do not invent HTTP; do **not** put `be_public=1` in user JSON. For **already published** apps the CLI injects `be_public=1` (Console info save) and returns `sketch_saved` — plaza copy is unchanged until `app publish`.
 7. **Lifecycle vs Console**: edit / publish / unpublish / withdraw / delete / BOM / cover only for **your** apps (`user_id` == profile). Another user's plaza app cannot be edited. `be_public=2` locks owner edit and has no editor link; unlock with `app withdraw`, not `app unpublish`. `be_public=1` owner may save sketch then `app publish` (草稿). `app unpublish` is only for an already public app. Delete only `be_public=0`.
 8. **Never blind-retry `app create`**: names are not unique. If create output lacks `app_id` or looks empty, run `app list --mine` before creating again.
+9. **Sketch vs published** ([below](#sketch-vs-published-snapshots)): `app create` / `app update` write the **sketch**. Verify with `app view --sketch`. Do not treat default `app view` or a bare Hub preview URL as proof that CLI content is live.
+
+## Sketch vs published snapshots
+
+Each app has two `view_app` snapshots:
+
+| Snapshot | CLI | `view_sketch` | Written by |
+| -------- | --- | ------------- | ---------- |
+| **Sketch** (draft) | `app view --id … --sketch` | `1` | `app create` follow-up save, `app update`, Hub editor save, BOM set |
+| **Published** | `app view --id …` (default) | `0` | `create_app` shell (often name-only); promoted on `app publish` |
+
+`app view` stdout always includes CLI markers (not server fields):
+
+- `view_kind`: `"sketch"` or `"published"`
+- `view_sketch`: `1` or `0`
+
+Do **not** confuse these with `is_sketch` from the API (`1` means a draft differs from the published snapshot).
+
+**Private drafts (`be_public=0`):** default `app view` (no `--sketch`) is frequently only the create shell — no excerpt, deployment, or flash blocks — while `--sketch` shows what CLI just wrote. Always re-read with `--sketch` after create/update.
+
+**Hub pages:**
+
+- **Editor** (`console_url` / `/hub/application/edit?id=…`): loads sketch (`view_sketch=1`). Flash-firmware blocks here see CLI content. Keep the editor closed while CLI writes; an open editor can auto-save older content over a fresh `app update`.
+- **Preview** (`detail_url` = `/hub/view-application/<id>-<slug>`, no query): visitors see the published snapshot. Author login *tries* to show the draft, but a private draft's published snapshot may still look empty. Prefer the **editor** (or a my-apps / user-center entry) to test flash on a private draft — not the bare preview URL alone.
+- **Plaza /「查看已发布版本」** (`from=application-store`): always the published snapshot.
+
+**When the published snapshot updates:** create shell at `app create`; then usually only when `app publish` promotes the sketch (submit review / publish draft). Daily editor or CLI saves stay on the sketch. For an already-public app, plaza stays on the old published copy until `app publish` again (`sketch_saved` hint).
 
 ## CLI status
 
@@ -123,7 +150,9 @@ For a local project/repository or an existing `codecraft-app.json`, use [create-
    sensecraft-cli app create --from-json ./app.json
    # CLI returns app_id + console_url + detail_url (even if update_app body was {}).
    # detail_url is https://codecraft.seeed.cc/hub/view-application/<id>-<slug>
-   # (test AI host or remote_type Develop → https://test-codecraft.seeed.cc/hub). No query. The site shows the author's draft when they are logged in.
+   # (test AI host or remote_type Develop → https://test-codecraft.seeed.cc/hub). No query.
+   # Content landed in the sketch — verify with app view --sketch (view_kind=sketch).
+   # For private drafts, test flash on the editor (console_url), not the bare preview alone.
    # A non-empty web_link on a list item is the link to give the user.
    # Restore JSON may have pic_url (list) or images[] (view); CLI writes both.
    # Show links to the user. NEVER re-run create because stdout looked empty —
@@ -133,6 +162,7 @@ For a local project/repository or an existing `codecraft-app.json`, use [create-
    ```bash
    sensecraft-cli app create --name "My App"
    sensecraft-cli app update --id <app_id> --from-json ./app.json --yes
+   sensecraft-cli app view --id <app_id> --sketch   # confirm blocks / flash config
    ```
 5. User agrees to Publish Declaration + confirms → `app publish --agree-declaration --yes` (submit review). After that, give `detail_url` only. `be_public=2` has no editor link.
 

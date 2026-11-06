@@ -189,7 +189,16 @@ func newAppViewCmd() *cobra.Command {
 		Long: `GET /flow/app/v3/view_app
 
   --id       app_id (required)
-  --sketch   view_sketch=1 (draft); default published (0)`,
+  --sketch   view_sketch=1 (draft / sketch); default published snapshot (0)
+
+Stdout always includes CLI markers:
+  view_kind    "sketch" | "published"
+  view_sketch  1 | 0
+
+create / update write the sketch. For private drafts, default view (no
+--sketch) is often only the create shell. After create/update, re-read with
+--sketch. Do not confuse view_kind with is_sketch (server flag: draft differs
+from the published snapshot).`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx, err := cmdctx.GetAICmdContext()
 			if err != nil {
@@ -207,7 +216,7 @@ func newAppViewCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&id, "id", "", "Application id (required)")
-	cmd.Flags().BoolVar(&sketch, "sketch", false, "View draft (view_sketch=1)")
+	cmd.Flags().BoolVar(&sketch, "sketch", false, "View draft / sketch (view_sketch=1); default is published snapshot")
 	cmd.Flags().BoolVar(&sandbox, "sandbox", false, "Sandbox mode: no real network; return sample JSON")
 	_ = cmd.MarkFlagRequired("id")
 	return cmd

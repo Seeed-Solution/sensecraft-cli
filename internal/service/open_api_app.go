@@ -86,7 +86,7 @@ func (s AppService) ViewApp(p AppViewParams) (json.RawMessage, error) {
 			return nil, err
 		}
 	}
-	return s.withViewDetailURL(data), nil
+	return s.withViewDetailURL(data, p.ViewSketch), nil
 }
 
 // ownsApp reports whether this CLI user can treat the row as their own draft.
@@ -110,17 +110,30 @@ func (s AppService) detailURLForApp(id, name string, owned bool) string {
 	return AppPlazaDetailConsoleURL(s.remoteType, id, name)
 }
 
-func (s AppService) withViewDetailURL(data json.RawMessage) json.RawMessage {
+// withViewDetailURL stamps detail_url and which snapshot this view requested.
+// view_kind / view_sketch are CLI metadata (not server fields): "sketch" means
+// view_sketch=1; "published" means view_sketch=0. Do not confuse with is_sketch,
+// which means "a draft differs from the published snapshot".
+func (s AppService) withViewDetailURL(data json.RawMessage, viewSketch bool) json.RawMessage {
 	m, err := rawJSONObject(data)
 	if err != nil || m == nil {
 		return data
 	}
 	id := stringFromMap(m, "app_id")
-	detail := s.detailURLForApp(id, stringFromMap(m, "app_name"), s.ownsApp(id, m))
-	if detail == "" {
-		return data
+	if appMapBePublic(m) == 2 {
+		delete(m, "console_url")
 	}
-	m["detail_url"] = detail
+	if viewSketch {
+		m["view_sketch"] = 1
+		m["view_kind"] = "sketch"
+	} else {
+		m["view_sketch"] = 0
+		m["view_kind"] = "published"
+	}
+	detail := s.detailURLForApp(id, stringFromMap(m, "app_name"), s.ownsApp(id, m))
+	if detail != "" {
+		m["detail_url"] = detail
+	}
 	encoded, err := json.Marshal(m)
 	if err != nil {
 		return data

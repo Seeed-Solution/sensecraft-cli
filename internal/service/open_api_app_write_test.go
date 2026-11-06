@@ -467,6 +467,33 @@ func TestPublishDetailURLIsCreatorCenter(t *testing.T) {
 	}
 }
 
+func TestViewAppMarksSketchAndPublished(t *testing.T) {
+	s := sandboxAppSvc()
+	sketchRaw, err := s.ViewApp(AppViewParams{AppID: "sandbox-app-1", ViewSketch: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var sketch map[string]any
+	if err := json.Unmarshal(sketchRaw, &sketch); err != nil {
+		t.Fatal(err)
+	}
+	if sketch["view_kind"] != "sketch" || sketch["view_sketch"] != float64(1) {
+		t.Fatalf("sketch view markers: %#v", sketch)
+	}
+
+	pubRaw, err := s.ViewApp(AppViewParams{AppID: "sandbox-app-1", ViewSketch: false})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var published map[string]any
+	if err := json.Unmarshal(pubRaw, &published); err != nil {
+		t.Fatal(err)
+	}
+	if published["view_kind"] != "published" || published["view_sketch"] != float64(0) {
+		t.Fatalf("published view markers: %#v", published)
+	}
+}
+
 func TestPublishLockedUnderReview(t *testing.T) {
 	s := sandboxAppSvc()
 	_, err := s.SetAppPrivacy(AppPrivacyParams{

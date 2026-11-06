@@ -53,16 +53,27 @@ sensecraft-cli app list --public --mark-type 1
 
 **Status: implemented.**
 
-| Flag        | Required | Notes                        |
-| ----------- | -------- | ---------------------------- |
-| `--id`      | yes      | `app_id`                     |
-| `--sketch`  | no       | Draft view (`view_sketch=1`) |
-| `--sandbox` | no       | Sample JSON                  |
+| Flag        | Required | Notes                                                              |
+| ----------- | -------- | ------------------------------------------------------------------ |
+| `--id`      | yes      | `app_id`                                                           |
+| `--sketch`  | no       | Draft / sketch (`view_sketch=1`). Default = published snapshot (`0`) |
+| `--sandbox` | no       | Sample JSON                                                        |
 
 ```bash
-sensecraft-cli app view --id <app_id>
-sensecraft-cli app view --id <app_id> --sketch
+sensecraft-cli app view --id <app_id>            # published snapshot (view_kind=published)
+sensecraft-cli app view --id <app_id> --sketch   # draft / sketch (view_kind=sketch)
 ```
+
+Stdout always includes CLI markers:
+
+- `view_kind`: `"sketch"` \| `"published"`
+- `view_sketch`: `1` \| `0`
+
+These mark **which snapshot this command requested**. They are not the same as API `is_sketch` (whether a draft differs from the published copy).
+
+**After `app create` / `app update`:** always re-read with `--sketch`. On a private draft, default `app view` is often only the create shell (name, little or no deployment). Full info, BOM, and flash-firmware blocks live in the sketch until `app publish` promotes them. See [apps.md — Sketch vs published](apps.md#sketch-vs-published-snapshots).
+
+**Hub flash testing (private draft):** use the editor (`console_url`), or open the app from my-apps / user-center. Do not assume the bare `detail_url` preview shows sketch content.
 
 ### `app fields`
 

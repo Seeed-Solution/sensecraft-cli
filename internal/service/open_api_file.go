@@ -58,6 +58,8 @@ type FileUploadParams struct {
 	Checksum bool
 	// FlowID is required for file_type 5 (static resource).
 	FlowID string
+	// Name is the file_name sent to acquire_file_url. Empty uses the local base name.
+	Name string
 }
 
 type FileUploadResult struct {
@@ -126,9 +128,9 @@ func (s FileService) UploadFile(p FileUploadParams) (FileUploadResult, error) {
 	if info.IsDir() {
 		return FileUploadResult{}, fmt.Errorf("path is a directory: %s", path)
 	}
-	fileName := strings.ReplaceAll(filepath.Base(path), " ", "")
-	if fileName == "" {
-		return FileUploadResult{}, fmt.Errorf("invalid file name")
+	fileName, err := storedUploadName(path, p.Name)
+	if err != nil {
+		return FileUploadResult{}, err
 	}
 	if err := validateUploadFile(fileType, path, info.Size()); err != nil {
 		return FileUploadResult{}, err
@@ -368,6 +370,22 @@ func md5File(path string) (string, int64, error) {
 		return "", 0, fmt.Errorf("checksum: %w", err)
 	}
 	return hex.EncodeToString(h.Sum(nil)), n, nil
+}
+
+func storedUploadName(path, name string) (string, error) {
+	name = strings.ReplaceAll(strings.TrimSpace(name), " ", "")
+	if name == "" {
+		name = strings.ReplaceAll(filepath.Base(path), " ", "")
+	}
+	if name == "" || name == "." || name == ".." || strings.ContainsAny(name, `/\`) {
+		return "", fmt.Errorf("invalid file name")
+	}
+	for _, r := range name {
+		if r < 0x20 || r == 0x7f {
+			return "", fmt.Errorf("invalid file name")
+		}
+	}
+	return name, nil
 }
 
 func sandboxFileUpload(fileName string, fileType int, size int64, withChecksum bool) FileUploadResult {

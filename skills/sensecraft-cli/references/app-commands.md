@@ -53,16 +53,27 @@ sensecraft-cli app list --public --mark-type 1
 
 **Status: implemented.**
 
-| Flag        | Required | Notes                        |
-| ----------- | -------- | ---------------------------- |
-| `--id`      | yes      | `app_id`                     |
-| `--sketch`  | no       | Draft view (`view_sketch=1`) |
-| `--sandbox` | no       | Sample JSON                  |
+| Flag        | Required | Notes                                                              |
+| ----------- | -------- | ------------------------------------------------------------------ |
+| `--id`      | yes      | `app_id`                                                           |
+| `--sketch`  | no       | Draft / sketch (`view_sketch=1`). Default = published snapshot (`0`) |
+| `--sandbox` | no       | Sample JSON                                                        |
 
 ```bash
-sensecraft-cli app view --id <app_id>
-sensecraft-cli app view --id <app_id> --sketch
+sensecraft-cli app view --id <app_id>            # published snapshot (view_kind=published)
+sensecraft-cli app view --id <app_id> --sketch   # draft / sketch (view_kind=sketch)
 ```
+
+Stdout always includes CLI markers:
+
+- `view_kind`: `"sketch"` \| `"published"`
+- `view_sketch`: `1` \| `0`
+
+These mark **which snapshot this command requested**. They are not the same as API `is_sketch` (whether a draft differs from the published copy).
+
+**After `app create` / `app update`:** always re-read with `--sketch`. On a private draft, default `app view` is often only the create shell (name, little or no deployment). Full info, BOM, and flash-firmware blocks live in the sketch until `app publish` promotes them. See [apps.md — Sketch vs published](apps.md#sketch-vs-published-snapshots).
+
+**Hub flash testing (private draft):** use the editor (`console_url`), or open the app from my-apps / user-center. Do not assume the bare `detail_url` preview shows sketch content.
 
 ### `app fields`
 
@@ -169,7 +180,7 @@ sensecraft-cli app update --id <app_id> --activity-id 1 --yes
 sensecraft-cli app update --id <app_id> --cancel-activity-id 1 --yes
 ```
 
-`activity_id` must be a positive integer. List activities in progress with `app activity list` first. Before POST, CLI loads the server activity list (activities that have not ended, which can include ones that have not started). If that request succeeds and does not contain the id, CLI does not POST. A failed list request is ignored. The server still rejects a bad id with `11202` and a missing or expired activity with `25000` `Activity does not exist or has expired` (the whole edit is discarded). Omitting `activity_id` does not change existing activity tags. `tags` is not read by the server.
+`activity_id` must be a positive integer. List every activity currently being held with `app activity list` first. Before POST, CLI loads that same server list. If that request succeeds and does not contain the id, CLI does not POST. A failed list request is ignored. The server still rejects a bad id with `11202` and a missing or expired activity with `25000` `Activity does not exist or has expired` (the whole edit is discarded). Omitting `activity_id` does not change existing activity tags. `tags` is not read by the server.
 
 `cancel_activity_id` must be a positive integer. CLI sends it as a JSON number and does not check the ongoing list or change `allow_clone`. Omitting it leaves participation unchanged. The same id cannot be both `activity_id` and `cancel_activity_id`.
 
@@ -200,7 +211,7 @@ sensecraft-cli app delete --id <app_id> --yes
 
 ### `app activity list`
 
-**Status: implemented.** Read-only. No Access Key. `GET /activity/list` with no `time` query. stdout is `{ "list": [...] }` for activities in progress now: numeric `activity_id`, `name`, `guide_url`, and `start_time` / `end_time` as UTC timestamps (`2026-10-18T16:00:00Z`). Rows outside that window, or missing an id, name, or either time, are dropped. Tag ids are not shown.
+**Status: implemented.** Read-only. No Access Key. `GET /activity/list` with no `time` query. The server defaults to the current time and returns every activity currently being held, not a page and not activities that have ended or not started. The CLI does not filter that set again. stdout is `{ "count": N, "list": [...] }` with numeric `activity_id`, `name`, `guide_url`, and `start_time` / `end_time` converted to UTC (`2026-10-18T16:00:00Z`). `count` is the number of activities in this result. An empty result is `{ "count": 0, "list": [] }`. Rows missing an id, a name, or either time are omitted. Tag ids are not shown.
 
 ```bash
 sensecraft-cli app activity list
@@ -245,6 +256,8 @@ sensecraft-cli app clone --id <source_app_id> --name "New name" --yes
 | `search [--name]`            | `get_production_options` → filter `material_options` |
 | `list --id [--sketch]`       | materials from `view_app`; use `--sketch` to verify saved draft rows |
 | `set --id --from-json --yes` | `update_app` materials[] (L2)                        |
+
+Search returns `{count, list}` in catalog order. Every query token must occur in the product name, SKU, category, note or description after case and punctuation normalization; `ESP32S3` and `ESP32-S3` are equivalent. `XIAO ESP32-S3 1.47`, `1.47 Touch`, and `Touch Display ESP32-S3` all find `XIAO 1.47" Touch Display (ESP32-S3)`. An exact SKU query also matches. Each returned catalog `block_support` is preserved, with `block_supported: true` for `"是"` and `false` otherwise.
 
 ```bash
 sensecraft-cli app bom search --name "XIAO"

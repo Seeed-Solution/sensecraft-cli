@@ -498,7 +498,7 @@ func TestViewUnderReviewDropsEditURL(t *testing.T) {
 		"app_name": "Sandbox Vision App",
 		"be_public": 2,
 		"console_url": "https://codecraft.seeed.cc/hub/application/edit?id=sandbox-review-1"
-	}`))
+	}`), false)
 	var result map[string]any
 	if err := json.Unmarshal(raw, &result); err != nil {
 		t.Fatal(err)
@@ -549,6 +549,33 @@ func TestListUnderReviewDropsEditURLOnly(t *testing.T) {
 	edit, _ := draft["console_url"].(string)
 	if !strings.Contains(edit, "/application/edit?id=sandbox-app-1") {
 		t.Fatalf("private row edit link=%q", edit)
+	}
+}
+
+func TestViewAppMarksSketchAndPublished(t *testing.T) {
+	s := sandboxAppSvc()
+	sketchRaw, err := s.ViewApp(AppViewParams{AppID: "sandbox-app-1", ViewSketch: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var sketch map[string]any
+	if err := json.Unmarshal(sketchRaw, &sketch); err != nil {
+		t.Fatal(err)
+	}
+	if sketch["view_kind"] != "sketch" || sketch["view_sketch"] != float64(1) {
+		t.Fatalf("sketch view markers: %#v", sketch)
+	}
+
+	pubRaw, err := s.ViewApp(AppViewParams{AppID: "sandbox-app-1", ViewSketch: false})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var published map[string]any
+	if err := json.Unmarshal(pubRaw, &published); err != nil {
+		t.Fatal(err)
+	}
+	if published["view_kind"] != "published" || published["view_sketch"] != float64(0) {
+		t.Fatalf("published view markers: %#v", published)
 	}
 }
 

@@ -80,7 +80,7 @@ func NewBaseClient(baseURL string, opts ...BaseClientOption) *BaseClient {
 	c := &BaseClient{
 		baseURL: strings.TrimSuffix(strings.TrimSpace(baseURL), "/"),
 		httpClient: &http.Client{
-			Timeout: 15 * time.Second,
+			Timeout: 45 * time.Second,
 		},
 	}
 	for _, opt := range opts {

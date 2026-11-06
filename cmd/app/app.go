@@ -139,15 +139,16 @@ func newAppActivityListCmd() *cobra.Command {
 	var sandbox bool
 	cmd := &cobra.Command{
 		Use:   "list",
-		Short: "List activities in progress",
+		Short: "List every activity currently being held",
 		Long: `GET /openapi/activity/list. No Access Key.
 
-Prints activities whose current time is between start and end.
-start_time and end_time are UTC, for example 2026-10-18T16:00:00Z.
+The server returns every activity currently being held. This command does not filter that set again.
+start_time and end_time are converted to UTC, for example 2026-10-18T16:00:00Z.
 
-{ "list": [ { activity_id, name, guide_url, start_time, end_time } ] }
+{ "count": N, "list": [ { activity_id, name, guide_url, start_time, end_time } ] }
 
-An empty result is { "list": [] }.`,
+An empty result is { "count": 0, "list": [] }.
+count is the number of activities in this result.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			remoteType := ""
 			if !sandbox {
@@ -190,7 +191,16 @@ func newAppViewCmd() *cobra.Command {
 		Long: `GET /flow/app/v3/view_app
 
   --id       app_id (required)
-  --sketch   view_sketch=1 (draft); default published (0)`,
+  --sketch   view_sketch=1 (draft / sketch); default published snapshot (0)
+
+Stdout always includes CLI markers:
+  view_kind    "sketch" | "published"
+  view_sketch  1 | 0
+
+create / update write the sketch. For private drafts, default view (no
+--sketch) is often only the create shell. After create/update, re-read with
+--sketch. Do not confuse view_kind with is_sketch (server flag: draft differs
+from the published snapshot).`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx, err := cmdctx.GetAICmdContext()
 			if err != nil {
@@ -208,7 +218,7 @@ func newAppViewCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&id, "id", "", "Application id (required)")
-	cmd.Flags().BoolVar(&sketch, "sketch", false, "View draft (view_sketch=1)")
+	cmd.Flags().BoolVar(&sketch, "sketch", false, "View draft / sketch (view_sketch=1); default is published snapshot")
 	cmd.Flags().BoolVar(&sandbox, "sandbox", false, "Sandbox mode: no real network; return sample JSON")
 	_ = cmd.MarkFlagRequired("id")
 	return cmd

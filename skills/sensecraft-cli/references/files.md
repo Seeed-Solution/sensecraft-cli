@@ -73,7 +73,7 @@ Also copy upload `size` into `config.firmware_size`. Device defaults: `sensecraf
 
 For non-Muse boards whose default address is `0x0`, `muse.note` always includes: **upload a merged `.bin`**. A file that is far too small for a merge (under ~200 KiB) is **rejected before OSS** with that reason (Grove Beginner `.hex`/`.bin` is exempt).
 
-Before compiling, Agents should run `sensecraft-cli firmware advise --device-id <SKU>` and follow `build_recipe` (also on `app blocks` → `device_defaults`).
+Before uploading, Agents should run `sensecraft-cli firmware advise --device-id <SKU>` (or `--list`) and follow `upload_guide` / `rule` (also on `app blocks` → `device_defaults`). CLI does not compile firmware.
 
 ## Model shortcut
 

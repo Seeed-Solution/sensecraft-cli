@@ -50,39 +50,40 @@ Read the applicable references in the table **before** doing each part. Build ev
 
 **Deployment.** Read all of [tool-blocks.md](../references/tool-blocks.md), then map the complete first-time user journey to its supported blocks. For each action, record prerequisites, the chosen tool, verified config/artifact source, and the observable result. Inspect real artifact existence, target/architecture, build configuration, and required runtime inputs. A firmware file does not establish a model-deploy step; source code alone does not establish a flashable image. Place each tool directly after its instructions in a flat `deployment.blocks` array.
 
-**Firmware / Muse / address (required before building or writing `flash-firmware`).** Before compiling anything, run:
+**Firmware / Muse / address (required before uploading or writing `flash-firmware`).** The CLI does **not** generate firmware. It tells you, for each Hub-supported device’s **default `flash_address`**, **what shape of binary to upload**. Run:
 
 ```bash
+sensecraft-cli firmware advise --list
 sensecraft-cli firmware advise --device-id <SKU>
 # or: sensecraft-cli firmware advise --name sticky
 ```
 
-Follow the returned `build_recipe` (artifact, chip, forbid, steps, `muse_alt`). You may instead read `sensecraft-cli app blocks` → `flash-firmware.device_defaults[].build_recipe` / [tool-blocks.md](../references/tool-blocks.md). The target `flash_address` tells you **what binary to generate** — do not build a random `.bin` and then invent an address.
+Follow `rule` + `upload_guide` (`upload_what` / `do_not_upload` / recommended name / Muse flags). Same data is on `app blocks` → `flash-firmware.device_defaults` (offline) and [tool-blocks.md](../references/tool-blocks.md). **Pick the file that matches the default address — do not invent an address to match a random `.bin`.**
 
-### A. Produce firmware from the device default address
+### A. Default address → what to upload
 
-Resolve SKU via `app bom search` / BOM, then build the artifact that matches that row’s address (Muse OFF path unless the user explicitly wants Muse Gadget):
+Resolve SKU via `app bom search` / BOM. Muse OFF unless the user explicitly wants Muse Gadget:
 
-| Target `flash_address` | Produce this artifact | Do **not** produce |
-|------------------------|----------------------|--------------------|
-| **`0x0`** (Watcher / Sticky / Indicator / IPS / 1.47 non-Muse; ordinary XIAO “full image”) | **Merged firmware**: bootloader + partitions + app in one image starting at `0x0` (esptool / board merge recipe for that chip) | App-only image meant for `0x10000` / `0x90000` / Muse `0x20000` |
-| **`0x90000`** (E100x / XIAO e-paper) | **Application-region `.bin` only** linked for `0x90000` | Whole-flash image with bootloader; do not ship a `0x0` merge as the flash file |
-| **`0x4000`** (Wio Terminal) | **Application-region `.bin`** for SAM-BA / `0x4000` | A `0x0` image that would overwrite the UF2 bootloader |
-| **`0x10000`** (ordinary XIAO when building an SSCMA / “application” package) | **Application package** `.bin` (filename/URL often contains `application`) | Merged `0x0` image unless the user asked for a full flash image |
-| **Muse Gadget** (user/SDK chooses Muse) | Muse SDK build → upload **`muse-gadget.bin` only** | Putting companion bootloader/partition files into OSS; writing `flash_address: "0x20000"` |
+| Default `flash_address` | Upload this | Do **not** upload |
+|-------------------------|-------------|-------------------|
+| **`0x0`** (Watcher / Sticky / Indicator / IPS / 1.47 non-Muse; optional XIAO full image) | **Merged** `.bin` (bootloader + partitions + app) | App-only / SSCMA `application` package; `0x10000` bins |
+| **`0x90000`** (E100x / XIAO e-paper) | **Application-region** `.bin` only | `0x0` merged whole-flash image |
+| **`0x4000`** (Wio Terminal) | **Application-region** `.bin` | `0x0` image (overwrites UF2 bootloader) |
+| **`0x10000`** (ordinary XIAO application package) | **Application** `.bin` (name/URL often contains `application`) | Merged `0x0` unless user asked for full image |
+| **Muse Gadget** (user chooses Muse on a Muse SKU) | **`muse-gadget.bin` only** | Companion bootloader/partition files; writing `flash_address: "0x20000"` |
 
-If Muse is requested on a Muse-capable SKU: build with the Muse Gadget SDK, upload the device folder (`--type 4`), set `muse_gadget: true`, `full_flash: false`, keep the **device default** address (not `0x20000`). If Muse is not requested on a Muse-capable SKU: build the **non-Muse** row above and set `full_flash: true` by default.
+If Muse is requested: upload the device folder (`--type 4`) or `muse-gadget.bin`, set `muse_gadget: true`, `full_flash: false`, keep the **device default** address (not `0x20000`). If Muse is not requested on a Muse-capable SKU: upload the non-Muse row above and set `full_flash: true` by default.
 
-### B. Map finished artifacts back into config
+### B. Map the file you upload into config
 
-| Artifact you actually have | Muse-capable SKU? | `muse_gadget` | `full_flash` | `flash_address` |
-|----------------------------|-------------------|---------------|--------------|-----------------|
+| File you upload | Muse-capable SKU? | `muse_gadget` | `full_flash` | `flash_address` |
+|-----------------|-------------------|---------------|--------------|-----------------|
 | `muse-gadget.bin` / Muse SDK folder | yes | `true` | `false` | device default (**never** `0x20000`) |
-| Merged image built for `0x0` | yes / no | `false` | `true` on Muse SKUs; else `false` | `0x0` |
-| App-region bin built for `0x90000` / `0x4000` | as SKU | `false` | `true` on Muse SKUs; else `false` | that offset |
+| Merged image for `0x0` | yes / no | `false` | `true` on Muse SKUs; else `false` | `0x0` |
+| App-region bin for `0x90000` / `0x4000` | as SKU | `false` | `true` on Muse SKUs; else `false` | that offset |
 | XIAO `application` package | no (ordinary XIAO) | `false` | `false` | `0x10000` |
 
-Ambiguous single `.bin` → **ask once**: Muse Gadget or normal? Merged `0x0` or app-region? Prefer uploading a **matched device folder** with `file upload --path <folder> --type 4 --checksum` and copy returned `muse.*` into the block. Record Muse/address/build recipe in review notes. Never store SDK tokens.
+Ambiguous single `.bin` → **ask once**: Muse Gadget or normal? Merged `0x0` or app-region? Prefer a **matched device folder** with `file upload --path <folder> --type 4 --checksum` and copy returned `muse.*`. Never store SDK tokens.
 
 `app create` / `app update` **reject** with an explicit reason when: `device_id` is empty once the flash block has firmware/settings; `flash_mode` is `zip` on a non-ordinary-XIAO board; `muse_gadget` and the filename disagree (`muse-gadget.bin` ↔ Muse flag); `firmware_size` is implausible for the address (e.g. tiny bin at `0x0`, multi‑MiB dump at `0x90000`). Always copy upload `size` into `firmware_size`. Read the CLI error text and fix that field — do not retry the same payload.
 

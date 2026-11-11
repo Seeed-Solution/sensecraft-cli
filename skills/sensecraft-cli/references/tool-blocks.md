@@ -118,23 +118,30 @@ Unchecked `muse_gadget` keeps the single-file device table below and does not re
 
 `.hex` is only for Grove Beginner (`110061162`). E100x, e-paper, Sticky, IPS, Touch, and Indicator accept `.bin` only. Do not use zip for Grove, Wio, those screens, or Indicator. Ordinary XIAO still allows `0x0` / `0x10000`. Watcher / Sticky / IPS / Indicator non-Muse images are merged at `0x0` only — do not reuse the XIAO `application` → `0x10000` rule on them. XIAO C3 / C6 / S3 / S3 Sense / S3 Plus keep 115200 and `flashSize` / `flashMode` / `flashFreq` = `keep`.
 
-### Build the binary to match the address
+### Upload the binary that matches the default address
 
-**Required first step for Agents:** `sensecraft-cli firmware advise --device-id <SKU>` (or `--name sticky`). Use the JSON `build_recipe` (artifact / chip / forbid / steps / `muse_alt`). The same object is on `app blocks` → `flash-firmware.device_defaults[].build_recipe`.
+CLI does **not** generate firmware. It guides **what to upload** for each supported device’s default `flash_address`.
 
-When generating firmware for a board, pick the artifact from the address column **before** compiling. Wrong shape + right address still bricks or no-boots.
+**Required first step for Agents:**
 
-| `flash_address` you will write | Build / export | Typical boards |
-|--------------------------------|----------------|----------------|
-| `0x0` | **Merged** image (bootloader + table + app from `0x0`) | Watcher, Sticky, Indicator, IPS, 1.47" (non-Muse); optional full XIAO image |
+```bash
+sensecraft-cli firmware advise --list
+sensecraft-cli firmware advise --device-id <SKU>
+```
+
+Use JSON `rule` + `upload_guide` (`upload_what` / `do_not_upload`). Same rows are on `app blocks` → `flash-firmware.device_defaults` (no Access Key) and in `build_recipe`.
+
+| Default `flash_address` | Upload | Typical boards |
+|-------------------------|--------|----------------|
+| `0x0` | **Merged** image (bootloader + table + app) | Watcher, Sticky, Indicator, IPS, 1.47" (non-Muse); optional full XIAO image |
 | `0x90000` | **App-region only** `.bin` (no bootloader in the file) | E1001 / E1002, XIAO e-paper |
-| `0x4000` | **App-region** `.bin` for Wio offset | Wio Terminal |
-| `0x10000` | **Application package** `.bin` (often named `*application*`) | Ordinary XIAO C3/C6/S3 when not shipping a merge |
-| Muse path | Muse SDK → **`muse-gadget.bin` only**; keep device default address in config | Muse-capable SKUs; app site writes app at `0x20000` |
+| `0x4000` | **App-region** `.bin` | Wio Terminal |
+| `0x10000` | **Application package** `.bin` (often `*application*`) | Ordinary XIAO C3/C6/S3 when not shipping a merge |
+| Muse path | **`muse-gadget.bin` only**; keep device default address in config | Muse-capable SKUs; app site writes app at `0x20000` |
 
-CLI also rejects implausible `firmware_size` values when present: `0x0` merge targets typically need ≥ 200 KiB; `0x90000` / `0x4000` / `0x10000` app-region bins typically ≤ 4 MiB; Muse `muse-gadget.bin` also ≤ 4 MiB. Copy the byte size returned by `file upload`.
+CLI rejects implausible `firmware_size` when present: `0x0` merge typically ≥ 200 KiB; app-region / Muse typically ≤ 4 MiB. Copy `size` from `file upload`.
 
-**Agent:** choose SKU → look up default address → **build that shape** → upload → write `device_id` / `flash_address` / Muse flags / `firmware_size` into the app doc. **Do not** claim the firmware was flashed. Serial flashing stays L3 (Console / Web Serial).
+**Agent:** choose SKU → `firmware advise` → obtain a file matching `upload_guide` → upload → write `device_id` / `flash_address` / Muse flags / `firmware_size`. **Do not** claim the firmware was flashed. Serial flashing stays L3.
 
 ### `deploy-ai-model` (vision / audio / related)
 

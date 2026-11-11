@@ -241,13 +241,9 @@ func newAppBlocksCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "blocks",
 		Short: "Print deploy doc + tool-block catalog (for Agents)",
-		Long:  `Static catalog of text/tool blocks and when to use them. No network required.`,
+		Long:  `Static catalog of text/tool blocks and when to use them. No network and no Access Key.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx, err := cmdctx.GetAICmdContext()
-			if err != nil {
-				return err
-			}
-			return ctx.PrintRawData(service.AppBlocksCatalog())
+			return printRawJSON(os.Stdout, service.AppBlocksCatalog())
 		},
 	}
 }

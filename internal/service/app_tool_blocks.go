@@ -208,27 +208,28 @@ func isSupportedFlashAddress(addr string) bool {
 	}
 }
 
-// flashBuildArtifactHint tells Agents what binary to compile for this address.
+// flashBuildArtifactHint tells Agents what binary shape to upload for this address.
+// The CLI does not compile firmware.
 func flashBuildArtifactHint(address string, museCapable bool) string {
 	switch address {
 	case "0x0":
-		hint := "merged firmware from 0x0 (bootloader+partitions+app in one .bin)"
+		hint := "upload merged firmware at 0x0 (bootloader+partitions+app in one .bin)"
 		if museCapable {
-			hint += "; or Muse SDK muse-gadget.bin when muse_gadget is true"
+			hint += "; or upload muse-gadget.bin when muse_gadget is true"
 		}
 		return hint
 	case "0x90000":
-		hint := "application-region .bin only for 0x90000 (no bootloader in the file)"
+		hint := "upload application-region .bin only at 0x90000 (no bootloader in the file)"
 		if museCapable {
-			hint += "; or Muse SDK muse-gadget.bin when muse_gadget is true"
+			hint += "; or upload muse-gadget.bin when muse_gadget is true"
 		}
 		return hint
 	case "0x4000":
-		return "application-region .bin for 0x4000 (Wio); do not overwrite UF2 bootloader with a 0x0 image"
+		return "upload application-region .bin at 0x4000 (Wio); do not upload a 0x0 image over the UF2 bootloader"
 	case "0x10000":
-		return "application package .bin (often *application*); use 0x0 only when shipping a merged image"
+		return "upload application package .bin at 0x10000 (often *application*); use 0x0 only when uploading a merged image"
 	default:
-		return "follow tool-blocks.md for this device"
+		return "follow tool-blocks.md / firmware advise --list for this device"
 	}
 }
 

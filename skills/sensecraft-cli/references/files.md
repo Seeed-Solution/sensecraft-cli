@@ -43,7 +43,10 @@ sensecraft-cli file upload --path ./demo.png --type 1 --unlinked
 sensecraft-cli model upload --path ./model.rknn --unlinked
 
 # Firmware, static resource, and archive (no model/app attach)
-sensecraft-cli file upload --path ./firmware.bin --type 4 --checksum
+sensecraft-cli file upload --path ./firmware.bin --type 4 --checksum --device-id 100073581
+# Muse SDK / device folder: uploads muse-gadget.bin (or the single app bin) and returns muse hints
+sensecraft-cli file upload --path ./reterminal-e1001 --type 4 --checksum
+sensecraft-cli file upload --path ./sensecap-watcher --type 4 --checksum
 sensecraft-cli file upload --path ./guide.pdf --type 5 --flow-id <flow_id>
 sensecraft-cli file upload --path ./dataset.zip --type 6 --checksum
 
@@ -53,6 +56,24 @@ sensecraft-cli file upload --path ./fixture.bin --type 2 --checksum --unlinked -
 
 Success JSON contains `file_name`, `file_type`, `file_url`, `size`, optional `checksum`, and `attached`.
 When attached to a model it also includes `model_id`, `previous_version`, `version`. Explicit `--unlinked` / `--for-app` sets `attached: false` and a `hint`.
+
+### Type 4 firmware (`muse` in the response)
+
+Matched folder names (Muse SDK slugs or display names like `E1001设备`) select the board. A **bare** `.bin` should pass `--device-id <SKU>` so the same hints are returned. The JSON may include `muse`:
+
+| Situation | Upload | Write into `flash-firmware` config |
+|-----------|--------|------------------------------------|
+| Muse SDK folder with `muse-gadget.bin` | Only that file; companions ignored | `muse_gadget: true`, `full_flash: false`, device default `flash_address` (not `0x20000`) |
+| Muse-capable board + normal app/merged bin | That one firmware file | `muse_gadget: false`, **`full_flash: true`** (covers leftover Muse layout) |
+| Wio / Grove / non-Muse | That one firmware file | `muse_gadget: false`, `full_flash: false` |
+| Bare file + `--device-id` | That file | Same as above from the SKU; also `build_artifact` |
+| Bare file **without** `--device-id` | That file | `muse.note` only — incomplete; re-run with `--device-id` or a matched folder |
+
+Also copy upload `size` into `config.firmware_size`. Device defaults: `sensecraft-cli app blocks` → `flash-firmware.device_defaults`, or [tool-blocks.md](tool-blocks.md). E100x uses application-region bin at `0x90000` only (no `0x0`); Watcher/Sticky/Indicator/1.47 use merged bin at `0x0` only (no `0x10000`); Wio uses `0x4000` only (no `0x0`). Conflicting `--device-id` vs folder match is rejected with a clear reason.
+
+For non-Muse boards whose default address is `0x0`, `muse.note` always includes: **upload a merged `.bin`**. A file that is far too small for a merge (under ~200 KiB) is **rejected before OSS** with that reason (Grove Beginner `.hex`/`.bin` is exempt).
+
+Before compiling, Agents should run `sensecraft-cli firmware advise --device-id <SKU>` and follow `build_recipe` (also on `app blocks` → `device_defaults`).
 
 ## Model shortcut
 

@@ -50,6 +50,42 @@ Read the applicable references in the table **before** doing each part. Build ev
 
 **Deployment.** Read all of [tool-blocks.md](../references/tool-blocks.md), then map the complete first-time user journey to its supported blocks. For each action, record prerequisites, the chosen tool, verified config/artifact source, and the observable result. Inspect real artifact existence, target/architecture, build configuration, and required runtime inputs. A firmware file does not establish a model-deploy step; source code alone does not establish a flashable image. Place each tool directly after its instructions in a flat `deployment.blocks` array.
 
+**Firmware / Muse / address (required before building or writing `flash-firmware`).** Before compiling anything, run:
+
+```bash
+sensecraft-cli firmware advise --device-id <SKU>
+# or: sensecraft-cli firmware advise --name sticky
+```
+
+Follow the returned `build_recipe` (artifact, chip, forbid, steps, `muse_alt`). You may instead read `sensecraft-cli app blocks` → `flash-firmware.device_defaults[].build_recipe` / [tool-blocks.md](../references/tool-blocks.md). The target `flash_address` tells you **what binary to generate** — do not build a random `.bin` and then invent an address.
+
+### A. Produce firmware from the device default address
+
+Resolve SKU via `app bom search` / BOM, then build the artifact that matches that row’s address (Muse OFF path unless the user explicitly wants Muse Gadget):
+
+| Target `flash_address` | Produce this artifact | Do **not** produce |
+|------------------------|----------------------|--------------------|
+| **`0x0`** (Watcher / Sticky / Indicator / IPS / 1.47 non-Muse; ordinary XIAO “full image”) | **Merged firmware**: bootloader + partitions + app in one image starting at `0x0` (esptool / board merge recipe for that chip) | App-only image meant for `0x10000` / `0x90000` / Muse `0x20000` |
+| **`0x90000`** (E100x / XIAO e-paper) | **Application-region `.bin` only** linked for `0x90000` | Whole-flash image with bootloader; do not ship a `0x0` merge as the flash file |
+| **`0x4000`** (Wio Terminal) | **Application-region `.bin`** for SAM-BA / `0x4000` | A `0x0` image that would overwrite the UF2 bootloader |
+| **`0x10000`** (ordinary XIAO when building an SSCMA / “application” package) | **Application package** `.bin` (filename/URL often contains `application`) | Merged `0x0` image unless the user asked for a full flash image |
+| **Muse Gadget** (user/SDK chooses Muse) | Muse SDK build → upload **`muse-gadget.bin` only** | Putting companion bootloader/partition files into OSS; writing `flash_address: "0x20000"` |
+
+If Muse is requested on a Muse-capable SKU: build with the Muse Gadget SDK, upload the device folder (`--type 4`), set `muse_gadget: true`, `full_flash: false`, keep the **device default** address (not `0x20000`). If Muse is not requested on a Muse-capable SKU: build the **non-Muse** row above and set `full_flash: true` by default.
+
+### B. Map finished artifacts back into config
+
+| Artifact you actually have | Muse-capable SKU? | `muse_gadget` | `full_flash` | `flash_address` |
+|----------------------------|-------------------|---------------|--------------|-----------------|
+| `muse-gadget.bin` / Muse SDK folder | yes | `true` | `false` | device default (**never** `0x20000`) |
+| Merged image built for `0x0` | yes / no | `false` | `true` on Muse SKUs; else `false` | `0x0` |
+| App-region bin built for `0x90000` / `0x4000` | as SKU | `false` | `true` on Muse SKUs; else `false` | that offset |
+| XIAO `application` package | no (ordinary XIAO) | `false` | `false` | `0x10000` |
+
+Ambiguous single `.bin` → **ask once**: Muse Gadget or normal? Merged `0x0` or app-region? Prefer uploading a **matched device folder** with `file upload --path <folder> --type 4 --checksum` and copy returned `muse.*` into the block. Record Muse/address/build recipe in review notes. Never store SDK tokens.
+
+`app create` / `app update` **reject** with an explicit reason when: `device_id` is empty once the flash block has firmware/settings; `flash_mode` is `zip` on a non-ordinary-XIAO board; `muse_gadget` and the filename disagree (`muse-gadget.bin` ↔ Muse flag); `firmware_size` is implausible for the address (e.g. tiny bin at `0x0`, multi‑MiB dump at `0x90000`). Always copy upload `size` into `firmware_size`. Read the CLI error text and fix that field — do not retry the same payload.
+
 Use available artifacts or a documented reproducible build when feasible within the user's scope. If an artifact, board variant, model, container version, or necessary action is unresolved, explain the specific gap and propose choices. Keep needed blocks in the local draft with pending values; never replace them with prose that pretends the deployment works. If no tool supports a required action, say so and agree on a supported path or an explicitly incomplete draft. Do not claim deployability until every required action has a usable path.
 
 **BOM.** Follow [app-fields.md § Catalog verification](../references/app-fields.md#catalog-verification-before-authoring-a-bom). Identify devices and app-specific accessories from project evidence; exclude ordinary cables, computers, and generic tools by default. Query `app bom search --name "<product or SKU>"` for each catalog candidate, broadening the name if necessary. Match the exact variant. Copy returned `sku` to manifest row `id`, along with the returned name and purchase URL; derive quantity and a useful role note from the project. Do not use a catalog's internal `id` as the SKU.
@@ -60,7 +96,7 @@ Record the query and selected result in review notes. Multiple plausible variant
 
 Present a concise project summary, proposed fields, activity selection or reason for none, deployment actions/tools, BOM matches, and actual gaps. Batch questions about consequential choices: name/language/audience when unclear, scene, clone/commercial permissions, uncertain activity eligibility/selection, hardware variant and BOM scope/quantity, assets, or an unsupported deployment path. Include a recommendation and why; reuse answers already in the conversation.
 
-Ask only for uncertainty that affects correctness or the user's choice. Do not require an arbitrary one-round limit: a new material conflict can need a follow-up. Continue independent preparation while waiting, but do not commit guessed decisions or perform dependent uploads. Review is not an extra approval gate when the requested creation and all necessary decisions are already authorized.
+Ask only for uncertainty that affects correctness or the user's choice. Hardware firmware Muse vs normal (when the binary is ambiguous) and exact board SKU/variant are consequential — ask rather than guess. Do not require an arbitrary one-round limit: a new material conflict can need a follow-up. Continue independent preparation while waiting, but do not commit guessed decisions or perform dependent uploads. Review is not an extra approval gate when the requested creation and all necessary decisions are already authorized.
 
 ## 4. Build the local manifest
 
@@ -93,7 +129,7 @@ Update the review notes with corrections, evidence, remaining gaps, and readines
 ## 6. Upload and create once
 
 1. Read the upload references. Recheck auth/environment and that selected files still match their reviewed hashes. If auth is missing, use the split flow in [`../SKILL.md`](../SKILL.md). Do not run bare `auth init`. Upload only reviewed assets; reuse unchanged URLs. Images: `file upload --path <image> --type 1 --for-app`. Firmware: `--type 4`. Other artifacts: select the actual type/flags from the reference. App images use at most 16 JPG/JPEG/PNG/GIF/WebP files, each ≤5 MB; other artifacts are ≤100 MB.
-2. Write returned `file_url` values into the canonical manifest as each upload succeeds, keeping image order. Update the intended tool/media fields and the artifact ledger. For firmware fill `config.firmware_url`, `config.firmware_name`, and string `config.firmware_size` on the target block. Never expose temporary signed upload URLs in review prose.
+2. Write returned `file_url` values into the canonical manifest as each upload succeeds, keeping image order. Update the intended tool/media fields and the artifact ledger. For firmware fill `config.firmware_url`, `config.firmware_name`, and string `config.firmware_size` on the target block. When the type-4 response includes `muse`, also copy `device_id`, `flash_address`, `muse_gadget`, and `full_flash` into that `flash-firmware` config (do not invent conflicting flags). Never expose temporary signed upload URLs in review prose.
 3. Validate again, inspect the final projection, and reassess readiness. Required deployment inputs must now be filled unless the user chose an incomplete draft. Apply the [activity submission rules](../references/app-fields.md#activity-selection-during-app-authoring) when relevant and follow [manifest → CLI payload](references/manifest.md#manifest--cli-payload). Omit local bookkeeping; images become URLs with `pic_url = images[0]`; no images → omit both keys, never `images: []`. Never send `be_public` or `privacy`.
 4. Write `.sensecraft/<manifest-stem>.payload.json`, then create **without `--yes`**:
    ```bash
@@ -102,7 +138,7 @@ Update the review notes with corrections, evidence, remaining gaps, and readines
    Parse successful stdout for `app_id`, `console_url`, and `detail_url`. Record the ID and local UTC `created_at` immediately, before verification. On any ambiguous failure or missing ID/URLs, run `app list --mine --name "<app_name>"` before deciding whether creation happened; do not blindly retry. An internal follow-up save may fail after creating the app: recover that ID and resume by update.
 5. Re-read `app view --id <app_id> --sketch` and `app bom list --id <app_id> --sketch`. Confirm stdout `view_kind` is `sketch`. Compare intended fields, image order, blocks/configs, and BOM rows, accounting for documented server normalization. Verify any requested activity association per the activity reference. A create response alone is not proof all sections saved; default `app view` (no `--sketch`) on a private draft is often only the create shell. On a mismatch preserve the ID and report/repair through the update path.
 6. Only after verification, advance `sync.last_pushed_*` using the manifest contract and snapshot. Delete only transient payloads created by this session after success; preserve prior files and failure evidence.
-7. Report app name, ID, returned editor/detail links, counts, manifest revision/path, activity choice/result, and readiness. State **private draft (`be_public=0`)**; private and deployment-ready are separate facts. Missing cover affects publishing; missing tool inputs affect deployment. Tell the user to test flash on the **editor** (`console_url`); the bare `detail_url` preview may still show the empty published shell. Close the editor while CLI updates so auto-save cannot overwrite the sketch. Never claim the hardware was flashed or the app is public. Sketch vs published: [apps.md](../references/apps.md#sketch-vs-published-snapshots). Publish/unpublish/delete/clone use [apps.md](../references/apps.md).
+7. Report app name, ID, returned editor/detail links, counts, manifest revision/path, activity choice/result, and readiness. State **private draft (`be_public=0`)**; private and deployment-ready are separate facts. Missing cover affects publishing; missing tool inputs affect deployment. Tell the user to test flash on the **editor** (`console_url`); the bare `detail_url` preview may still show the empty published shell. Close the editor while CLI updates so auto-save cannot overwrite the sketch. Never claim the hardware was flashed or the app is public. Sketch vs published: [apps.md](../references/apps.md#sketch-vs-published-snapshots). Publish/unpublish/delete/clone use [apps.md](../references/apps.md). If the user later asks to publish and a `flash-firmware` block exists, print the flash summary from [apps.md](../references/apps.md) (SKU / address / artifact / Muse / size) and get explicit acceptance before `app publish`.
 
 ## Existing app: update or resume
 

@@ -26,6 +26,7 @@ func newFileUploadCmd() *cobra.Command {
 		path     string
 		fileType int
 		flowID   string
+		deviceID string
 		checksum bool
 		modelID  string
 		appID    string
@@ -55,7 +56,20 @@ Association (types 1–2) is required before any OSS upload:
   --unlinked              explicit orphan for later create/update JSON (pic_url / model create)
 
 Types 3–6 have no model/app attach path and upload directly.
-Without association flags: interactive TTY guides; agents must ask first.`,
+Without association flags: interactive TTY guides; agents must ask first.
+
+Type 4 firmware guidance:
+  - Pass a single .bin/.hex, or a matched device folder (e.g. reterminal-e1001, sensecap-watcher, "E1001设备").
+  - For a bare file, pass --device-id <SKU> so the response includes muse hints (address/Muse/full_flash/build_artifact).
+  - Muse SDK folders upload muse-gadget.bin only; companion segments stay local (app site supplies them).
+  - Success JSON may include muse{device_id,flash_address,muse_gadget,full_flash,build_artifact,note}.
+  - Muse ON → muse_gadget true, full_flash false, keep device default flash_address (not 0x20000).
+  - Muse-capable board + normal firmware → muse_gadget false, default full_flash true.
+  - E100x @ 0x90000 only; Wio @ 0x4000 only; Watcher/Sticky/Indicator/1.47 merged @ 0x0 only.
+  - Generate firmware by address: 0x0 → merged image; 0x90000/0x4000/0x10000 → app-region; Muse → muse-gadget.bin.
+  - muse.note always states when 0x0 needs a merged .bin; uploads that are far too small for a 0x0 merge are rejected before OSS.
+  - Rejection messages name the conflicting field — fix that field before retrying.
+  - See sensecraft-cli app blocks → flash-firmware.device_defaults (build_artifact).`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx, err := cmdctx.GetAICmdContext()
 			if err != nil {
@@ -122,6 +136,7 @@ Without association flags: interactive TTY guides; agents must ask first.`,
 				FileType: fileType,
 				Checksum: checksum,
 				FlowID:   flowID,
+				DeviceID: deviceID,
 			})
 			if err != nil {
 				return err
@@ -138,6 +153,7 @@ Without association flags: interactive TTY guides; agents must ask first.`,
 	cmd.Flags().StringVar(&path, "path", "", "Local file path (required)")
 	cmd.Flags().IntVar(&fileType, "type", service.FileTypeFile, "Upload file_type (default 2=model/file)")
 	cmd.Flags().StringVar(&flowID, "flow-id", "", "Required when --type 5 (static resource)")
+	cmd.Flags().StringVar(&deviceID, "device-id", "", "Type 4: material SKU for muse/address/build_artifact hints on a bare firmware file")
 	cmd.Flags().BoolVar(&checksum, "checksum", false, "Compute local MD5 checksum")
 	cmd.Flags().StringVar(&modelID, "model-id", "", "Attach uploaded file to this model (bumps version; implies type=2 --checksum)")
 	cmd.Flags().StringVar(&appID, "app-id", "", "Attach uploaded image as this app's cover (implies type=1, 5 MB)")

@@ -58,14 +58,19 @@ type FileUploadParams struct {
 	Checksum bool
 	// FlowID is required for file_type 5 (static resource).
 	FlowID string
+	// DeviceID is optional for type-4 single-file uploads: fills muse hints
+	// (flash_address / muse_gadget / full_flash / build_artifact) when the
+	// parent folder is not a matched device directory.
+	DeviceID string
 }
 
 type FileUploadResult struct {
-	FileName string `json:"file_name"`
-	FileType int    `json:"file_type"`
-	FileURL  string `json:"file_url"`
-	Size     int64  `json:"size"`
-	Checksum string `json:"checksum,omitempty"`
+	FileName string          `json:"file_name"`
+	FileType int             `json:"file_type"`
+	FileURL  string          `json:"file_url"`
+	Size     int64           `json:"size"`
+	Checksum string          `json:"checksum,omitempty"`
+	Muse     *MuseUploadInfo `json:"muse,omitempty"`
 }
 
 // ErrAttachRequired is returned when an upload would create an orphan OSS
@@ -81,19 +86,20 @@ const UnlinkedUploadHint = "unlinked upload (--unlinked): put file_url into mode
 
 // FileAttachResult is an upload plus optional model/app association.
 type FileAttachResult struct {
-	FileName        string `json:"file_name"`
-	FileType        int    `json:"file_type"`
-	FileURL         string `json:"file_url"`
-	Size            int64  `json:"size"`
-	Checksum        string `json:"checksum,omitempty"`
-	Attached        bool   `json:"attached"`
-	ModelID         string `json:"model_id,omitempty"`
-	AppID           string `json:"app_id,omitempty"`
-	Version         string `json:"version,omitempty"`
-	PreviousVersion string `json:"previous_version,omitempty"`
-	BePublic        int    `json:"be_public,omitempty"`
-	ReReview        bool   `json:"re_review,omitempty"`
-	Hint            string `json:"hint,omitempty"`
+	FileName        string          `json:"file_name"`
+	FileType        int             `json:"file_type"`
+	FileURL         string          `json:"file_url"`
+	Size            int64           `json:"size"`
+	Checksum        string          `json:"checksum,omitempty"`
+	Attached        bool            `json:"attached"`
+	ModelID         string          `json:"model_id,omitempty"`
+	AppID           string          `json:"app_id,omitempty"`
+	Version         string          `json:"version,omitempty"`
+	PreviousVersion string          `json:"previous_version,omitempty"`
+	BePublic        int             `json:"be_public,omitempty"`
+	ReReview        bool            `json:"re_review,omitempty"`
+	Hint            string          `json:"hint,omitempty"`
+	Muse            *MuseUploadInfo `json:"muse,omitempty"`
 }
 
 func FileAttachFromUpload(up FileUploadResult) FileAttachResult {
@@ -103,6 +109,7 @@ func FileAttachFromUpload(up FileUploadResult) FileAttachResult {
 		FileURL:  up.FileURL,
 		Size:     up.Size,
 		Checksum: up.Checksum,
+		Muse:     up.Muse,
 	}
 }
 
@@ -119,6 +126,35 @@ func (s FileService) UploadFile(p FileUploadParams) (FileUploadResult, error) {
 	if fileType == FileTypeDoc && flowID == "" {
 		return FileUploadResult{}, fmt.Errorf("--flow-id is required when --type 5 (static resource)")
 	}
+
+	var muse *MuseUploadInfo
+	deviceID := strings.TrimSpace(p.DeviceID)
+	if fileType == FileTypeFirmware {
+		prepared, err := prepareMuseFirmwareUpload(path)
+		if err != nil {
+			return FileUploadResult{}, err
+		}
+		if prepared != nil {
+			path = prepared.uploadPath
+			info := prepared.info
+			if deviceID != "" && !deviceIDInList(deviceID, info.DeviceIDs) && deviceID != info.DeviceID {
+				return FileUploadResult{}, fmt.Errorf(
+					"--device-id %s conflicts with folder-matched device_id %s (%s). Omit --device-id to keep the folder match, or upload a bare file with the intended --device-id",
+					deviceID, info.DeviceID, info.DeviceName,
+				)
+			}
+			muse = &info
+		} else {
+			hint, err := singleFileFirmwareHint(path, deviceID)
+			if err != nil {
+				return FileUploadResult{}, err
+			}
+			muse = hint
+		}
+	} else if deviceID != "" {
+		return FileUploadResult{}, fmt.Errorf("--device-id is only valid with --type 4 (firmware)")
+	}
+
 	info, err := os.Stat(path)
 	if err != nil {
 		return FileUploadResult{}, fmt.Errorf("stat file: %w", err)
@@ -132,6 +168,12 @@ func (s FileService) UploadFile(p FileUploadParams) (FileUploadResult, error) {
 	}
 	if err := validateUploadFile(fileType, path, info.Size()); err != nil {
 		return FileUploadResult{}, err
+	}
+	if fileType == FileTypeFirmware {
+		enrichFirmwareUploadGuidance(muse)
+		if err := rejectTinyMergedFirmwareUpload(path, info.Size(), muse); err != nil {
+			return FileUploadResult{}, err
+		}
 	}
 
 	var checksum string
@@ -148,6 +190,7 @@ func (s FileService) UploadFile(p FileUploadParams) (FileUploadResult, error) {
 		if checksum != "" {
 			res.Checksum = checksum
 		}
+		res.Muse = muse
 		return res, nil
 	}
 
@@ -192,6 +235,7 @@ func (s FileService) UploadFile(p FileUploadParams) (FileUploadResult, error) {
 		FileURL:  cred.FileURL,
 		Size:     info.Size(),
 		Checksum: checksum,
+		Muse:     muse,
 	}, nil
 }
 

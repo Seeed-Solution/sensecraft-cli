@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 
 	"sensecraft-cloud-terminal/internal/enum"
@@ -95,7 +96,7 @@ func TestFlashFirmwareChecksConfigValues(t *testing.T) {
 	}{
 		{"firmware_size", 2232320}, {"firmware_size", "large"}, {"firmware_url", "./firmware.bin"},
 		{"flash_address", "0x20000"}, {"flash_mode", "hex"}, {"device_id", 113991315},
-		{"muse_gadget", "false"}, {"full_flash", 1}, {"full_flash", true},
+		{"muse_gadget", "false"}, {"full_flash", 1},
 	} {
 		t.Run(tc.key+"/"+reflect.TypeOf(tc.value).String(), func(t *testing.T) {
 			block := watcherFlashBlock()
@@ -105,11 +106,22 @@ func TestFlashFirmwareChecksConfigValues(t *testing.T) {
 			}
 		})
 	}
+	coerced := watcherFlashBlock()
+	coerced["config"].(map[string]any)["full_flash"] = true
+	if err := ValidateDeploymentBlocks(toolBlockBody(coerced)); err != nil {
+		t.Fatalf("muse_gadget true should coerce full_flash false: %v", err)
+	}
+	if coerced["config"].(map[string]any)["full_flash"] != false {
+		t.Fatalf("expected full_flash coerced to false: %#v", coerced["config"])
+	}
 	block := watcherFlashBlock()
 	cfg := block["config"].(map[string]any)
 	cfg["device_id"] = "113991115"
 	cfg["device_type"] = "32"
 	cfg["muse_gadget"] = false
+	cfg["full_flash"] = false
+	cfg["firmware_url"] = "https://example.invalid/app.bin"
+	cfg["firmware_name"] = "app.bin"
 	cfg["flash_mode"] = "zip"
 	cfg["project_zip_url"] = "https://example.invalid/project.zip"
 	cfg["project_zip_size"] = "1234"
@@ -123,20 +135,318 @@ func TestFlashFirmwareMuseFlagsRequireMuseSKU(t *testing.T) {
 	cfg := block["config"].(map[string]any)
 	cfg["muse_gadget"] = false
 	cfg["full_flash"] = true
+	cfg["firmware_url"] = "https://example.invalid/merged.bin"
+	cfg["firmware_name"] = "merged.bin"
 	if err := ValidateDeploymentBlocks(toolBlockBody(block)); err != nil {
 		t.Fatalf("full_flash on a Muse SKU should be allowed: %v", err)
 	}
 
 	cfg["device_id"] = "113991115"
+	cfg["firmware_url"] = "https://example.invalid/app.bin"
+	cfg["firmware_name"] = "app.bin"
 	cfg["muse_gadget"] = true
 	cfg["full_flash"] = false
-	if err := ValidateDeploymentBlocks(toolBlockBody(block)); err == nil {
-		t.Fatal("accepted muse_gadget on a non-Muse SKU")
+	if err := ValidateDeploymentBlocks(toolBlockBody(block)); err != nil {
+		t.Fatalf("non-Muse muse_gadget should be coerced off: %v", err)
+	}
+	if block["config"].(map[string]any)["muse_gadget"] != false {
+		t.Fatal("non-Muse muse_gadget should become false")
 	}
 	cfg["muse_gadget"] = false
 	cfg["full_flash"] = true
+	if err := ValidateDeploymentBlocks(toolBlockBody(block)); err != nil {
+		t.Fatalf("non-Muse full_flash should be coerced off: %v", err)
+	}
+	if block["config"].(map[string]any)["full_flash"] != false {
+		t.Fatal("non-Muse full_flash should become false")
+	}
+}
+
+func TestFlashFirmwareRequiresDeviceIDAndRejectsUnsafeZip(t *testing.T) {
+	pending := map[string]any{"id": "flash_pending", "type": "flash-firmware", "config": map[string]any{}}
+	if err := ValidateDeploymentBlocks(toolBlockBody(pending)); err != nil {
+		t.Fatalf("empty flash config scaffold should remain allowed: %v", err)
+	}
+
+	missingSKU := map[string]any{
+		"id": "flash_nosku", "type": "flash-firmware",
+		"config": map[string]any{
+			"flash_mode": "bin", "firmware_url": "https://example.invalid/app.bin",
+			"firmware_name": "app.bin", "firmware_size": "1234",
+		},
+	}
+	if err := ValidateDeploymentBlocks(toolBlockBody(missingSKU)); err == nil {
+		t.Fatal("accepted flash-firmware with firmware but empty device_id")
+	} else if !strings.Contains(err.Error(), "device_id is required") {
+		t.Fatalf("expected clear device_id reason, got: %v", err)
+	}
+
+	e1001Zip := map[string]any{
+		"id": "flash_e1001_zip", "type": "flash-firmware",
+		"config": map[string]any{
+			"device_id": "100073581", "flash_mode": "zip",
+			"project_zip_url": "https://example.invalid/project.zip", "project_zip_size": "1234",
+			"muse_gadget": false, "full_flash": true,
+		},
+	}
+	if err := ValidateDeploymentBlocks(toolBlockBody(e1001Zip)); err == nil {
+		t.Fatal("accepted zip on E1001")
+	} else if !strings.Contains(err.Error(), "flash_mode \"zip\" rejected") {
+		t.Fatalf("expected clear zip rejection, got: %v", err)
+	}
+
+	unknownZip := map[string]any{
+		"id": "flash_unknown_zip", "type": "flash-firmware",
+		"config": map[string]any{
+			"device_id": "999999999", "flash_mode": "zip",
+			"project_zip_url": "https://example.invalid/project.zip", "project_zip_size": "1234",
+		},
+	}
+	if err := ValidateDeploymentBlocks(toolBlockBody(unknownZip)); err == nil {
+		t.Fatal("accepted zip on unknown SKU")
+	}
+}
+
+func TestFlashFirmwareRejectsMuseFilenameWithoutMuseFlag(t *testing.T) {
+	block := map[string]any{
+		"id": "flash_muse_name", "type": "flash-firmware",
+		"config": map[string]any{
+			"device_id": "100073581", "flash_mode": "bin",
+			"firmware_url": "https://example.invalid/muse-gadget.bin", "firmware_name": "muse-gadget.bin",
+			"firmware_size": "524288", "flash_address": "0x90000",
+			"muse_gadget": false, "full_flash": true,
+		},
+	}
 	if err := ValidateDeploymentBlocks(toolBlockBody(block)); err == nil {
-		t.Fatal("accepted full_flash on a non-Muse SKU")
+		t.Fatal("accepted muse-gadget.bin while muse_gadget is false")
+	} else if !strings.Contains(err.Error(), "muse_gadget is false") {
+		t.Fatalf("expected clear muse filename mismatch reason, got: %v", err)
+	}
+}
+
+func TestFlashFirmwareRequiresFirmwareSizeWithURL(t *testing.T) {
+	block := map[string]any{
+		"id": "flash_nosize", "type": "flash-firmware",
+		"config": map[string]any{
+			"device_id": "113991054", "flash_mode": "bin",
+			"firmware_url": "https://example.invalid/application.bin", "firmware_name": "application.bin",
+			"muse_gadget": false, "full_flash": false,
+		},
+	}
+	if err := ValidateDeploymentBlocks(toolBlockBody(block)); err == nil {
+		t.Fatal("accepted firmware_url without firmware_size")
+	} else if !strings.Contains(err.Error(), "firmware_size is required") {
+		t.Fatalf("expected size required reason, got: %v", err)
+	}
+}
+
+func TestFlashFirmwareRejectsImplausibleSizes(t *testing.T) {
+	tooSmall := map[string]any{
+		"id": "flash_small", "type": "flash-firmware",
+		"config": map[string]any{
+			"device_id": "113991315", "flash_mode": "bin",
+			"firmware_url": "https://example.invalid/app.bin", "firmware_name": "app.bin",
+			"firmware_size": "1234", "flash_address": "0x0",
+			"muse_gadget": false, "full_flash": true,
+		},
+	}
+	if err := ValidateDeploymentBlocks(toolBlockBody(tooSmall)); err == nil {
+		t.Fatal("accepted tiny bin for Watcher 0x0 merged address")
+	} else if !strings.Contains(err.Error(), "too small for flash_address 0x0") {
+		t.Fatalf("expected clear small-merge reason, got: %v", err)
+	}
+
+	tooLarge := map[string]any{
+		"id": "flash_huge", "type": "flash-firmware",
+		"config": map[string]any{
+			"device_id": "100073581", "flash_mode": "bin",
+			"firmware_url": "https://example.invalid/merged.bin", "firmware_name": "merged.bin",
+			"firmware_size": "8388608", "flash_address": "0x90000",
+			"muse_gadget": false, "full_flash": true,
+		},
+	}
+	if err := ValidateDeploymentBlocks(toolBlockBody(tooLarge)); err == nil {
+		t.Fatal("accepted 8MiB image for E1001 0x90000")
+	} else if !strings.Contains(err.Error(), "too large for flash_address 0x90000") {
+		t.Fatalf("expected clear large-app-region reason, got: %v", err)
+	}
+}
+
+func TestFlashFirmwareDefaultsFullFlashAndAddress(t *testing.T) {
+	block := map[string]any{
+		"id": "flash_e1002", "type": "flash-firmware",
+		"config": map[string]any{
+			"device_id": "100017057", "device_type": "29", "flash_mode": "bin",
+			"firmware_url": "https://example.invalid/app.bin", "firmware_name": "app.bin",
+			"firmware_size": "1234", "muse_gadget": false,
+		},
+	}
+	if err := ValidateDeploymentBlocks(toolBlockBody(block)); err != nil {
+		t.Fatal(err)
+	}
+	cfg := block["config"].(map[string]any)
+	if cfg["full_flash"] != true {
+		t.Fatalf("Muse SKU with muse off should default full_flash true: %#v", cfg)
+	}
+	if cfg["flash_address"] != "0x90000" {
+		t.Fatalf("E1002 should fill 0x90000: %#v", cfg)
+	}
+
+	keepOff := map[string]any{
+		"id": "flash_keep", "type": "flash-firmware",
+		"config": map[string]any{
+			"device_id": "100017057", "device_type": "29", "flash_mode": "bin",
+			"firmware_url": "https://example.invalid/app.bin", "firmware_name": "app.bin",
+			"firmware_size": "1234", "flash_address": "0x90000",
+			"muse_gadget": false, "full_flash": false,
+		},
+	}
+	if err := ValidateDeploymentBlocks(toolBlockBody(keepOff)); err != nil {
+		t.Fatal(err)
+	}
+	if keepOff["config"].(map[string]any)["full_flash"] != false {
+		t.Fatal("explicit full_flash false must be kept")
+	}
+}
+
+func TestFlashFirmwareCoercesIllegalFixedAddresses(t *testing.T) {
+	cases := []struct {
+		name, sku, bad, want, size string
+	}{
+		{"e1002", "100017057", "0x0", "0x90000", "524288"},
+		{"wio", "102991299", "0x0", "0x4000", "131072"},
+		{"watcher", "113991315", "0x10000", "0x0", "1048576"},
+		{"sticky", "100056818", "0x10000", "0x0", "1048576"},
+		{"indicator", "114993068", "0x10000", "0x0", "1048576"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			block := map[string]any{
+				"id": "flash_coerce", "type": "flash-firmware",
+				"config": map[string]any{
+					"device_id": tc.sku, "device_type": "", "flash_mode": "bin",
+					"firmware_url": "https://example.invalid/app.bin", "firmware_name": "app.bin",
+					"firmware_size": tc.size, "flash_address": tc.bad,
+					"muse_gadget": false, "full_flash": isMuseGadgetSKU(tc.sku),
+				},
+			}
+			if err := ValidateDeploymentBlocks(toolBlockBody(block)); err != nil {
+				t.Fatal(err)
+			}
+			if got := block["config"].(map[string]any)["flash_address"]; got != tc.want {
+				t.Fatalf("flash_address=%v want %s", got, tc.want)
+			}
+		})
+	}
+
+	muse := watcherFlashBlock()
+	muse["config"].(map[string]any)["firmware_url"] = "https://example.invalid/app.bin"
+	muse["config"].(map[string]any)["firmware_name"] = "app.bin"
+	if err := ValidateDeploymentBlocks(toolBlockBody(muse)); err == nil {
+		t.Fatal("accepted muse_gadget with a non muse-gadget.bin")
+	}
+}
+
+func TestFlashFirmwareApplicationURLFillsXiaoAddress(t *testing.T) {
+	block := map[string]any{
+		"id": "flash_xiao", "type": "flash-firmware",
+		"config": map[string]any{
+			"device_id": "113991054", "device_type": "32", "flash_mode": "bin",
+			"firmware_url": "https://example.invalid/application.bin", "firmware_name": "application.bin",
+			"firmware_size": "1234", "muse_gadget": false, "full_flash": false,
+		},
+	}
+	if err := ValidateDeploymentBlocks(toolBlockBody(block)); err != nil {
+		t.Fatal(err)
+	}
+	if block["config"].(map[string]any)["flash_address"] != "0x10000" {
+		t.Fatalf("application firmware should fill 0x10000: %#v", block["config"])
+	}
+
+	unknown := map[string]any{
+		"id": "flash_unknown", "type": "flash-firmware",
+		"config": map[string]any{
+			"device_id": "999999999", "device_type": "", "flash_mode": "bin",
+			"firmware_url": "https://example.invalid/application.bin", "firmware_name": "application.bin",
+			"firmware_size": "1234", "muse_gadget": false, "full_flash": false,
+		},
+	}
+	if err := ValidateDeploymentBlocks(toolBlockBody(unknown)); err == nil {
+		t.Fatal("accepted unknown device_id without materials name")
+	} else if !strings.Contains(err.Error(), "not in flash-firmware.device_defaults") {
+		t.Fatalf("expected unknown-SKU reason, got: %v", err)
+	}
+	named := toolBlockBody(map[string]any{
+		"id": "flash_unknown_named", "type": "flash-firmware",
+		"config": map[string]any{
+			"device_id": "999999999", "device_type": "", "flash_mode": "bin",
+			"firmware_url": "https://example.invalid/application.bin", "firmware_name": "application.bin",
+			"firmware_size": "524288", "muse_gadget": false, "full_flash": false,
+		},
+	})
+	named["materials"] = []any{
+		map[string]any{"id": "999999999", "name": "XIAO 2.13\" ePaper Display", "quantity": "1"},
+	}
+	if err := ValidateDeploymentBlocks(named); err != nil {
+		t.Fatal(err)
+	}
+	if addr := named["deployment"].(map[string]any)["blocks"].([]any)[0].(map[string]any)["config"].(map[string]any)["flash_address"]; addr != "0x90000" {
+		t.Fatalf("named e-paper unknown SKU should coerce to 0x90000: %#v", addr)
+	}
+}
+
+func TestFlashFirmwareNameRulesForEpaperAndIPS(t *testing.T) {
+	body := toolBlockBody(map[string]any{
+		"id": "flash_epaper", "type": "flash-firmware",
+		"config": map[string]any{
+			"device_id": "epaper-sku-1", "device_type": "", "flash_mode": "bin",
+			"firmware_url": "https://example.invalid/app.bin", "firmware_name": "app.bin",
+			"firmware_size": "1234", "flash_address": "0x0",
+			"muse_gadget": false, "full_flash": false,
+		},
+	})
+	body["materials"] = []any{
+		map[string]any{"id": "epaper-sku-1", "name": "XIAO 2.13\" ePaper Display", "quantity": "1"},
+	}
+	if err := ValidateDeploymentBlocks(body); err != nil {
+		t.Fatal(err)
+	}
+	if body["deployment"].(map[string]any)["blocks"].([]any)[0].(map[string]any)["config"].(map[string]any)["flash_address"] != "0x90000" {
+		t.Fatalf("e-paper by name should coerce to 0x90000")
+	}
+
+	ips := toolBlockBody(map[string]any{
+		"id": "flash_ips", "type": "flash-firmware",
+		"config": map[string]any{
+			"device_id": "ips-sku-1", "device_type": "", "flash_mode": "bin",
+			"firmware_url": "https://example.invalid/merged.bin", "firmware_name": "merged.bin",
+			"firmware_size": "1048576", "flash_address": "0x10000",
+			"muse_gadget": false, "full_flash": false,
+		},
+	})
+	ips["materials"] = []any{
+		map[string]any{"sku": "ips-sku-1", "name": `XIAO 1.14" IPS Display (ESP32-S3)`, "quantity": "1"},
+	}
+	if err := ValidateDeploymentBlocks(ips); err != nil {
+		t.Fatal(err)
+	}
+	if ips["deployment"].(map[string]any)["blocks"].([]any)[0].(map[string]any)["config"].(map[string]any)["flash_address"] != "0x0" {
+		t.Fatalf("IPS by name should coerce 0x10000→0x0")
+	}
+}
+
+func TestFlashFirmwareIndicatorAliasAllowsMuse(t *testing.T) {
+	block := map[string]any{
+		"id": "flash_d1s", "type": "flash-firmware",
+		"config": map[string]any{
+			"device_id": "114993069", "device_type": "", "flash_mode": "bin",
+			"firmware_url": "https://example.invalid/muse-gadget.bin", "firmware_name": "muse-gadget.bin",
+			"firmware_size": "1234", "flash_address": "0x0",
+			"muse_gadget": true, "full_flash": false,
+		},
+	}
+	if err := ValidateDeploymentBlocks(toolBlockBody(block)); err != nil {
+		t.Fatalf("Indicator D1S alias should allow Muse: %v", err)
 	}
 }
 

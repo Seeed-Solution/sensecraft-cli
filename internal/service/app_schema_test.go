@@ -56,7 +56,7 @@ func TestFlashFirmwareCatalogKeys(t *testing.T) {
 			}
 		}
 	}
-	for _, phrase := range []string{"muse_gadget", "full_flash", "114993068", "0x20000", "muse-gadget.bin", "do not write 0x20000", "0x8000", "set full_flash false"} {
+	for _, phrase := range []string{"muse_gadget", "full_flash", "114993068", "0x20000", "muse-gadget.bin", "do not write 0x20000", "0x8000", "set full_flash false", "merged-binary.bin", "must not contain application"} {
 		if !strings.Contains(notes, phrase) {
 			t.Fatalf("notes missing %q: %s", phrase, notes)
 		}

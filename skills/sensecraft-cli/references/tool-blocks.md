@@ -106,7 +106,7 @@ Unchecked `muse_gadget` keeps the single-file device table below and does not re
 | XIAO ESP32C3 | `113991054` | `bin` or `zip` | URL contains `application` → `0x10000`, otherwise `0x0` | `.bin` or zip |
 | XIAO ESP32C6 / S3 / S3 Plus | matching SKU (`material.device_id` empty; row comes from `app_block_options`) | same as C3 | same as C3 | same as C3 |
 | XIAO ESP32S3 Sense | `113991115` | same as C3 | same as C3 | same as C3 |
-| SenseCAP Watcher | `113991315` or `113991275` (one group) | `bin` | same as XIAO, optional | `.bin` on the Xiao / ESP32-S3 port |
+| SenseCAP Watcher | `113991315` or `113991275` (one group) | `bin` | `0x0` | `merged-binary.bin`: bootloader at `0x0`, partition table at `0x8000`, app at `0x10000` |
 | Wio Terminal | `102991299` | `bin` | `0x4000` | `.bin` |
 | Grove Beginner Kit | `110061162` | `bin` | `0x0` (address bar hidden; `.hex` uses addresses inside the file) | `.bin` or `.hex`. `.hex` locks the board to this kit |
 | XIAO 0.96" / 1.14" IPS, 1.47" Touch (ESP32-S3) | representative SKU of the group; 1.47" Touch Muse SKU is `100069905` | `bin` | `0x0` | merged `.bin`. nRF52840 variants cannot be flashed |
@@ -116,7 +116,9 @@ Unchecked `muse_gadget` keeps the single-file device table below and does not re
 | reTerminal Sticky | `100056818` | `bin` | `0x0` | merged `.bin` |
 | SenseCAP Indicator D1 / D1S / D1L / D1Pro | one group; example `114993068` (D1) | `bin` | `0x0` | merged ESP32-S3 `.bin`, not the RP2040 port |
 
-`.hex` is only for Grove Beginner (`110061162`). E100x, e-paper, Sticky, IPS, Touch, and Indicator accept `.bin` only. Do not use zip for Grove, Wio, those screens, or Indicator. XIAO C3 / C6 / S3 / S3 Sense / S3 Plus / Watcher keep 115200 and `flashSize` / `flashMode` / `flashFreq` = `keep`; do not apply the screen `0x90000` or merged-`0x0` rules to them.
+SenseCAP Watcher without Muse uploads `merged-binary.bin` at `0x0`. Build it from the same `flash_args` (`0x0` bootloader, `0x8000` partition table, `0x10000` app). Leave out the app-only `.bin`, `bootloader.bin`, and `partition-table.bin`. The file name and URL must not contain `application`; that word moves the write to `0x10000`. Keep `muse_gadget` and `full_flash` false. Muse firmware stays `muse-gadget.bin` with `muse_gadget: true`.
+
+`.hex` is only for Grove Beginner (`110061162`). E100x, e-paper, Sticky, IPS, Touch, and Indicator accept `.bin` only. Do not use zip for Grove, Wio, those screens, or Indicator. XIAO C3 / C6 / S3 / S3 Sense / S3 Plus / Watcher keep 115200 and `flashSize` / `flashMode` / `flashFreq` = `keep`. Screen boards use `0x90000`. Watcher's non-Muse file remains `merged-binary.bin` at `0x0`.
 
 **Agent:** write the SKU, file, and address into the app doc. **Do not** claim the firmware was flashed. Serial flashing stays L3 (Console / Web Serial).
 

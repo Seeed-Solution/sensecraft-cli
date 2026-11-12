@@ -62,7 +62,7 @@ Formats JPG/JPEG/PNG/GIF/WebP, ≤ 5 MB each, prefer 4:3. SVG is rejected by the
 
 ## `deployment.blocks`
 
-Flat ordered array, copied through to the payload unchanged. Blocks before the first `step` = introduction; each `step` starts a deploy step. Read [../../references/tool-blocks.md](../../references/tool-blocks.md) before selecting or configuring tools. After `file upload --type 4`, write `config.firmware_url`, `config.firmware_name`, and string `config.firmware_size` inside the `flash-firmware` block. Every tool uses one nested `config` object. Do not repeat those fields on the block. A needed block with missing inputs may stay in a local draft, but the app is not deployment-ready until those inputs have a usable path; mark gaps in review notes rather than inventing URLs or IDs.
+Flat ordered array, copied through to the payload unchanged. Blocks before the first `step` = introduction; each `step` starts a deploy step. Read [../../references/tool-blocks.md](../../references/tool-blocks.md) before selecting or configuring tools. After `file upload --type 4`, write `config.firmware_url`, `config.firmware_name`, and string `config.firmware_size` inside the `flash-firmware` block. `firmware_url` is the returned `file_url`. The object name in that URL is the name used to download the file; the name specified for the upload is not necessarily that name. Every tool uses one nested `config` object. Do not repeat those fields on the block. A needed block with missing inputs may stay in a local draft, but the app is not deployment-ready until those inputs have a usable path; mark gaps in review notes rather than inventing URLs or IDs.
 
 ## `bom.materials`
 

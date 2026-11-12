@@ -31,6 +31,8 @@ Acquires an OSS POST policy, uploads the local file with multipart/form-data, an
 
 `--model-id` and `--app-id` are mutually exclusive. Types `1`/`2` without attach/`--for-app`/`--unlinked` exit non-zero **before** the OSS POST (`ErrAttachRequired`). Types `3`–`6` upload directly. Type `5` without `--flow-id` exits before acquire.
 
+The filename used to access or download the file is the object name in the returned `file_url`. A name specified for the upload is not necessarily that download name. stdout `file_name` echoes the name sent, not a name read back from the server.
+
 ```bash
 sensecraft-cli file upload --path ./cover.png --type 1 --for-app
 sensecraft-cli file upload --path ./cover.png --type 1 --app-id <app_id> --yes

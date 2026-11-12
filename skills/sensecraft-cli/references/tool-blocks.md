@@ -84,7 +84,7 @@ Write every field below inside **`block.config`**. Keep `id` and `type` on the b
 | XIAO 1.47" Touch Display | `100069905` |
 | reTerminal Sticky | `100056818` |
 
-When `muse_gadget` is `true`, set `full_flash` to `false`. The editor hides that checkbox until Muse is turned off. `firmware_url` must be `muse-gadget.bin` linked at `0x20000`. A binary linked at `0x90000` or `0x10000` will not boot. Checking the box does not change `flash_address`: E100x stays `0x90000`, Sticky / Indicator / 1.47" Touch stay `0x0`, Watcher stays on the XIAO address rule.
+When `muse_gadget` is `true`, set `full_flash` to `false`. The editor hides that checkbox until Muse is turned off. `firmware_url` must be the Muse application image linked at `0x20000`. The local build product is usually `muse-gadget.bin`; the name stored by the server does not have to stay that name. A binary linked at `0x90000` or `0x10000` will not boot. Checking the box does not change `flash_address`: E100x stays `0x90000`, Sticky / Indicator / 1.47" Touch stay `0x0`, Watcher stays on the XIAO address rule.
 
 `full_flash: true` with `muse_gadget: false` is the switch back from a Muse image to another firmware. E1001 / E1002 then also rewrite the stock bootloader at `0x0` and the partition table at `0x8000`; the app stays at `0x90000`. Indicator, 1.47" Touch, Sticky, and Watcher non-Muse images are already merged at `0x0`, so the flag only turns on erase-all. Do not put the reTerminal stock bootloader into those images, and do not put it into a Muse image.
 

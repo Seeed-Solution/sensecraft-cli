@@ -23,7 +23,7 @@ Auth: **Access Key**. The China site supports SenseCraft Data only; file upload 
 7. Do not pass oversized files or more than 16 app image URLs; CLI rejects them before upload/update.
 8. Types `3`–`6` have no model/app attach path and upload directly (no `--unlinked` needed).
 9. **Security gates**: empty (0 B) files rejected; type 2–6 ≤ **100 MB**; every image ≤ **5 MB**. The CLI does not count uploads. A rate limit comes back as `11209` or `11210`.
-10. **Use the returned access link.** Optional `--name` is the `file_name` sent to the server. The server may rewrite part of that name for security. Put the returned `file_url` into the app or model payload. Do not build a URL from `--name`, the local file name, or stdout `file_name`.
+10. **The access name is the server's.** Optional `--name` is the `file_name` sent to the server. The filename used to open or download the file is the object name in the returned `file_url`. A name specified for the upload is not necessarily that download name. Put the returned `file_url` into the app or model payload. Do not build a URL from `--name`, the local file name, or stdout `file_name`.
 
 ## Examples
 
@@ -52,7 +52,7 @@ sensecraft-cli file upload --path ./dataset.zip --type 6 --checksum
 sensecraft-cli file upload --path ./fixture.bin --type 2 --checksum --unlinked --sandbox
 ```
 
-Success JSON contains `file_name`, `file_type`, `file_url`, `size`, optional `checksum`, and `attached`. `file_url` is the access link. `file_name` is the name sent with `--name` or the local base name; the server may store the object under a different name.
+Success JSON contains `file_name`, `file_type`, `file_url`, `size`, optional `checksum`, and `attached`. `file_url` is the access link, and the object name in it is the name the server stored. `file_name` is the name sent with `--name` or the local base name; it is not necessarily the downloaded file name.
 When attached to a model it also includes `model_id`, `previous_version`, `version`. Explicit `--unlinked` / `--for-app` sets `attached: false` and a `hint`.
 
 ## Model shortcut

@@ -116,9 +116,9 @@ Unchecked `muse_gadget` keeps the single-file device table below and does not re
 | reTerminal Sticky | `100056818` | `bin` | `0x0` | merged `.bin` |
 | SenseCAP Indicator D1 / D1S / D1L / D1Pro | one group; example `114993068` (D1) | `bin` | `0x0` | merged ESP32-S3 `.bin`, not the RP2040 port |
 
-SenseCAP Watcher without Muse uploads `merged-binary.bin` at `0x0`. Build it from the same `flash_args` (`0x0` bootloader, `0x8000` partition table, `0x10000` app). Leave out the app-only `.bin`, `bootloader.bin`, and `partition-table.bin`. The file name and URL must not contain `application`; that word moves the write to `0x10000`. Keep `muse_gadget` and `full_flash` false. Muse firmware stays `muse-gadget.bin` with `muse_gadget: true`.
+A SenseCAP Watcher project that is not joining an activity uploads `merged-binary.bin` at `0x0`. Build it from the same `flash_args` (`0x0` bootloader, `0x8000` partition table, `0x10000` app). Leave out the app-only `.bin`, `bootloader.bin`, and `partition-table.bin`. The file name and URL must not contain `application`; that word moves the write to `0x10000`. Keep `full_flash` false.
 
-`.hex` is only for Grove Beginner (`110061162`). E100x, e-paper, Sticky, IPS, Touch, and Indicator accept `.bin` only. Do not use zip for Grove, Wio, those screens, or Indicator. XIAO C3 / C6 / S3 / S3 Sense / S3 Plus / Watcher keep 115200 and `flashSize` / `flashMode` / `flashFreq` = `keep`. Screen boards use `0x90000`. Watcher's non-Muse file remains `merged-binary.bin` at `0x0`.
+`.hex` is only for Grove Beginner (`110061162`). E100x, e-paper, Sticky, IPS, Touch, and Indicator accept `.bin` only. Do not use zip for Grove, Wio, those screens, or Indicator. XIAO C3 / C6 / S3 / S3 Sense / S3 Plus / Watcher keep 115200 and `flashSize` / `flashMode` / `flashFreq` = `keep`. Screen boards use `0x90000`. A Watcher project that is not joining an activity uses `merged-binary.bin` at `0x0`.
 
 **Agent:** write the SKU, file, and address into the app doc. **Do not** claim the firmware was flashed. Serial flashing stays L3 (Console / Web Serial).
 

@@ -44,7 +44,7 @@ var (
 func GetRootCmd() *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:     "sensecraft-cli",
-		Version: version.Version,
+		Version: version.Line(),
 		Short:   "SenseCraft cloud platform CLI",
 		Long: `Terminal for the SenseCraft cloud platform.
 

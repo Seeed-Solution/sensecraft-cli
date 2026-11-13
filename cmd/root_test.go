@@ -66,7 +66,7 @@ func TestVersionPrintsOnlyLocalVersion(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	if strings.TrimSpace(buf.String()) != version.Version {
+	if strings.TrimSpace(buf.String()) != version.Line() {
 		t.Fatalf("version output=%q", buf.String())
 	}
 }

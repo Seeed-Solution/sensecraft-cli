@@ -35,6 +35,7 @@ var appToolConfigKeys = map[string][]string{
 var museGadgetSKUs = map[string]struct{}{
 	"114993068": {}, // Indicator D1
 	"114993069": {}, // Indicator D1S
+	"114993070": {}, // Indicator D1L
 	"114993071": {}, // Indicator D1Pro
 	"113991315": {}, // Watcher
 	"113991275": {}, // Watcher
@@ -69,6 +70,32 @@ func isMuseGadgetDevice(deviceID string, materials []map[string]any) bool {
 	return false
 }
 
+// isMuseMergedZeroAddressDevice mirrors App: Muse-capable boards whose only
+// non-Muse address is 0x0 (Sticky / Watcher / Indicator / 1.47). E100x stays
+// at 0x90000 and is not forced. Grove is 0x0 but not Muse-capable.
+func isMuseMergedZeroAddressDevice(deviceID string, materials []map[string]any) bool {
+	if !isMuseGadgetDevice(deviceID, materials) {
+		return false
+	}
+	policy, ok := resolveFlashAddressPolicy(deviceID, materials)
+	if !ok || !policy.fixed || policy.defaultAddress != "0x0" {
+		return false
+	}
+	return true
+}
+
+// shouldForceFullFlashWhenMuseOff mirrors App: merged-at-0x0 Muse boards must
+// keep full_flash true whenever muse_gadget is off (cannot turn off).
+func shouldForceFullFlashWhenMuseOff(cfg map[string]any, materials []map[string]any) bool {
+	if cfg == nil {
+		return false
+	}
+	if muse, ok := cfg["muse_gadget"].(bool); ok && muse {
+		return false
+	}
+	return isMuseMergedZeroAddressDevice(strings.TrimSpace(stringFromMap(cfg, "device_id")), materials)
+}
+
 // flashAddressPolicy returns the device default flash_address.
 // fixed means any other address is rejected on create/update (E100x/Wio/
 // Watcher/Sticky/Indicator/1.47 only keep one safe option). Ordinary XIAO
@@ -82,6 +109,7 @@ type flashAddressPolicy struct {
 var flashAddressBySKU = map[string]flashAddressPolicy{
 	"114993068": {defaultAddress: "0x0", fixed: true, fileHint: "merged ESP32-S3 .bin from 0x0 only; do not write 0x10000"},
 	"114993069": {defaultAddress: "0x0", fixed: true, fileHint: "merged ESP32-S3 .bin from 0x0 only; do not write 0x10000"},
+	"114993070": {defaultAddress: "0x0", fixed: true, fileHint: "merged ESP32-S3 .bin from 0x0 only; do not write 0x10000"},
 	"114993071": {defaultAddress: "0x0", fixed: true, fileHint: "merged ESP32-S3 .bin from 0x0 only; do not write 0x10000"},
 	"113991315": {defaultAddress: "0x0", fixed: true, fileHint: "merged .bin from 0x0 on Xiao/ESP32-S3 port; do not write 0x10000"},
 	"113991275": {defaultAddress: "0x0", fixed: true, fileHint: "merged .bin from 0x0 on Xiao/ESP32-S3 port; do not write 0x10000"},
@@ -316,9 +344,12 @@ func normalizeFlashFirmwareConfig(cfg map[string]any, materials []map[string]any
 		}
 		// Non-bool values stay for validateAppToolBlock to reject.
 	} else if museDevice {
-		if _, present := cfg["full_flash"]; !present {
-			// App opens Muse-capable boards with full erase when Muse is off,
-			// so leftover Muse partitions/bootloader are covered.
+		if isMuseMergedZeroAddressDevice(deviceID, materials) {
+			// Sticky/Watcher/Indicator/1.47: force full erase; ignore explicit false
+			// (matches App editor lock when writing merged firmware at 0x0).
+			cfg["full_flash"] = true
+		} else if _, present := cfg["full_flash"]; !present {
+			// E100x etc.: default full erase once; explicit false is kept.
 			cfg["full_flash"] = true
 		}
 	} else if v, ok := cfg["full_flash"].(bool); ok && v {

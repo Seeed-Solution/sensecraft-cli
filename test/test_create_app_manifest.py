@@ -180,6 +180,15 @@ class ManifestValidationTests(unittest.TestCase):
         self.assertEqual(self.validate().returncode, 0)
         cfg.update(firmware_url="https://files.example.invalid/app.bin", firmware_name="app.bin")
         self.assert_invalid(self.manifest)
+        # Watcher merged-at-0x0: muse off + full_flash false is rejected (forced true)
+        cfg.update(
+            muse_gadget=False, full_flash=False,
+            firmware_url="https://files.example.invalid/merged.bin",
+            firmware_name="merged.bin", firmware_size="1048576",
+        )
+        self.assert_invalid(self.manifest)
+        cfg["full_flash"] = True
+        self.assertEqual(self.validate().returncode, 0)
 
     def test_firmware_modes_sizes_and_addresses(self):
         block = self.manifest["deployment"]["blocks"][0]["config"]

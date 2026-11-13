@@ -305,7 +305,26 @@ func TestFlashFirmwareDefaultsFullFlashAndAddress(t *testing.T) {
 		t.Fatal(err)
 	}
 	if keepOff["config"].(map[string]any)["full_flash"] != false {
-		t.Fatal("explicit full_flash false must be kept")
+		t.Fatal("E1002 explicit full_flash false must be kept")
+	}
+
+	// Sticky / Watcher / Indicator / 1.47: force full_flash even when explicit false
+	for _, sku := range []string{"100056818", "113991315", "114993068", "100069905"} {
+		forced := map[string]any{
+			"id": "flash_force_" + sku, "type": "flash-firmware",
+			"config": map[string]any{
+				"device_id": sku, "device_type": "", "flash_mode": "bin",
+				"firmware_url": "https://example.invalid/merged.bin", "firmware_name": "merged.bin",
+				"firmware_size": "1048576", "flash_address": "0x0",
+				"muse_gadget": false, "full_flash": false,
+			},
+		}
+		if err := ValidateDeploymentBlocks(toolBlockBody(forced)); err != nil {
+			t.Fatalf("%s: %v", sku, err)
+		}
+		if forced["config"].(map[string]any)["full_flash"] != true {
+			t.Fatalf("%s: merged-at-0x0 Muse board must force full_flash true, got %#v", sku, forced["config"])
+		}
 	}
 }
 

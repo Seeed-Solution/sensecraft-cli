@@ -318,8 +318,10 @@ func museUploadInfo(dev museDevice, ignored []string) MuseUploadInfo {
 
 func deviceUploadInfo(dev museDevice, ignored []string) MuseUploadInfo {
 	note := "Folder name matched this device. Write config.device_id, flash_address, flash_mode, muse_gadget, and full_flash. The app site reads config."
-	if dev.muse {
-		note += " This SKU supports Muse: muse_gadget=false so default full_flash=true to cover leftover Muse partitions/bootloader. Use an application-region or merged bin for this board — not muse-gadget.bin unless muse_gadget is true."
+	if dev.muse && dev.flashAddress == "0x0" {
+		note += " Merged firmware at 0x0 requires full_flash=true (forced; cannot turn off). Use a merged .bin — not muse-gadget.bin unless muse_gadget is true."
+	} else if dev.muse {
+		note += " This SKU supports Muse: muse_gadget=false defaults full_flash=true (E100x may set false explicitly). Use an application-region bin for this board — not muse-gadget.bin unless muse_gadget is true."
 	} else {
 		note += " muse_gadget stays false; full_flash stays false on non-Muse boards."
 	}

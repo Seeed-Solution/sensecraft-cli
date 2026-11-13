@@ -41,7 +41,7 @@ TOOL_CONFIG_FIELDS = {
 FLASH_ADDRESSES = {"0x0", "0x4000", "0x10000", "0x90000"}
 # Keep aligned with museDeviceTable (muse: true) and tool-blocks.md.
 MUSE_GADGET_SKUS = {
-    "114993068", "114993069", "114993071",  # Indicator D1 / D1S / D1Pro
+    "114993068", "114993069", "114993070", "114993071",  # Indicator D1 / D1S / D1L / D1Pro
     "113991315", "113991275", "114993275",  # Watcher (+ enclosure alias)
     "100073581",  # reTerminal E1001
     "100017057",  # reTerminal E1002
@@ -50,7 +50,7 @@ MUSE_GADGET_SKUS = {
 }
 # Fixed flash_address by SKU (matches CLI flashAddressBySKU.fixed / App address bar).
 FLASH_ADDRESS_FIXED = {
-    "114993068": "0x0", "114993069": "0x0", "114993071": "0x0",
+    "114993068": "0x0", "114993069": "0x0", "114993070": "0x0", "114993071": "0x0",
     "113991315": "0x0", "113991275": "0x0", "114993275": "0x0",
     "100073581": "0x90000",
     "100017057": "0x90000",
@@ -59,6 +59,13 @@ FLASH_ADDRESS_FIXED = {
     "102991299": "0x4000",
     "110061162": "0x0",
 }
+
+
+def forces_full_flash_when_muse_off(device_id):
+    """Sticky/Watcher/Indicator/1.47: only non-Muse address is 0x0 — full_flash locked on."""
+    if device_id not in MUSE_GADGET_SKUS:
+        return False
+    return FLASH_ADDRESS_FIXED.get(device_id) == "0x0"
 XIAO_EE_DIY_RE = re.compile(r"(?i)\bee0[2-5]\b")
 FLASH_MIN_MERGED_BYTES = 200 * 1024
 FLASH_MAX_APP_REGION_BYTES = 4 * 1024 * 1024
@@ -478,8 +485,23 @@ def main():
                         f"(firmware_name={name!r}). Set muse_gadget true and full_flash false on a Muse-capable SKU, "
                         "or upload a normal board image without \"muse-gadget\" in the name"
                     )
-                elif muse_capable(device_id) and "full_flash" not in cfg:
-                    warn(f"{label}: Muse SKU with muse_gadget off should set full_flash true (covers leftover Muse layout); CLI defaults it on create/update")
+                elif muse_capable(device_id) and cfg.get("muse_gadget") is not True:
+                    if forces_full_flash_when_muse_off(device_id):
+                        if cfg.get("full_flash") is False:
+                            vio(
+                                f"{label}: device_id {device_id} writes merged firmware at 0x0 — config.full_flash "
+                                "must be true and cannot be turned off (CLI/App force it). Omit the field or set true"
+                            )
+                        elif "full_flash" not in cfg:
+                            warn(
+                                f"{label}: merged-at-0x0 Muse SKU with muse_gadget off should set full_flash true "
+                                "(forced on create/update)"
+                            )
+                    elif "full_flash" not in cfg:
+                        warn(
+                            f"{label}: Muse SKU with muse_gadget off should set full_flash true "
+                            "(CLI defaults it on create/update; E100x may set false explicitly)"
+                        )
                 size_raw = cfg.get("firmware_size") if isinstance(cfg.get("firmware_size"), str) else ""
                 if mode == "bin" and size_raw and QUANTITY_RE.fullmatch(size_raw):
                     size = int(size_raw)

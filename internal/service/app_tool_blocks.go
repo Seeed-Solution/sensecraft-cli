@@ -70,9 +70,9 @@ func isMuseGadgetDevice(deviceID string, materials []map[string]any) bool {
 }
 
 // flashAddressPolicy returns the device default flash_address.
-// fixed means any other address is coerced to the default (matches App
-// editor: E100x/Wio/Watcher/Sticky/Indicator/1.47 only keep one safe option).
-// Ordinary XIAO keeps 0x0 / 0x10000, so fixed is false.
+// fixed means any other address is rejected on create/update (E100x/Wio/
+// Watcher/Sticky/Indicator/1.47 only keep one safe option). Ordinary XIAO
+// keeps 0x0 / 0x10000, so fixed is false.
 type flashAddressPolicy struct {
 	defaultAddress string
 	fixed          bool
@@ -327,18 +327,15 @@ func normalizeFlashFirmwareConfig(cfg map[string]any, materials []map[string]any
 
 	addr := strings.TrimSpace(stringFromMap(cfg, "flash_address"))
 	if policy, ok := resolveFlashAddressPolicy(deviceID, materials); ok {
-		switch {
-		case addr == "":
+		if addr == "" {
 			next := policy.defaultAddress
 			if !policy.fixed && looksLikeApplicationFirmware(stringFromMap(cfg, "firmware_url"), stringFromMap(cfg, "firmware_name")) {
 				next = "0x10000"
 			}
 			cfg["flash_address"] = next
-		case policy.fixed && addr != policy.defaultAddress && isSupportedFlashAddress(addr):
-			// Match App: coerce leftover UI options that are now unsafe for
-			// this board (Watcher 0x10000, E100x/Wio/e-paper 0x0, IPS 0x10000).
-			cfg["flash_address"] = policy.defaultAddress
 		}
+		// Do not silently rewrite a wrong fixed address (e.g. Watcher 0x10000).
+		// validateAppToolBlock rejects it so create/update fail with a clear reason.
 		return
 	}
 	// Do not apply XIAO application→0x10000 to unknown SKUs (would mis-address
@@ -505,6 +502,7 @@ func validateFlashFirmwareShape(label string, cfg map[string]any, materials []ma
 		addr = policy.defaultAddress
 	}
 	name := stringFromMap(cfg, "firmware_name")
+	url := stringFromMap(cfg, "firmware_url")
 	if name == "" {
 		name = "(unnamed)"
 	}
@@ -518,8 +516,20 @@ func validateFlashFirmwareShape(label string, cfg map[string]any, materials []ma
 
 	switch addr {
 	case "0x0":
-		if size < flashMinMergedFirmwareBytes {
+		// Grove Beginner is plain .bin/.hex at 0x0 — never apply the ESP merge floor.
+		expectsMerge := boardExpectsMergedFirmwareAtZero(deviceID, materials)
+		if expectsMerge && size < flashMinMergedFirmwareBytes {
 			return fmt.Errorf("%s: firmware_size %s bytes (%s) is too small for flash_address 0x0 on device_id %s — 0x0 expects a merged image (bootloader+partitions+app), typically ≥ %d bytes. Rebuild with the board merge recipe (see device_defaults.build_artifact), or if this is an application-only package on ordinary XIAO use flash_address 0x10000 and a name/URL containing \"application\"", label, sizeStr, name, deviceID, flashMinMergedFirmwareBytes)
+		}
+		// Ordinary XIAO also uses 0x0 for merges; keep the size floor when the
+		// address is explicitly 0x0 (empty address + application name fills 0x10000).
+		if !expectsMerge && !isGroveBeginnerSKU(deviceID) && size < flashMinMergedFirmwareBytes {
+			return fmt.Errorf("%s: firmware_size %s bytes (%s) is too small for flash_address 0x0 on device_id %s — 0x0 expects a merged image (bootloader+partitions+app), typically ≥ %d bytes. Rebuild with the board merge recipe (see device_defaults.build_artifact), or if this is an application-only package on ordinary XIAO use flash_address 0x10000 and a name/URL containing \"application\"", label, sizeStr, name, deviceID, flashMinMergedFirmwareBytes)
+		}
+		// Mid-size app-only bins often clear the ≥200KiB merge floor. Name/URL
+		// containing "application" is the documented signal for SSCMA/app packages.
+		if expectsMerge && looksLikeApplicationFirmware(url, name) {
+			return fmt.Errorf("%s: firmware_url/firmware_name %q looks like an application-only package, but device_id %s flash_address 0x0 requires a merged image (bootloader+partitions+app). Rebuild with the board merge recipe (device_defaults.build_artifact), then re-upload. Ordinary XIAO application packages use flash_address 0x10000 — not Watcher/Sticky/Indicator/IPS/1.47", label, name, deviceID)
 		}
 	case "0x90000", "0x4000", "0x10000":
 		if size > flashMaxAppRegionFirmwareBytes {

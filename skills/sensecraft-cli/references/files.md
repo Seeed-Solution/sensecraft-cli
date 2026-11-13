@@ -69,7 +69,7 @@ Matched folder names (Muse SDK slugs or display names like `E1001设备`) select
 | Bare file + `--device-id` | That file | Same as above from the SKU; also `build_artifact` |
 | Bare file **without** `--device-id` | That file | `muse.note` only — incomplete; re-run with `--device-id` or a matched folder |
 
-Also copy upload `size` into `config.firmware_size`. Device defaults: `sensecraft-cli app blocks` → `flash-firmware.device_defaults`, or [tool-blocks.md](tool-blocks.md). E100x uses application-region bin at `0x90000` only (no `0x0`); Watcher/Sticky/Indicator/1.47 use merged bin at `0x0` only (no `0x10000`); Wio uses `0x4000` only (no `0x0`). Conflicting `--device-id` vs folder match is rejected with a clear reason.
+Also copy upload `size` into `config.firmware_size`. Device defaults: `sensecraft-cli app blocks` → `flash-firmware.device_defaults`, or [tool-blocks.md](tool-blocks.md). E100x uses application-region bin at `0x90000` only (no `0x0`); Watcher/Sticky/Indicator/1.47 use merged bin at `0x0` only (no `0x10000`, and `*application*` filenames are rejected on upload/create); Wio uses `0x4000` only (no `0x0`). Conflicting `--device-id` vs folder match is rejected with a clear reason.
 
 For non-Muse boards whose default address is `0x0`, `muse.note` always includes: **upload a merged `.bin`**. A file that is far too small for a merge (under ~200 KiB) is **rejected before OSS** with that reason (Grove Beginner `.hex`/`.bin` is exempt).
 

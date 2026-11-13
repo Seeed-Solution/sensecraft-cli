@@ -174,6 +174,9 @@ func (s FileService) UploadFile(p FileUploadParams) (FileUploadResult, error) {
 		if err := rejectTinyMergedFirmwareUpload(path, info.Size(), muse); err != nil {
 			return FileUploadResult{}, err
 		}
+		if err := rejectApplicationOnlyFirmwareOnMergedBoard(path, muse); err != nil {
+			return FileUploadResult{}, err
+		}
 	}
 
 	var checksum string

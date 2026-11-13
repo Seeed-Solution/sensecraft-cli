@@ -358,14 +358,32 @@ func boardNeedsMergedFirmwareAtZero(info *MuseUploadInfo) bool {
 	if info == nil || info.MuseGadget || info.FlashAddress != "0x0" {
 		return false
 	}
-	id := strings.TrimSpace(info.DeviceID)
-	if id == "" {
-		return false
+	return boardExpectsMergedFirmwareAtZero(info.DeviceID, nil)
+}
+
+// isGroveBeginnerSKU is the ATmega328P kit that flashes plain .bin/.hex at 0x0
+// (not an ESP merge image).
+func isGroveBeginnerSKU(deviceID string) bool {
+	id := strings.TrimSpace(deviceID)
+	if id == "110061162" {
+		return true
 	}
 	if dev, ok := lookupMuseDeviceByID(id); ok && dev.allowHex {
+		return true
+	}
+	return false
+}
+
+// boardExpectsMergedFirmwareAtZero is true for fixed 0x0 SKUs that need a
+// bootloader+partitions+app merge (Watcher/Sticky/Indicator/IPS/1.47). Grove
+// Beginner keeps a plain 0x0 .bin/.hex and is excluded.
+func boardExpectsMergedFirmwareAtZero(deviceID string, materials []map[string]any) bool {
+	id := strings.TrimSpace(deviceID)
+	if id == "" || isGroveBeginnerSKU(id) {
 		return false
 	}
-	if id == "110061162" {
+	policy, ok := resolveFlashAddressPolicy(id, materials)
+	if !ok || !policy.fixed || policy.defaultAddress != "0x0" {
 		return false
 	}
 	return true
@@ -394,6 +412,22 @@ func rejectTinyMergedFirmwareUpload(uploadPath string, size int64, muse *MuseUpl
 	return fmt.Errorf(
 		"firmware file %s is %d bytes — too small for device_id %s at flash_address 0x0. That address needs a merged image (bootloader+partitions+app), typically ≥ %d bytes. Rebuild with the board merge recipe (device_defaults.build_artifact), then re-upload. App-only bins belong at 0x10000 (ordinary XIAO) or 0x90000/0x4000 (e-paper/Wio), not 0x0",
 		base, size, muse.DeviceID, flashMinMergedFirmwareBytes,
+	)
+}
+
+// rejectApplicationOnlyFirmwareOnMergedBoard blocks type-4 uploads whose name
+// looks like an SSCMA/application package when the board only accepts a 0x0 merge.
+func rejectApplicationOnlyFirmwareOnMergedBoard(uploadPath string, muse *MuseUploadInfo) error {
+	if !boardNeedsMergedFirmwareAtZero(muse) {
+		return nil
+	}
+	base := filepath.Base(uploadPath)
+	if !looksLikeApplicationFirmware("", base) {
+		return nil
+	}
+	return fmt.Errorf(
+		"firmware file %s looks like an application-only package (name contains \"application\"), but device_id %s flash_address 0x0 requires a merged image (bootloader+partitions+app). Rebuild with the board merge recipe (device_defaults.build_artifact), then re-upload. Ordinary XIAO application packages use 0x10000 — not Watcher/Sticky/Indicator/IPS/1.47",
+		base, muse.DeviceID,
 	)
 }
 

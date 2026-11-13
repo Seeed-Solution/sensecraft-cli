@@ -490,12 +490,30 @@ def main():
                             f"{label}: firmware_size {size_raw} bytes ({display_name}) is too large for Muse "
                             "muse-gadget.bin (app segment). Rebuild the Muse app binary only, or disable Muse"
                         )
-                    elif cfg.get("muse_gadget") is not True and shape_addr == "0x0" and size < FLASH_MIN_MERGED_BYTES:
+                    elif (
+                        cfg.get("muse_gadget") is not True
+                        and shape_addr == "0x0"
+                        and device_id != "110061162"
+                        and size < FLASH_MIN_MERGED_BYTES
+                    ):
                         vio(
                             f"{label}: firmware_size {size_raw} bytes ({display_name}) is too small for flash_address "
                             f"0x0 on device_id {device_id} — 0x0 expects a merged image (typically ≥ "
                             f"{FLASH_MIN_MERGED_BYTES} bytes). Rebuild a merge, or on ordinary XIAO use 0x10000 for an "
                             "application package"
+                        )
+                    elif (
+                        cfg.get("muse_gadget") is not True
+                        and shape_addr == "0x0"
+                        and device_id != "110061162"
+                        and want_addr == "0x0"
+                        and "application" in (name + " " + url).lower()
+                    ):
+                        vio(
+                            f"{label}: firmware_url/firmware_name {display_name!r} looks like an application-only "
+                            f"package, but device_id {device_id} flash_address 0x0 requires a merged image "
+                            "(bootloader+partitions+app). Rebuild a merge; ordinary XIAO application packages use "
+                            "0x10000 — not Watcher/Sticky/Indicator/IPS/1.47"
                         )
                     elif (
                         cfg.get("muse_gadget") is not True

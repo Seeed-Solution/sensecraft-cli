@@ -12,7 +12,7 @@
 | 新增 `firmware advise` | 问 CLI「Sticky/E1001/… 该传什么包？」会给出默认地址、该传合并包还是应用包、Muse 时怎么传 |
 | `advise --list` | 一张表列出所有支持的板：默认地址 → 该上传什么 |
 | `upload_guide` | 明确写「要传什么 / 别传什么 / 推荐文件名 / Muse·全量怎么填」 |
-| 上传 / 创建 门禁 | 地址不对、体积离谱、Muse 开关和文件名对不上、缺 SKU 或 size → **报错并点出字段**，避免静默传错 |
+| 上传 / 创建 门禁 | 地址不对、体积离谱、合并板误传 `*application*` 包、Muse 开关和文件名对不上、缺 SKU 或 size → **报错并点出字段**，避免静默传错（不再把 Watcher `0x10000` 静默改成 `0x0`） |
 | Muse 目录上传 | 只上传 `muse-gadget.bin`，旁边的 bootloader 等不传 OSS；配置里地址仍用板默认，**不要写 `0x20000`** |
 | `app blocks` 免登录 | 没 Access Key 也能看设备默认表（和 help 一致） |
 | Grove 芯片标注 | 改为 ATmega328P（以前标错） |
@@ -74,7 +74,7 @@ python3 test/test_create_app_manifest.py
 - [ ] `--list` 能列出各板默认地址和「该上传什么」
 - [ ] Sticky / Watcher → `0x0` 合并；E100x → `0x90000` 应用区；Wio → `0x4000`
 - [ ] Muse：只提 `muse-gadget.bin`，并提醒配置地址不要写 `0x20000`
-- [ ] 传错类型时（太小的「合并包」、Muse 名对不上、缺 device_id 等）报错能看懂、点出字段
+- [ ] 传错类型时（太小的「合并包」、Watcher/Sticky 误传 `*application*`、写 `0x10000`、Muse 名对不上、缺 device_id 等）报错能看懂、点出字段；`app create` 不得静默改地址后创建成功
 - [ ] 未登录也能跑 `advise` / `app blocks`
 
 ---

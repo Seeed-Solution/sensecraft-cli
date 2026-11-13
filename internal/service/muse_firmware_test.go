@@ -277,6 +277,34 @@ func TestUploadRejectsTinyMergedBinAtZero(t *testing.T) {
 	}
 }
 
+func TestUploadRejectsApplicationPackageOnWatcherMerged(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "photo_viewer-application.bin")
+	if err := os.WriteFile(path, []byte(strings.Repeat("a", 281376)), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, err := (FileService{sandbox: true}).UploadFile(FileUploadParams{
+		Path: path, FileType: FileTypeFirmware, DeviceID: "113991315",
+	})
+	if err == nil || !strings.Contains(err.Error(), "application-only package") {
+		t.Fatalf("expected Watcher application-package rejection, got: %v", err)
+	}
+
+	// Ordinary XIAO still accepts *application* at 0x10000.
+	xiaoPath := filepath.Join(t.TempDir(), "demo-application.bin")
+	if err := os.WriteFile(xiaoPath, []byte(strings.Repeat("x", 64*1024)), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	res, err := (FileService{sandbox: true}).UploadFile(FileUploadParams{
+		Path: xiaoPath, FileType: FileTypeFirmware, DeviceID: "113991054",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Muse == nil || res.Muse.FlashAddress != "0x10000" {
+		t.Fatalf("XIAO application upload should hint 0x10000: %#v", res.Muse)
+	}
+}
+
 func TestUploadDisplayNameMusePackageStillUploadsGadget(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "sticky设备")
 	writeMusePackage(t, dir, "bootloader.bin")

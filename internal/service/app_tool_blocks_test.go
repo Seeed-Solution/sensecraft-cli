@@ -309,7 +309,7 @@ func TestFlashFirmwareDefaultsFullFlashAndAddress(t *testing.T) {
 	}
 }
 
-func TestFlashFirmwareCoercesIllegalFixedAddresses(t *testing.T) {
+func TestFlashFirmwareRejectsIllegalFixedAddresses(t *testing.T) {
 	cases := []struct {
 		name, sku, bad, want, size string
 	}{
@@ -322,7 +322,7 @@ func TestFlashFirmwareCoercesIllegalFixedAddresses(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			block := map[string]any{
-				"id": "flash_coerce", "type": "flash-firmware",
+				"id": "flash_reject_addr", "type": "flash-firmware",
 				"config": map[string]any{
 					"device_id": tc.sku, "device_type": "", "flash_mode": "bin",
 					"firmware_url": "https://example.invalid/app.bin", "firmware_name": "app.bin",
@@ -330,11 +330,12 @@ func TestFlashFirmwareCoercesIllegalFixedAddresses(t *testing.T) {
 					"muse_gadget": false, "full_flash": isMuseGadgetSKU(tc.sku),
 				},
 			}
-			if err := ValidateDeploymentBlocks(toolBlockBody(block)); err != nil {
-				t.Fatal(err)
+			err := ValidateDeploymentBlocks(toolBlockBody(block))
+			if err == nil {
+				t.Fatalf("accepted unsafe flash_address %s for %s (must be %s)", tc.bad, tc.sku, tc.want)
 			}
-			if got := block["config"].(map[string]any)["flash_address"]; got != tc.want {
-				t.Fatalf("flash_address=%v want %s", got, tc.want)
+			if !strings.Contains(err.Error(), "unsafe for device_id") || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("expected fixed-address rejection naming %s, got: %v", tc.want, err)
 			}
 		})
 	}
@@ -344,6 +345,53 @@ func TestFlashFirmwareCoercesIllegalFixedAddresses(t *testing.T) {
 	muse["config"].(map[string]any)["firmware_name"] = "app.bin"
 	if err := ValidateDeploymentBlocks(toolBlockBody(muse)); err == nil {
 		t.Fatal("accepted muse_gadget with a non muse-gadget.bin")
+	}
+}
+
+func TestFlashFirmwareGroveAllowsSmallBinAtZero(t *testing.T) {
+	block := map[string]any{
+		"id": "flash_grove", "type": "flash-firmware",
+		"config": map[string]any{
+			"device_id": "110061162", "flash_mode": "bin",
+			"firmware_url": "https://example.invalid/fw.bin", "firmware_name": "fw.bin",
+			"firmware_size": "1234", "flash_address": "0x0",
+			"muse_gadget": false, "full_flash": false,
+		},
+	}
+	if err := ValidateDeploymentBlocks(toolBlockBody(block)); err != nil {
+		t.Fatalf("Grove Beginner must allow small .bin at 0x0 (not an ESP merge): %v", err)
+	}
+}
+
+func TestFlashFirmwareRejectsApplicationPackageOnWatcherMerged(t *testing.T) {
+	// Repro: mid-size app-only bin (≥200KiB) named *application* with 0x0 after
+	// an Agent mistakenly treated Watcher like ordinary XIAO.
+	block := map[string]any{
+		"id": "flash_watcher_app", "type": "flash-firmware",
+		"config": map[string]any{
+			"device_id": "113991315", "device_type": "37", "flash_mode": "bin",
+			"firmware_url": "https://example.invalid/photo_viewer-application.bin",
+			"firmware_name": "photo_viewer-application.bin",
+			"firmware_size": "281376", "flash_address": "0x0",
+			"muse_gadget": false, "full_flash": true,
+		},
+	}
+	err := ValidateDeploymentBlocks(toolBlockBody(block))
+	if err == nil {
+		t.Fatal("accepted Watcher application-only package as merged 0x0 firmware")
+	}
+	if !strings.Contains(err.Error(), "application-only package") {
+		t.Fatalf("expected application-package rejection, got: %v", err)
+	}
+
+	// Same package with leftover 0x10000 must also fail (no silent coerce).
+	block["config"].(map[string]any)["flash_address"] = "0x10000"
+	err = ValidateDeploymentBlocks(toolBlockBody(block))
+	if err == nil {
+		t.Fatal("accepted Watcher flash_address 0x10000")
+	}
+	if !strings.Contains(err.Error(), "unsafe for device_id") {
+		t.Fatalf("expected fixed-address rejection, got: %v", err)
 	}
 }
 
@@ -408,11 +456,25 @@ func TestFlashFirmwareNameRulesForEpaperAndIPS(t *testing.T) {
 	body["materials"] = []any{
 		map[string]any{"id": "epaper-sku-1", "name": "XIAO 2.13\" ePaper Display", "quantity": "1"},
 	}
-	if err := ValidateDeploymentBlocks(body); err != nil {
+	if err := ValidateDeploymentBlocks(body); err == nil || !strings.Contains(err.Error(), "0x90000") {
+		t.Fatalf("e-paper by name should reject 0x0 (fixed at 0x90000), got: %v", err)
+	}
+
+	// Empty address still fills the name-based default.
+	fill := toolBlockBody(map[string]any{
+		"id": "flash_epaper_fill", "type": "flash-firmware",
+		"config": map[string]any{
+			"device_id": "epaper-sku-1", "device_type": "", "flash_mode": "bin",
+			"firmware_url": "https://example.invalid/app.bin", "firmware_name": "app.bin",
+			"firmware_size": "1234", "muse_gadget": false, "full_flash": false,
+		},
+	})
+	fill["materials"] = body["materials"]
+	if err := ValidateDeploymentBlocks(fill); err != nil {
 		t.Fatal(err)
 	}
-	if body["deployment"].(map[string]any)["blocks"].([]any)[0].(map[string]any)["config"].(map[string]any)["flash_address"] != "0x90000" {
-		t.Fatalf("e-paper by name should coerce to 0x90000")
+	if fill["deployment"].(map[string]any)["blocks"].([]any)[0].(map[string]any)["config"].(map[string]any)["flash_address"] != "0x90000" {
+		t.Fatalf("e-paper by name should fill 0x90000 when address omitted")
 	}
 
 	ips := toolBlockBody(map[string]any{
@@ -427,11 +489,8 @@ func TestFlashFirmwareNameRulesForEpaperAndIPS(t *testing.T) {
 	ips["materials"] = []any{
 		map[string]any{"sku": "ips-sku-1", "name": `XIAO 1.14" IPS Display (ESP32-S3)`, "quantity": "1"},
 	}
-	if err := ValidateDeploymentBlocks(ips); err != nil {
-		t.Fatal(err)
-	}
-	if ips["deployment"].(map[string]any)["blocks"].([]any)[0].(map[string]any)["config"].(map[string]any)["flash_address"] != "0x0" {
-		t.Fatalf("IPS by name should coerce 0x10000→0x0")
+	if err := ValidateDeploymentBlocks(ips); err == nil || !strings.Contains(err.Error(), "0x0") {
+		t.Fatalf("IPS by name should reject 0x10000 (fixed at 0x0), got: %v", err)
 	}
 }
 

@@ -36,9 +36,9 @@ func (d DetectResult) CanAutoUpdate() bool {
 // Reason explains why automatic update is unavailable.
 func (d DetectResult) Reason() string {
 	if d.Method == installMethodNpm && !d.NpmAvailable {
-		return "installed via npm, but npm is not on PATH"
+		return "已通过 npm 安装，但 PATH 中没有 npm"
 	}
-	return "not installed via npm"
+	return "不是通过 npm 安装"
 }
 
 // InstallError is a failed npm install, including combined command output.

@@ -67,25 +67,12 @@ func TestSandboxAppListIncludesUniformType(t *testing.T) {
 	}
 }
 
-func TestPrepareAppListQueryOmitsOrderType(t *testing.T) {
-	q, err := prepareAppListQuery(AppListParams{Public: true}, nil, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if q.Get("order_type") != "" || q.Get("sort_by") != "" {
-		t.Fatalf("omitted --sort must not send an order: %v", q)
-	}
-	if _, err := prepareAppListQuery(AppListParams{Sort: "hot"}, nil, nil); err == nil {
-		t.Fatal("unknown --sort must be rejected before the request")
-	}
-}
-
 func TestPrepareAppListQueryPopularFillsFirstActivity(t *testing.T) {
 	q, err := prepareAppListQuery(AppListParams{Public: true, Sort: "popular"}, sandboxOngoingActivities(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if q.Get("order_type") != "1" || q.Get("sort_by") != "" || q.Get("priority_activity_id") != "1" || q.Get("be_public") != "1" {
+	if q.Get("sort_by") != "popular" || q.Get("priority_activity_id") != "1" || q.Get("be_public") != "1" {
 		t.Fatalf("query=%v", q)
 	}
 }
@@ -95,7 +82,7 @@ func TestPrepareAppListQueryPopularOmitsWhenNoActivity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if q.Get("order_type") != "1" || q.Get("sort_by") != "" || q.Get("priority_activity_id") != "" {
+	if q.Get("sort_by") != "popular" || q.Get("priority_activity_id") != "" {
 		t.Fatalf("query=%v", q)
 	}
 }
@@ -111,13 +98,12 @@ func TestPrepareAppListQueryPopularOmitsWhenActivityListFails(t *testing.T) {
 }
 
 func TestPrepareAppListQueryNewestAndLikesSkipPriority(t *testing.T) {
-	wantOrder := map[string]string{"newest": "2", "likes": "3"}
 	for _, sort := range []string{"newest", "likes"} {
 		q, err := prepareAppListQuery(AppListParams{Sort: sort}, sandboxOngoingActivities(), nil)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if q.Get("order_type") != wantOrder[sort] || q.Get("sort_by") != "" || q.Get("priority_activity_id") != "" {
+		if q.Get("sort_by") != sort || q.Get("priority_activity_id") != "" {
 			t.Fatalf("sort %s query=%v", sort, q)
 		}
 		if _, err := prepareAppListQuery(AppListParams{Sort: sort, PriorityActivityID: "1"}, nil, nil); err == nil {
@@ -168,14 +154,11 @@ func TestListAppsSandboxShowsQueryIntent(t *testing.T) {
 	}
 	query, _ := m["sandbox_query"].(map[string]any)
 	priority, _ := query["priority_activity_id"].([]any)
-	orderType, _ := query["order_type"].([]any)
-	if _, ok := query["sort_by"]; ok {
-		t.Fatalf("sandbox_query must not send sort_by: %#v", query)
-	}
+	sortBy, _ := query["sort_by"].([]any)
 	if _, ok := query["tag_id"]; ok {
 		t.Fatalf("tag_id must stay off the query, sandbox_query=%#v", query)
 	}
-	if len(priority) != 1 || priority[0] != "1" || len(orderType) != 1 || orderType[0] != "1" {
+	if len(priority) != 1 || priority[0] != "1" || len(sortBy) != 1 || sortBy[0] != "popular" {
 		t.Fatalf("sandbox_query=%#v", query)
 	}
 }

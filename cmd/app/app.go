@@ -70,8 +70,7 @@ func newAppListCmd() *cobra.Command {
   --name            Filter by app_name
   --scene           Scene id
   --uniform-type    Device type (list_app uniform_type: reCamera=40, XIAO ESP32S3=32)
-  --sort            popular | newest | likes. Sends order_type 1, 2, or 3.
-                    Omitted: do not send order_type
+  --sort            popular | newest | likes. Omitted: do not send sort_by
   --priority-activity-id
                     Only with --sort popular. Omitted on popular: first ongoing activity
   --mark-type       1 = my likes, 0 = my collections
@@ -118,7 +117,7 @@ func newAppListCmd() *cobra.Command {
 	cmd.Flags().IntVar(&page, "page", 1, "Page number")
 	cmd.Flags().IntVar(&length, "length", 20, "Page size")
 	cmd.Flags().StringVar(&markType, "mark-type", "", "1 = my likes, 0 = my collections")
-	cmd.Flags().StringVar(&sort, "sort", "", "popular (order_type=1), newest (2), or likes (3). Omitted: server default")
+	cmd.Flags().StringVar(&sort, "sort", "", "Sort: popular, newest, or likes")
 	cmd.Flags().StringVar(&priorityActivityID, "priority-activity-id", "", "With --sort popular, pin this activity first (positive integer)")
 	cmd.Flags().BoolVar(&likes, "likes", false, "My likes (mark_type=1, be_public=1). Not with --mine")
 	cmd.Flags().BoolVar(&collections, "collections", false, "My collections (mark_type=0, be_public=1). Not with --mine")
@@ -243,13 +242,9 @@ func newAppBlocksCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "blocks",
 		Short: "Print deploy doc + tool-block catalog (for Agents)",
-		Long:  `Static catalog of text/tool blocks and when to use them. No network required.`,
+		Long:  `Static catalog of text/tool blocks and when to use them. No network and no Access Key.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx, err := cmdctx.GetAICmdContext()
-			if err != nil {
-				return err
-			}
-			return ctx.PrintRawData(service.AppBlocksCatalog())
+			return printRawJSON(os.Stdout, service.AppBlocksCatalog())
 		},
 	}
 }
@@ -496,7 +491,7 @@ func newAppPublishCmd() *cobra.Command {
 		Long: `POST /flow/app/v3/edit_privacy_app with privacy=2 (under review).
 Never sends privacy=1 (ops-approved public).
 
-Matches the Console publish confirmation: user must agree to the Publish Declaration
+Matches Console 「发布确认」: user must agree to the Publish Declaration
 (https://sensecraft.seeed.cc/legal/en/declaration) via --agree-declaration.
 Submitting locks editing until review finishes (or withdraw).
 stdout then has detail_url only. It does not include console_url, because

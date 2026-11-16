@@ -16,7 +16,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// RequestSpec describes the HTTP request a mock OpenAPI server should receive.
+// RequestSpec 描述 mock OpenAPI 应收到的 HTTP 请求。
 type RequestSpec struct {
 	Method     string
 	PathSuffix string
@@ -24,7 +24,7 @@ type RequestSpec struct {
 	Body       map[string]any
 }
 
-// SetupConfig writes a temporary config that points at the mock server.
+// SetupConfig 写入指向 mock server 的临时配置文件。
 func SetupConfig(t *testing.T, serverURL string) {
 	t.Helper()
 
@@ -55,7 +55,7 @@ func SetupConfig(t *testing.T, serverURL string) {
 	config.ResetConfigCache()
 }
 
-// NewMockServer starts a test HTTP server that checks the request and returns an OpenAPI envelope.
+// NewMockServer 创建校验请求并返回 OpenAPI envelope 的测试 HTTP 服务。
 func NewMockServer(t *testing.T, spec RequestSpec, responseData any) *httptest.Server {
 	t.Helper()
 
@@ -109,7 +109,7 @@ func jsonValueEqual(got, want any) bool {
 	return string(gb) == string(wb)
 }
 
-// Execute runs a cobra command with stdout replaced and returns what it printed.
+// Execute 在子进程中替换 stdout，执行 cobra 命令。
 func Execute(t *testing.T, root *cobra.Command, args []string) (stdout string, err error) {
 	t.Helper()
 
@@ -138,7 +138,7 @@ func Execute(t *testing.T, root *cobra.Command, args []string) (stdout string, e
 	return buf.String(), execErr
 }
 
-// AssertJSONOutput checks that stdout JSON contains the given field values.
+// AssertJSONOutput 断言 stdout 包含指定 JSON 字段值。
 func AssertJSONOutput(t *testing.T, stdout string, checks map[string]any) {
 	t.Helper()
 

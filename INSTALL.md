@@ -1,6 +1,6 @@
 # SenseCraft CLI install guide
 
-How to install, upgrade, and uninstall `sensecraft-cli`, and how to connect Agent Skills to Cursor and other tools. Commands and sign-in: [`README.md`](README.md) (Chinese: [`README.zh.md`](README.zh.md)).
+How to install, upgrade, and uninstall `sensecraft-cli`, and how to connect Agent Skills to Cursor and other tools. Commands and usage: [`README.md`](README.md) (Chinese: [`README-zh.md`](README-zh.md)).
 
 ## 1. Requirements
 
@@ -29,7 +29,7 @@ This path fits most people. The installer:
 
 1. Downloads the binary for this platform, pinned to this npm package version
 2. Registers the `sensecraft-cli` command globally
-3. In an interactive terminal, asks for an OpenAPI Access Key when no local config exists yet
+3. In an interactive terminal, offers `auth init` when no local config exists yet
 
 ### macOS / Linux
 
@@ -76,7 +76,7 @@ npx @seeed-studio/sensecraft-cli auth info
 npx @seeed-studio/sensecraft-cli device list
 ```
 
-`npx` may still run postinstall and download or reuse a cached binary.
+Each `npx` run may still trigger postinstall, which downloads the binary or reuses the local cache.
 
 ### Install a specific version
 
@@ -86,7 +86,7 @@ npx @seeed-studio/sensecraft-cli@<version> install
 npm install -g @seeed-studio/sensecraft-cli@<version>
 ```
 
-The binary URL looks like:
+Binary URLs look like:
 
 `{RELEASE_BASE}/v{version}/sensecraft-cli-{os}-{arch}[.exe]`
 
@@ -98,14 +98,44 @@ Default `RELEASE_BASE`:
 
 ## 3. First sign-in
 
-Sign in with the OpenAPI Access Key from the SenseCAP portal. After the Key ID and Access Key are saved on this machine, devices, groups, sensor data, apps, models, files, and cloud devices all use that one key.
+After install:
 
 ```bash
-sensecraft-cli auth add --key-id <Key ID> --access-key <Access Key> --site Global
+# Open Access Key for SenseCraft Data, SenseCraft AI, and CodeCraft Hub
+sensecraft-cli auth init
+```
+
+`auth init` authorizes the CLI with the OAuth2 Device Flow. If you already have a key, use `auth add`. Create and manage keys at <https://account.seeed.cc/account/access-keys>.
+
+Choose a site during init:
+
+| Choice | Use |
+|--------|-----|
+| Global | International site. SenseCraft Data, SenseCraft AI, and CodeCraft Hub |
+| China | China site. SenseCraft Data only |
+
+The China site supports SenseCraft Data only. To use the CLI with SenseCraft AI and CodeCraft Hub, select the international site (Global).
+
+Show the config:
+
+```bash
 sensecraft-cli auth info
 ```
 
-`--site` is `Global` or `China`. The default is `Global`. A non-interactive environment must pass `--key-id` and `--access-key`. `auth info` does not print the Access Key.
+### Scripts and CI
+
+A non-interactive environment does not run `auth init`. Write the key with `auth add`, and point `SENSECRAFT_CONFIG_FILE` at a config file in the project:
+
+```bash
+export SENSECRAFT_CONFIG_FILE="$PWD/.sensecraft/sensecraft.json"
+sensecraft-cli auth add \
+  --key-id "$SENSECRAFT_KEY_ID" \
+  --access-key "$SENSECRAFT_ACCESS_KEY" \
+  --site Global
+sensecraft-cli device list
+```
+
+This file contains the Access Key. Do not commit it. `--site` defaults to `Global`. On success, a business command prints indented JSON on stdout. `auth info` and `auth init` print plain text. On failure, the message is on stderr and the exit code is non-zero.
 
 ---
 
@@ -159,9 +189,7 @@ sensecraft-cli update --check   # query only, do not install
 npm install -g @seeed-studio/sensecraft-cli@latest
 ```
 
-While you run other commands, a newer version found in the cache is reported on stderr at the end, with a hint to run `sensecraft-cli update`. The same version is mentioned at most once every 24 hours. A newly published version is mentioned again. The CLI does not contact npm again inside that 24-hour window. A local `dev` build, CI, and `SENSECRAFT_CLI_NO_UPDATE_NOTIFIER` skip the hint.
-
-An ongoing activity is also printed on stderr as `Notice:`. The name, dates, and detail link come from `https://api-gateway.seeed.cc/openapi/activity/list` (no query, so activities that have not ended). It appears at most once every 24 hours. An interactive terminal asks `Ignore this activity? [y/N]`. Answering `y` suppresses that `activity_id`. Answering `n` shows it again after 24 hours. A non-interactive run prints the notice, does not ask, and does not record an ignore. CI and `SENSECRAFT_CLI_NO_ACTIVITY_NOTIFIER` skip it.
+While you run other commands, a newer version is reported once on stderr, with a hint to run `sensecraft-cli update`. The same version is mentioned at most once every 24 hours.
 
 If the program was not installed with npm (for example a binary you compiled yourself), `update` only prints the manual install command. It does not replace the file that is running.
 
@@ -183,7 +211,7 @@ npm uninstall -g @seeed-studio/sensecraft-cli
 Optional cleanup:
 
 ```bash
-# Config (this deletes the local token / Access Key; back it up first)
+# Config (this deletes the local Access Key; back it up first)
 rm -rf ~/.config/sensecraft-cli          # macOS / Linux
 # Windows: Remove-Item -Recurse "$env:APPDATA\sensecraft-cli"
 
@@ -219,8 +247,8 @@ npx @seeed-studio/sensecraft-cli install
 The mirror layout must match a release, for example:
 
 ```text
-…/sensecraft-cli/v0.1.3/sensecraft-cli-darwin-arm64
-…/sensecraft-cli/v0.1.3/sensecraft-cli-linux-amd64
+…/sensecraft-cli/v<version>/sensecraft-cli-darwin-arm64
+…/sensecraft-cli/v<version>/sensecraft-cli-linux-amd64
 …
 ```
 
@@ -273,88 +301,46 @@ export SENSECRAFT_CLI_PATH="$HOME/.config/sensecraft-cli"
 ./sensecraft-cli auth info
 ```
 
-Checks while developing this repo:
+Checks for people contributing to this repo: `./script/smoke-ai.sh` and `./script/smoke-sensecap.sh`. The isolated install check needs `./script/build.sh` first, then:
 
 ```bash
-./script/smoke-ai.sh
-./script/smoke-sensecap.sh
 cd packages/cli && SENSECRAFT_CLI_LOCAL_DIST=$PWD/../../dist npm run test:install
 ```
 
-The public overview is [`README.md`](README.md).
+Projects that only use the CLI do not need these scripts.
 
 ---
 
 ## 9. Agent Skills (Cursor and others)
 
-Skills are Markdown capability notes for an agent. They are not CLI subcommands.
+Skills are Markdown capability notes for an agent. They are not CLI subcommands. There is one entry: `skills/sensecraft-cli/SKILL.md`. Product procedures are in `references/` next to it. Turning a local project into an app uses the nested skill `skills/sensecraft-cli/create-app/`.
 
-### Where they come from
-
-| Source | Path |
-|--------|------|
-| This repository | `skills/` |
-| After an npm install | `skills/` inside the global package, next to `bin` and `scripts` |
-
-Find the global package:
+Skills ship inside the npm package. Symlink the agent skills directory at that copy. Do not copy the files. After `sensecraft-cli update` replaces the package, the link still reads the new docs.
 
 ```bash
-npm root -g
-# for example …/node_modules/@seeed-studio/sensecraft-cli/skills/sensecraft-cli/SKILL.md
+npm install -g @seeed-studio/sensecraft-cli
+SRC="$(npm root -g)/@seeed-studio/sensecraft-cli/skills/sensecraft-cli"
+mkdir -p ~/.cursor/skills
+ln -sfn "$SRC" ~/.cursor/skills/sensecraft-cli
 ```
 
-### Layout
-
-| Skill | Path | Auth |
-|-------|------|------|
-| Entry | `skills/sensecraft-cli/SKILL.md` | Access Key |
-| Create an app from a local project | `skills/sensecraft-cli/create-app/` | Access Key |
-
-Discovery notes: [`skills/README.md`](skills/README.md).
-
-### Connect Cursor
-
-Pick one:
-
-1. **This repository is the workspace.** Open `sensecraft-cloud-terminal` as the Cursor project. The agent can read `skills/` directly.
-
-2. **Copy or symlink into the Cursor skills directory** (the path depends on the Cursor version; a common place is the skills folder in the user directory):
-
-   ```bash
-   ln -s "$PWD/skills/sensecraft-cli" ~/.cursor/skills/sensecraft-cli
-   ```
-
-3. **Use the skills from the npm package.** Link `$(npm root -g)/@seeed-studio/sensecraft-cli/skills` to a path the agent discovers.
-
-### Connect Claude Code and other agents
-
-These skills use a standard `SKILL.md` (YAML `name` / `description` plus Markdown). They contain no Cursor-only instructions. A host that supports Agent Skills can copy or symlink the skill directory:
+Claude Code, same directory link:
 
 ```bash
-# Claude Code, project scope
-mkdir -p .claude/skills
-for d in "$PWD"/skills/*; do
-  ln -s "$d" ".claude/skills/$(basename "$d")"
-done
-
-# Claude Code, user scope (optional)
 mkdir -p ~/.claude/skills
-ln -s "$PWD/skills/sensecraft-cli" ~/.claude/skills/sensecraft-cli
+ln -sfn "$SRC" ~/.claude/skills/sensecraft-cli
 ```
 
-Other agents:
+Link the directory, not `SKILL.md` alone. `references/` and `assets/` are reached by relative paths, and splitting them breaks those paths. Run `ln` again after Node or the npm global directory changes. If Windows cannot create a symlink, copy the directory, and copy it again after every CLI upgrade.
 
-1. If the host discovers `SKILL.md` on its own, put `skills/*/` into its project or user skills directory. Use that host's documented path.
-2. If it does not support Skills, load `skills/sensecraft-cli/SKILL.md` as system or project context.
-3. The agent must be able to run commands on this machine before it can call `sensecraft-cli`. A chat-only host can read the notes and cannot claim a command ran.
-4. With no Access Key, use the split `auth init` (`--no-wait`, then hand the verification URL to the user). Local USB or IP deploy and flashing stay with the user.
+While developing this repository, link the repo's `skills/sensecraft-cli` into the agent skills directory. Do not link an old npm package.
 
 Usage:
 
-- Read **`sensecraft-cli`** first. It opens the matching file under `references/` and covers SenseCraft Data, SenseCraft AI, and CodeCraft Hub.
-- `sensecraft-cli` must be on PATH. The agent runs `auth info` first. With no Access Key, it runs `sensecraft-cli auth init --site Global --no-wait`, shows `verification_url` unchanged, and ends the turn. After the user authorizes, it continues with `--device-code`. Do not run bare `auth init` in a one-shot shell. An existing key uses `auth add`.
+- Read `sensecraft-cli` first. It opens the matching file under `references/`.
+- `sensecraft-cli` must be on PATH. The agent checks `auth info` and, when needed, runs `auth init --site Global --no-wait`, shows `verification_url`, and ends the turn. After the user authorizes, it continues with `--device-code`.
 - The agent must be able to run commands on this machine. A chat-only host can read the notes and cannot claim a command ran.
-- Local USB or IP deploy and flashing stay in the browser or on the device.
+- Do not run bare `auth init` in a one-shot shell. Local USB or IP deploy and flashing stay in the browser/device workflow.
 
 ---
 
@@ -392,11 +378,11 @@ The installer suggests:
 
 When a company network blocks OSS, use a local `dist/` or an internal mirror.
 
-### `auth info` says there is no Access Key yet
+### `auth info` says it is not initialized, or install asks for init again
 
-- Write one with `sensecraft-cli auth add --key-id <Key ID> --access-key <Access Key> --site Global`. Use `--site China` for the China site.
+- An npm install expects an Access Key (`app_config_list`). SenseCraft Data, SenseCraft AI, and CodeCraft Hub share that key.
 - Confirm both commands use the same config file: `echo $SENSECRAFT_CLI_PATH` / `%SENSECRAFT_CLI_PATH%`.
-- Devices, apps, models, and cloud devices share that Access Key.
+- Write one with `sensecraft-cli auth init`, or with `auth add` when you already have an Access Key.
 
 ### The npm install and a `go build` binary see different configs
 
@@ -421,9 +407,8 @@ sensecraft-cli --version
 
 | Doc | Contents |
 |-----|----------|
-| [`README.md`](README.md) | English overview |
-| [`README.zh.md`](README.zh.md) | Chinese overview |
-| [`docs/sensecraft-cli-smoke.md`](docs/sensecraft-cli-smoke.md) | Release smoke checklist |
-| [`docs/sensecraft-cli-test-cases.md`](docs/sensecraft-cli-test-cases.md) | Full functional test cases |
+| [`README.md`](README.md) | English overview and command reference |
+| [`README-zh.md`](README-zh.md) | Chinese overview and command reference |
+| [`docs/md-to-app.md`](docs/md-to-app.md) | Write an app in Markdown |
 | [`skills/README.md`](skills/README.md) | Skills layout and agent conventions |
 | [`LICENSE`](LICENSE) | MIT |

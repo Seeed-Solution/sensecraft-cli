@@ -19,9 +19,9 @@ if [[ -f "$ROOT/LICENSE" ]]; then
   cp "$ROOT/LICENSE" "$PKG/LICENSE"
 fi
 # packages/cli/INSTALL.md stays in the package.
-# The repo install guide is the root INSTALL.md.
-if [[ -f "$ROOT/README.zh.md" ]]; then
-  cp "$ROOT/README.zh.md" "$PKG/README.zh.md"
+# Its login section is `auth add`. The repo root guide uses `auth init`.
+if [[ -f "$ROOT/README-zh.md" ]]; then
+  cp "$ROOT/README-zh.md" "$PKG/README-zh.md"
 fi
 
 # Short install-oriented README for the npm page.
@@ -30,7 +30,7 @@ cat >"$PKG/README.md" <<'EOF'
 
 The official command-line tool for [SenseCraft](https://sensecraft.seeed.cc). Read sensor data, create models, and publish applications — for developers and AI agents.
 
-Chinese: [README.zh.md](README.zh.md).
+Chinese: [README-zh.md](README-zh.md).
 
 ## Install
 

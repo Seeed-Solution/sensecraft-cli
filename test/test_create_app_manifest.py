@@ -163,7 +163,11 @@ class ManifestValidationTests(unittest.TestCase):
 
     def test_firmware_flags_are_booleans_and_muse_disables_full_flash(self):
         cfg = self.manifest["deployment"]["blocks"][0]["config"]
-        cfg.update(device_id="113991315",device_type="37",flash_address="0x0")
+        cfg.update(
+            device_id="113991315", device_type="37", flash_address="0x0",
+            firmware_url="https://files.example.invalid/muse-gadget.bin",
+            firmware_name="muse-gadget.bin",
+        )
         for key in ("muse_gadget", "full_flash"):
             for value in ("false", "true", 0, 1):
                 with self.subTest(key=key,value=value):
@@ -173,6 +177,17 @@ class ManifestValidationTests(unittest.TestCase):
         cfg.update(muse_gadget=True,full_flash=True)
         self.assert_invalid(self.manifest)
         cfg["full_flash"] = False
+        self.assertEqual(self.validate().returncode, 0)
+        cfg.update(firmware_url="https://files.example.invalid/app.bin", firmware_name="app.bin")
+        self.assert_invalid(self.manifest)
+        # Watcher merged-at-0x0: muse off + full_flash false is rejected (forced true)
+        cfg.update(
+            muse_gadget=False, full_flash=False,
+            firmware_url="https://files.example.invalid/merged.bin",
+            firmware_name="merged.bin", firmware_size="1048576",
+        )
+        self.assert_invalid(self.manifest)
+        cfg["full_flash"] = True
         self.assertEqual(self.validate().returncode, 0)
 
     def test_firmware_modes_sizes_and_addresses(self):
@@ -187,6 +202,61 @@ class ManifestValidationTests(unittest.TestCase):
             with self.subTest(key=key, value=value):
                 manifest = copy.deepcopy(self.manifest)
                 manifest["deployment"]["blocks"][0]["config"][key] = value
+                self.assert_invalid(manifest)
+
+    def test_flash_requires_device_id_rejects_zip_and_muse_name_mismatch(self):
+        cfg = self.manifest["deployment"]["blocks"][0]["config"]
+        cfg.pop("device_id", None)
+        self.assert_invalid(self.manifest)
+
+        manifest = copy.deepcopy(self.manifest)
+        manifest["deployment"]["blocks"] = [{"id": "flash", "type": "flash-firmware", "config": {}}]
+        self.assertEqual(self.validate(manifest).returncode, 0)
+
+        cfg = self.manifest["deployment"]["blocks"][0]["config"]
+        cfg.update(
+            device_id="100073581", flash_mode="zip", flash_address="0x90000",
+            project_zip_url="https://files.example.invalid/project.zip", project_zip_size="2048",
+            muse_gadget=False, full_flash=True,
+        )
+        self.assert_invalid(self.manifest)
+
+        cfg.update(
+            flash_mode="bin", firmware_url="https://files.example.invalid/muse-gadget.bin",
+            firmware_name="muse-gadget.bin", firmware_size="524288",
+            muse_gadget=False, full_flash=True,
+        )
+        cfg.pop("project_zip_url", None)
+        cfg.pop("project_zip_size", None)
+        self.assert_invalid(self.manifest)
+
+        cfg.update(
+            device_id="113991315", flash_address="0x0", firmware_name="app.bin",
+            firmware_url="https://files.example.invalid/app.bin", firmware_size="1234",
+            muse_gadget=False, full_flash=True,
+        )
+        self.assert_invalid(self.manifest)
+
+        cfg.update(
+            device_id="100073581", flash_address="0x90000", firmware_name="merged.bin",
+            firmware_url="https://files.example.invalid/merged.bin", firmware_size="8388608",
+            muse_gadget=False, full_flash=True,
+        )
+        self.assert_invalid(self.manifest)
+
+    def test_fixed_flash_addresses_reject_unsafe_values(self):
+        for sku, bad in (
+            ("113991315", "0x10000"),  # Watcher merged-only
+            ("100017057", "0x0"),      # E1002 app-region-only
+            ("102991299", "0x0"),      # Wio app-region-only
+        ):
+            with self.subTest(sku=sku, bad=bad):
+                manifest = copy.deepcopy(self.manifest)
+                cfg = manifest["deployment"]["blocks"][0]["config"]
+                cfg.update(
+                    device_id=sku, flash_address=bad, muse_gadget=False,
+                    full_flash=sku in {"113991315", "100017057"},
+                )
                 self.assert_invalid(manifest)
 
     def test_markdown_is_compiled_but_source_code_is_preserved(self):

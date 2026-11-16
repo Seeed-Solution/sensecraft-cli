@@ -26,7 +26,7 @@ List apps.
 | `--name`              |                         | Search keyword → API `app_name` (Console app list)           |
 | `--scene`             |                         | Scene id                                                     |
 | `--uniform-type`      |                         | Device type → API `uniform_type` (`40` reCamera, `32` XIAO ESP32S3, `53` reCamera Pro) |
-| `--sort`              |                         | `popular` → `order_type=1`, `newest` → `2`, `likes` → `3`. Omit to leave `order_type` unset |
+| `--sort`              |                         | `popular`, `newest`, or `likes` → `sort_by`. Omit to leave the API unordered |
 | `--priority-activity-id` |                    | Positive integer. Only with `--sort popular`. If omitted on popular, CLI fills the first ongoing activity |
 | `--mark-type`         |                         | `1` = my likes, `0` = my collections                         |
 | `--likes`             |                         | `mark_type=1` and `be_public=1`. Not with `--mine`           |

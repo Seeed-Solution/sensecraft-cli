@@ -9,7 +9,7 @@ cd "$ROOT"
 VERSION="${VERSION:-}"
 if [[ -z "$VERSION" ]]; then
   if ! command -v node >/dev/null 2>&1; then
-    echo "node is required to read the version, or set VERSION" >&2
+    echo "读取版本需要 node，或显式设置 VERSION" >&2
     exit 1
   fi
   VERSION="$(node -p "require('./packages/cli/package.json').version")"

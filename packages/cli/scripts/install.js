@@ -27,7 +27,7 @@ function getGlobalCliPath() {
 
 function installGlobally() {
   const packageRoot = getPackageRoot();
-  console.log('Installing sensecraft-cli globally...');
+  console.log('正在全局安装 sensecraft-cli...');
   execSync(`npm install -g ${JSON.stringify(packageRoot)}`, {
     stdio: 'inherit',
     env: process.env,
@@ -35,7 +35,7 @@ function installGlobally() {
 
   const cliPath = getGlobalCliPath();
   if (!fs.existsSync(cliPath)) {
-    throw new Error(`Global command not found: ${cliPath}. Add the npm global bin directory to PATH.`);
+    throw new Error(`全局命令未找到: ${cliPath}，请确认 npm 全局 bin 目录在 PATH 中`);
   }
   return cliPath;
 }
@@ -43,20 +43,20 @@ function installGlobally() {
 function runInitIfNeeded(cliPath) {
   if (isInitialized()) {
     console.log('');
-    console.log('Config file already exists; skipped initialization');
+    console.log('✓ 配置文件已存在，跳过初始化');
     console.log('  sensecraft-cli auth info');
     return;
   }
 
   if (!process.stdin.isTTY || !process.stdout.isTTY) {
     console.log('');
-    console.log('No interactive terminal; skipped automatic initialization.');
-    console.log('Run later: sensecraft-cli auth init');
+    console.log('未检测到交互式终端，已跳过自动初始化。');
+    console.log('请稍后运行: sensecraft-cli auth init');
     return;
   }
 
   console.log('');
-  console.log('No config file found; starting initialization...');
+  console.log('未检测到配置文件，开始自动初始化...');
   console.log('');
 
   const result = spawnSync(cliPath, ['auth', 'init'], {
@@ -76,12 +76,12 @@ function runInitIfNeeded(cliPath) {
 function printDone(globalCliPath) {
   const globalBin = getGlobalBinDir();
   console.log('');
-  console.log('Install complete');
-  console.log('  Command: sensecraft-cli');
-  console.log(`  Path: ${globalCliPath}`);
+  console.log('✓ 安装完成');
+  console.log(`  命令: sensecraft-cli`);
+  console.log(`  路径: ${globalCliPath}`);
   if (!process.env.PATH || !process.env.PATH.split(path.delimiter).includes(globalBin)) {
     console.log('');
-    console.log('If sensecraft-cli is not on PATH, add this directory:');
+    console.log('提示: 若无法直接运行 sensecraft-cli，请将以下目录加入 PATH:');
     console.log(`  ${globalBin}`);
   }
   console.log('');

@@ -42,9 +42,12 @@ sensecraft-cli file upload --path ./model.rknn --type 2 --checksum --unlinked
 sensecraft-cli file upload --path ./model.rknn --model-id <model_id> --yes
 sensecraft-cli file upload --path ./application.zip --type 3 --checksum
 sensecraft-cli file upload --path ./firmware.bin --type 4 --checksum
+sensecraft-cli file upload --path ./reterminal-e1001 --type 4 --checksum
 sensecraft-cli file upload --path ./manual.pdf --type 5 --flow-id <flow_id>
 sensecraft-cli file upload --path ./dataset.zip --type 6 --checksum
 ```
+
+Type 4 may accept a matched device folder (Muse SDK slug or display name). Success JSON can include `muse` with `device_id`, `flash_address`, `muse_gadget`, `full_flash`, and a `note` for the flash-firmware block. See [files.md](files.md).
 
 Output:
 

@@ -12,14 +12,14 @@ import (
 	"sensecraft-cloud-terminal/internal/ui"
 )
 
-// AddAccessOptions is the input for adding an Access Key by hand.
+// AddAccessOptions 手动添加 Access Key 的输入。
 type AddAccessOptions struct {
 	KeyID     string
 	AccessKey string
-	Site      string // empty defaults to Global
+	Site      string // 空则默认 Global
 }
 
-// RunAddAccessFlow checks the given Access Key, saves it, and makes it active.
+// RunAddAccessFlow 校验用户提供的 Access Key，写入本地配置并设为当前使用。
 func RunAddAccessFlow(ctx context.Context, console *ui.Console, opts AddAccessOptions) error {
 	_ = ctx
 

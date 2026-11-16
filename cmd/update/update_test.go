@@ -50,7 +50,7 @@ func TestRunCheckAndInstall(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(buf.String(), "New version available: 0.1.4 -> 0.2.0") || !strings.Contains(buf.String(), "sensecraft-cli update") {
+	if !strings.Contains(buf.String(), "发现新版本: 0.1.4 → 0.2.0") || !strings.Contains(buf.String(), "sensecraft-cli update") {
 		t.Fatalf("check output:\n%s", buf.String())
 	}
 	if installed != "" {
@@ -67,7 +67,7 @@ func TestRunCheckAndInstall(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if installed != "0.2.0" || !strings.Contains(buf.String(), "Updated sensecraft-cli from 0.1.4 to 0.2.0") {
+	if installed != "0.2.0" || !strings.Contains(buf.String(), "已从 0.1.4 更新到 0.2.0") {
 		t.Fatalf("install=%q output:\n%s", installed, buf.String())
 	}
 }
@@ -91,10 +91,10 @@ func TestRunReinstallsMatchingVersion(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if installed != "0.2.0" || !strings.Contains(buf.String(), "Reinstalled sensecraft-cli 0.2.0") {
+	if installed != "0.2.0" || !strings.Contains(buf.String(), "已重新安装") {
 		t.Fatalf("install=%q output:\n%s", installed, buf.String())
 	}
-	if strings.Contains(buf.String(), "Already up to date") {
+	if strings.Contains(buf.String(), "已是最新版本") {
 		t.Fatal("update must reinstall when the version already matches")
 	}
 
@@ -110,7 +110,7 @@ func TestRunReinstallsMatchingVersion(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if installed != "" || !strings.Contains(buf.String(), "Already up to date") {
+	if installed != "" || !strings.Contains(buf.String(), "已是最新版本") {
 		t.Fatalf("install=%q output:\n%s", installed, buf.String())
 	}
 }
@@ -128,7 +128,7 @@ func TestRunAlreadyLatestAndManual(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(buf.String(), "Already up to date") {
+	if !strings.Contains(buf.String(), "已是最新版本") {
 		t.Fatalf("output:\n%s", buf.String())
 	}
 
@@ -142,7 +142,7 @@ func TestRunAlreadyLatestAndManual(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(buf.String(), "cannot update itself") || !strings.Contains(buf.String(), "npm install -g") {
+	if !strings.Contains(buf.String(), "不能自动更新") || !strings.Contains(buf.String(), "npm install -g") {
 		t.Fatalf("output:\n%s", buf.String())
 	}
 }
@@ -159,7 +159,7 @@ func TestRunInstallFailure(t *testing.T) {
 		Fetch:   func(context.Context) (string, error) { return "0.2.0", nil },
 		Updater: updater,
 	})
-	if err == nil || !strings.Contains(buf.String(), "Permission denied") {
+	if err == nil || !strings.Contains(buf.String(), "权限不足") {
 		t.Fatalf("err=%v output:\n%s", err, buf.String())
 	}
 }
@@ -172,7 +172,7 @@ func TestRunInvalidRegistryVersion(t *testing.T) {
 		Fetch:   func(context.Context) (string, error) { return "latest", nil },
 		Updater: testUpdater(true),
 	})
-	if err == nil || !strings.Contains(err.Error(), "invalid version") {
+	if err == nil || !strings.Contains(err.Error(), "无效") {
 		t.Fatalf("err=%v", err)
 	}
 }

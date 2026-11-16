@@ -1064,6 +1064,7 @@ func ValidateDeploymentBlocks(body map[string]any) error {
 	if err != nil || !ok {
 		return err
 	}
+	materials := flashMaterialsFromBody(body)
 	for i, item := range blocks {
 		block, ok := item.(map[string]any)
 		if !ok {
@@ -1071,9 +1072,9 @@ func ValidateDeploymentBlocks(body map[string]any) error {
 		}
 		typ := strings.ToLower(strings.TrimSpace(stringFromMap(block, "type")))
 		if typ == "flash-firmware" {
-			alignFlashFirmwareBlock(block)
+			alignFlashFirmwareBlock(block, materials)
 		}
-		if err := validateAppToolBlock(block, typ, i); err != nil {
+		if err := validateAppToolBlock(block, typ, i, materials); err != nil {
 			return err
 		}
 		if !proseBlockType(typ) {

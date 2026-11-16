@@ -120,6 +120,16 @@ sensecraft-cli app delete --id <app_id> --yes       # private only (be_public=0)
 
 `app publish` matches Console 「发布确认」: show https://sensecraft.seeed.cc/legal/en/declaration and warn that review locks editing until approval or `app withdraw`; only then pass `--agree-declaration --yes`. Missing either flag → non-zero. API body is still only `{app_id, privacy:2}` (agreement is client-side, like Console `warrantyAccepted`). stdout includes `detail_url`: `https://codecraft.seeed.cc/hub/view-application/<id>-<slug>`. Give the user that URL as printed. Do not include `console_url` or `/application/edit`. Do not append `from`, `section`, `state`, or `tab`. Do **not** invent `/application/detail/<id>`.
 
+**Before asking for publish confirmation**, if the sketch has a `flash-firmware` block, print a one-screen flash summary from `app view --id … --sketch` and wait for the user to accept it:
+
+- `device_id` (SKU) + board name if known
+- `flash_address` + expected artifact (`0x0` merged / `0x90000|0x4000|0x10000` app-region / Muse `muse-gadget.bin`)
+- `muse_gadget` / `full_flash`
+- `firmware_name` + `firmware_size` (must match the type-4 upload `size`)
+- reminder: CLI does not flash hardware; user tests in the editor
+
+If any field looks wrong, fix the sketch with `app update` first — do not publish a bad flash block.
+
 **Never** send `privacy=1` (ops-approved public). After editing a **published** app, tell the user plaza is unchanged until they confirm `app publish --agree-declaration --yes`.
 
 ### BOM

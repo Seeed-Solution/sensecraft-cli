@@ -43,7 +43,7 @@ async function main() {
       await runInstall();
     } catch (err) {
       console.error('');
-      console.error('Install failed:', err.message);
+      console.error('安装失败:', err.message);
       console.error('');
       process.exit(1);
     }

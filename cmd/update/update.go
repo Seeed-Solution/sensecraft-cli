@@ -83,13 +83,13 @@ func Run(ctx context.Context, opts Options) error {
 	defer cancel()
 	latest, err := opts.Fetch(fetchCtx)
 	if err != nil {
-		return fmt.Errorf("failed to check the latest version: %w", err)
+		return fmt.Errorf("检查最新版本失败: %w", err)
 	}
 	if !update.Valid(latest) {
-		return fmt.Errorf("registry returned an invalid version: %s", latest)
+		return fmt.Errorf("registry 返回的版本号无效: %s", latest)
 	}
 	if err := update.Remember(latest); err != nil {
-		fmt.Fprintf(opts.Stderr, "warning: could not record the version check: %v\n", err)
+		fmt.Fprintf(opts.Stderr, "警告: 无法记录版本检查结果: %v\n", err)
 	}
 
 	newer := update.IsNewer(latest, opts.Current)
@@ -105,9 +105,9 @@ func Run(ctx context.Context, opts Options) error {
 	}
 
 	if newer {
-		fmt.Fprintf(opts.Stderr, "Updating sensecraft-cli from %s to %s via npm ...\n", opts.Current, latest)
+		fmt.Fprintf(opts.Stderr, "正在通过 npm 将 sensecraft-cli %s 更新到 %s ...\n", opts.Current, latest)
 	} else {
-		fmt.Fprintf(opts.Stderr, "Reinstalling sensecraft-cli %s via npm ...\n", latest)
+		fmt.Fprintf(opts.Stderr, "正在通过 npm 重新安装 sensecraft-cli %s ...\n", latest)
 	}
 	restore, err := opts.Updater.PrepareSelfReplace()
 	if err != nil {
@@ -118,29 +118,29 @@ func Run(ctx context.Context, opts Options) error {
 	if err := opts.Updater.Install(installCtx, latest); err != nil {
 		restore()
 		writeInstallFailure(opts.Stderr, err)
-		return fmt.Errorf("npm install failed: %w", err)
+		return fmt.Errorf("npm 安装失败: %w", err)
 	}
 	if err := opts.Updater.Verify(ctx, latest); err != nil {
 		restore()
-		return fmt.Errorf("failed to verify the new version: %w", err)
+		return fmt.Errorf("新版本校验失败: %w", err)
 	}
 	if newer {
-		fmt.Fprintf(opts.Stderr, "Updated sensecraft-cli from %s to %s\n", opts.Current, latest)
+		fmt.Fprintf(opts.Stderr, "sensecraft-cli 已从 %s 更新到 %s\n", opts.Current, latest)
 	} else {
-		fmt.Fprintf(opts.Stderr, "Reinstalled sensecraft-cli %s\n", latest)
+		fmt.Fprintf(opts.Stderr, "sensecraft-cli %s 已重新安装\n", latest)
 	}
 	return nil
 }
 
 func reportCheck(opts Options, latest string, newer bool) error {
 	if !newer {
-		fmt.Fprintf(opts.Stderr, "Already up to date: %s\n", opts.Current)
+		fmt.Fprintf(opts.Stderr, "已是最新版本: %s\n", opts.Current)
 		return nil
 	}
-	fmt.Fprintf(opts.Stderr, "New version available: %s -> %s\n", opts.Current, latest)
+	fmt.Fprintf(opts.Stderr, "发现新版本: %s → %s\n", opts.Current, latest)
 	detect := opts.Updater.Detect()
 	if detect.CanAutoUpdate() {
-		fmt.Fprintln(opts.Stderr, "Run sensecraft-cli update to install")
+		fmt.Fprintln(opts.Stderr, "运行 sensecraft-cli update 安装")
 		return nil
 	}
 	writeManual(opts.Stderr, latest, detect)
@@ -148,8 +148,8 @@ func reportCheck(opts Options, latest string, newer bool) error {
 }
 
 func writeManual(w io.Writer, latest string, detect selfupdate.DetectResult) {
-	fmt.Fprintf(w, "This install cannot update itself (%s).\n", detect.Reason())
-	fmt.Fprintf(w, "Run:\n  npm install -g %s@%s\n  sensecraft-cli --version\n", selfupdate.NpmPackage, latest)
+	fmt.Fprintf(w, "当前安装不能自动更新（%s）。\n", detect.Reason())
+	fmt.Fprintf(w, "请运行:\n  npm install -g %s@%s\n  sensecraft-cli --version\n", selfupdate.NpmPackage, latest)
 }
 
 func writeInstallFailure(w io.Writer, err error) {
@@ -162,6 +162,6 @@ func writeInstallFailure(w io.Writer, err error) {
 		fmt.Fprintln(w)
 	}
 	if strings.Contains(inst.Output, "EACCES") {
-		fmt.Fprintln(w, "Permission denied. Try sudo sensecraft-cli update, or fix the npm global directory permissions.")
+		fmt.Fprintln(w, "权限不足。可改用 sudo sensecraft-cli update，或调整 npm 全局目录权限。")
 	}
 }

@@ -8,9 +8,9 @@ import (
 	"sensecraft-cloud-terminal/internal/utils"
 )
 
-// LoadCliConfig loads the CLI config file.
+// LoadCliConfig 加载 CLI 配置文件。
 //
-// A missing file returns an empty CliConfig so first use can continue. Other read or parse errors are returned.
+// 配置文件不存在时返回空的 CliConfig（便于首次使用）；其他读取/解析错误会返回 error。
 func loadCliConfig() (*CliConfig, error) {
 	path, err := ResolveConfigPath()
 	if err != nil {
@@ -19,7 +19,7 @@ func loadCliConfig() (*CliConfig, error) {
 	return loadCliConfigFrom(path)
 }
 
-// loadCliConfigFrom loads the CLI config from path.
+// loadCliConfigFrom 从指定路径加载 CLI 配置。
 func loadCliConfigFrom(path string) (*CliConfig, error) {
 	path, err := utils.AbsPath(path)
 	if err != nil {
@@ -40,7 +40,7 @@ func loadCliConfigFrom(path string) (*CliConfig, error) {
 	return cfg, nil
 }
 
-// SaveCliConfig writes the config to the resolved default path.
+// SaveCliConfig 将配置写入默认解析路径。
 func SaveCliConfig(cfg *CliConfig) error {
 	path, err := ResolveConfigPath()
 	if err != nil {
@@ -49,7 +49,7 @@ func SaveCliConfig(cfg *CliConfig) error {
 	return SaveCliConfigTo(path, cfg)
 }
 
-// SaveCliConfigTo writes the config to path.
+// SaveCliConfigTo 将配置写入指定路径。
 func SaveCliConfigTo(path string, cfg *CliConfig) error {
 	if cfg == nil {
 		return errors.New("config cannot be nil")

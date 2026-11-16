@@ -510,6 +510,36 @@ func TestViewUnderReviewDropsEditURL(t *testing.T) {
 	if !strings.Contains(detail, "/view-application/sandbox-review-1") {
 		t.Fatalf("detail_url=%q", detail)
 	}
+	if result["view_kind"] != "published" || result["view_sketch"] != float64(0) {
+		t.Fatalf("want published view markers, got view_kind=%#v view_sketch=%#v", result["view_kind"], result["view_sketch"])
+	}
+}
+
+func TestViewAppMarksSketchAndPublished(t *testing.T) {
+	s := sandboxAppSvc()
+	sketchRaw, err := s.ViewApp(AppViewParams{AppID: "sandbox-app-1", ViewSketch: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var sketch map[string]any
+	if err := json.Unmarshal(sketchRaw, &sketch); err != nil {
+		t.Fatal(err)
+	}
+	if sketch["view_kind"] != "sketch" || sketch["view_sketch"] != float64(1) {
+		t.Fatalf("sketch view markers: %#v", sketch)
+	}
+
+	pubRaw, err := s.ViewApp(AppViewParams{AppID: "sandbox-app-1", ViewSketch: false})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var published map[string]any
+	if err := json.Unmarshal(pubRaw, &published); err != nil {
+		t.Fatal(err)
+	}
+	if published["view_kind"] != "published" || published["view_sketch"] != float64(0) {
+		t.Fatalf("published view markers: %#v", published)
+	}
 }
 
 func TestListUnderReviewDropsEditURLOnly(t *testing.T) {
@@ -549,33 +579,6 @@ func TestListUnderReviewDropsEditURLOnly(t *testing.T) {
 	edit, _ := draft["console_url"].(string)
 	if !strings.Contains(edit, "/application/edit?id=sandbox-app-1") {
 		t.Fatalf("private row edit link=%q", edit)
-	}
-}
-
-func TestViewAppMarksSketchAndPublished(t *testing.T) {
-	s := sandboxAppSvc()
-	sketchRaw, err := s.ViewApp(AppViewParams{AppID: "sandbox-app-1", ViewSketch: true})
-	if err != nil {
-		t.Fatal(err)
-	}
-	var sketch map[string]any
-	if err := json.Unmarshal(sketchRaw, &sketch); err != nil {
-		t.Fatal(err)
-	}
-	if sketch["view_kind"] != "sketch" || sketch["view_sketch"] != float64(1) {
-		t.Fatalf("sketch view markers: %#v", sketch)
-	}
-
-	pubRaw, err := s.ViewApp(AppViewParams{AppID: "sandbox-app-1", ViewSketch: false})
-	if err != nil {
-		t.Fatal(err)
-	}
-	var published map[string]any
-	if err := json.Unmarshal(pubRaw, &published); err != nil {
-		t.Fatal(err)
-	}
-	if published["view_kind"] != "published" || published["view_sketch"] != float64(0) {
-		t.Fatalf("published view markers: %#v", published)
 	}
 }
 

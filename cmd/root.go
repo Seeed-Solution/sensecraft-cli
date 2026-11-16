@@ -14,6 +14,7 @@ import (
 	"sensecraft-cloud-terminal/cmd/data"
 	"sensecraft-cloud-terminal/cmd/device"
 	"sensecraft-cloud-terminal/cmd/file"
+	"sensecraft-cloud-terminal/cmd/firmware"
 	"sensecraft-cloud-terminal/cmd/group"
 	"sensecraft-cloud-terminal/cmd/image"
 	"sensecraft-cloud-terminal/cmd/model"
@@ -43,7 +44,7 @@ var (
 func GetRootCmd() *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:     "sensecraft-cli",
-		Version: version.Version,
+		Version: version.Line(),
 		Short:   "SenseCraft cloud platform CLI",
 		Long: `Terminal for the SenseCraft cloud platform.
 
@@ -71,6 +72,7 @@ The China site supports SenseCraft Data only. Use Global for SenseCraft AI and C
 	rootCmd.AddCommand(model.NewModelCmd())
 	rootCmd.AddCommand(recamera.NewRecameraCmd())
 	rootCmd.AddCommand(file.NewFileCmd())
+	rootCmd.AddCommand(firmware.NewFirmwareCmd())
 	rootCmd.AddCommand(image.NewImageCmd())
 	rootCmd.AddCommand(cloud.NewCloudCmd())
 	rootCmd.AddCommand(cmdupdate.NewCmd())

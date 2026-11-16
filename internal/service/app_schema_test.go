@@ -56,7 +56,7 @@ func TestFlashFirmwareCatalogKeys(t *testing.T) {
 			}
 		}
 	}
-	for _, phrase := range []string{"muse_gadget", "full_flash", "114993068", "0x20000", "Muse application image", "does not have to stay that name", "the CLI rejects true", "do not write 0x20000", "0x8000", "set full_flash false", "merged-binary.bin", "must not contain application"} {
+	for _, phrase := range []string{"muse_gadget", "full_flash", "114993068", "0x20000", "Muse application image", "does not have to stay that name", "the CLI rejects true", "do not write 0x20000", "0x8000", "set full_flash false", "merged-binary.bin", "must not contain application", "defaults full_flash to true", "device_defaults", "build_artifact", "build_recipe", "merged image", "firmware advise"} {
 		if !strings.Contains(notes, phrase) {
 			t.Fatalf("notes missing %q: %s", phrase, notes)
 		}
@@ -64,4 +64,53 @@ func TestFlashFirmwareCatalogKeys(t *testing.T) {
 	if strings.Contains(notes, "set full_flash true") {
 		t.Fatalf("notes still tell agents to set full_flash true with Muse: %s", notes)
 	}
+	var catalogFull struct {
+		ToolBlocks []struct {
+			Type           string           `json:"type"`
+			DeviceDefaults []map[string]any `json:"device_defaults"`
+		} `json:"tool_blocks"`
+	}
+	if err := json.Unmarshal(AppBlocksCatalog(), &catalogFull); err != nil {
+		t.Fatal(err)
+	}
+	for _, block := range catalogFull.ToolBlocks {
+		if block.Type != "flash-firmware" {
+			continue
+		}
+		if len(block.DeviceDefaults) < 8 {
+			t.Fatalf("device_defaults too short: %#v", block.DeviceDefaults)
+		}
+		var sawMerged, sawAppRegion, sawRecipe bool
+		for _, row := range block.DeviceDefaults {
+			hint, _ := row["build_artifact"].(string)
+			if hint == "" {
+				t.Fatalf("device_defaults row missing build_artifact: %#v", row)
+			}
+			if row["build_recipe"] == nil {
+				t.Fatalf("device_defaults row missing build_recipe: %#v", row)
+			}
+			sawRecipe = true
+			addr, _ := row["flash_address"].(string)
+			switch addr {
+			case "0x0":
+				if !strings.Contains(hint, "merged") {
+					t.Fatalf("0x0 build_artifact should mention merged: %q", hint)
+				}
+				sawMerged = true
+			case "0x90000", "0x4000":
+				if !strings.Contains(hint, "application-region") {
+					t.Fatalf("%s build_artifact should mention application-region: %q", addr, hint)
+				}
+				sawAppRegion = true
+			}
+		}
+		if !sawRecipe {
+			t.Fatal("expected build_recipe on device_defaults")
+		}
+		if !sawMerged || !sawAppRegion {
+			t.Fatalf("expected both merged and application-region build hints in device_defaults")
+		}
+		return
+	}
+	t.Fatal("flash-firmware device_defaults missing")
 }

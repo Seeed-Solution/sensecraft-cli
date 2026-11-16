@@ -8,12 +8,12 @@ import (
 	"sensecraft-cloud-terminal/internal/authhint"
 )
 
-// ResetConfigCache clears the in-memory config cache. Call it after a save.
+// ResetConfigCache 清除内存中的配置缓存（保存后应调用）。
 func ResetConfigCache() {
 	cfg = nil
 }
 
-// UpsertAccessProfile writes or updates one SenseCAP API profile and can make it active.
+// UpsertAccessProfile 写入或更新一条 SenseCAP API 配置，并可选设为当前默认。
 func UpsertAccessProfile(profile AccessApiConfig, setActive bool) error {
 	cli, err := LoadConfig()
 	if err != nil {
@@ -44,7 +44,7 @@ func UpsertAccessProfile(profile AccessApiConfig, setActive bool) error {
 	return nil
 }
 
-// BuildAccessProfile builds a local SenseCAP profile from a completed login.
+// BuildAccessProfile 根据登录结果构造 SenseCAP 本地配置条目。
 func BuildAccessProfile(remoteType, orgID, keyID, accessKey string) AccessApiConfig {
 	return AccessApiConfig{
 		RemoteType: remoteType,
@@ -55,7 +55,7 @@ func BuildAccessProfile(remoteType, orgID, keyID, accessKey string) AccessApiCon
 	}
 }
 
-// FormatCliConfigInfo formats the config summary printed by auth info.
+// FormatCliConfigInfo 格式化配置文件核心信息，便于 auth info 展示。
 func FormatCliConfigInfo(cli *CliConfig, configPath string) string {
 	if cli == nil || len(cli.AppConfigList) == 0 {
 		return fmt.Sprintf("Config file: %s\n\n%s\n", configPath, authhint.NeedLogin())

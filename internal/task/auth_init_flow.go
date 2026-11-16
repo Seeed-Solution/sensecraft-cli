@@ -12,7 +12,7 @@ import (
 
 const totalSteps = 5
 
-// InitContext is the shared state of the auth init wizard.
+// InitContext 向导共享状态。
 type InitContext struct {
 	UI         *ui.Console
 	Ctx        context.Context
@@ -27,7 +27,7 @@ type InitContext struct {
 
 type step func(*InitContext) (step, error)
 
-// RunInitFlow runs the auth init wizard. The wizard saves an Access Key.
+// RunInitFlow 执行 auth init 向导。向导只保存 Access Key。
 func RunInitFlow(ctx context.Context, console *ui.Console, sandbox bool) error {
 	if !console.IsInteractive() && !sandbox {
 		return errAuthInitNonInteractive()

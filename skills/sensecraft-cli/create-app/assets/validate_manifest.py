@@ -41,13 +41,62 @@ TOOL_CONFIG_FIELDS = {
 FLASH_ADDRESSES = {"0x0", "0x4000", "0x10000", "0x90000"}
 # Keep aligned with museDeviceTable (muse: true) and tool-blocks.md.
 MUSE_GADGET_SKUS = {
-    "114993068",  # SenseCAP Indicator
-    "113991315", "113991275",  # SenseCAP Watcher
+    "114993068", "114993069", "114993070", "114993071",  # Indicator D1 / D1S / D1L / D1Pro
+    "113991315", "113991275", "114993275",  # Watcher (+ enclosure alias)
     "100073581",  # reTerminal E1001
     "100017057",  # reTerminal E1002
     "100069905",  # XIAO 1.47" Touch Display
     "100056818",  # reTerminal Sticky
 }
+# Fixed flash_address by SKU (matches CLI flashAddressBySKU.fixed / App address bar).
+FLASH_ADDRESS_FIXED = {
+    "114993068": "0x0", "114993069": "0x0", "114993070": "0x0", "114993071": "0x0",
+    "113991315": "0x0", "113991275": "0x0", "114993275": "0x0",
+    "100073581": "0x90000",
+    "100017057": "0x90000",
+    "100069905": "0x0",
+    "100056818": "0x0",
+    "102991299": "0x4000",
+    "110061162": "0x0",
+}
+
+
+def forces_full_flash_when_muse_off(device_id):
+    """Sticky/Watcher/Indicator/1.47: only non-Muse address is 0x0 — full_flash locked on."""
+    if device_id not in MUSE_GADGET_SKUS:
+        return False
+    return FLASH_ADDRESS_FIXED.get(device_id) == "0x0"
+XIAO_EE_DIY_RE = re.compile(r"(?i)\bee0[2-5]\b")
+FLASH_MIN_MERGED_BYTES = 200 * 1024
+FLASH_MAX_APP_REGION_BYTES = 4 * 1024 * 1024
+XIAO_ZIP_SKUS = {"113991054", "113991254", "113991115"}
+
+
+def flash_address_from_material_name(name):
+    """App hmiEspFlashProfile name rules when SKU is not in FLASH_ADDRESS_FIXED."""
+    n = (name or "").lower()
+    if not n:
+        return None
+    if "sticky" in n:
+        return "0x0"
+    if "sensecap" in n and "indicator" in n:
+        return "0x0"
+    if "watcher" in n and "xiao" not in n:
+        return "0x0"
+    if "wio" in n and "terminal" in n:
+        return "0x4000"
+    if "reterminal" in n and "sticky" not in n:
+        return "0x90000"
+    if "xiao" in n:
+        if "nrf" in n or "52840" in n:
+            return None
+        if "ips" in n or ("touch" in n and "display" in n and "esp32" in n):
+            return "0x0"
+        if "sense" in n or "watcher" in n or "trmnl" in n or "round" in n:
+            return None
+        if "display" in n or XIAO_EE_DIY_RE.search(n) or ("epaper" in n and "diy" in n):
+            return "0x90000"
+    return None
 BOM_QUANTITY_MAX = 999
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 QUANTITY_RE = re.compile(r"^[1-9][0-9]*$")
@@ -250,6 +299,31 @@ def main():
             elif url is None:
                 warn(f"images[{i}] {p!r}: not uploaded yet (file_url null)")
 
+    materials_preview = m.get("bom", {}).get("materials", [])
+    material_name_by_id = {}
+    if isinstance(materials_preview, list):
+        for row in materials_preview:
+            if not isinstance(row, dict):
+                continue
+            mid = row.get("id") or row.get("sku")
+            if isinstance(mid, str) and mid.strip() and isinstance(row.get("name"), str):
+                material_name_by_id[mid.strip()] = row["name"]
+
+    def muse_capable(device_id):
+        if device_id in MUSE_GADGET_SKUS:
+            return True
+        name = (material_name_by_id.get(device_id) or "").lower()
+        if "sensecap" in name and "indicator" in name:
+            return True
+        if "watcher" in name and "xiao" not in name:
+            return True
+        return False
+
+    def fixed_flash_address(device_id):
+        if device_id in FLASH_ADDRESS_FIXED:
+            return FLASH_ADDRESS_FIXED[device_id]
+        return flash_address_from_material_name(material_name_by_id.get(device_id, ""))
+
     blocks = m.get("deployment", {}).get("blocks", [])
     if not isinstance(blocks, list):
         vio("deployment.blocks must be an array")
@@ -293,10 +367,39 @@ def main():
             elif block_type not in TEXT_BLOCK_TYPES:
                 vio(f"{label}: unsupported block type")
             if block_type == "flash-firmware":
+                def flash_has_payload(c):
+                    for key in (
+                        "firmware_url", "firmware_name", "firmware_size", "flash_address", "flash_mode",
+                        "project_zip_url", "project_zip_name", "project_zip_size", "device_type",
+                    ):
+                        if isinstance(c.get(key), str) and c.get(key).strip():
+                            return True
+                    if "muse_gadget" in c or "full_flash" in c or "precheck_fields" in c:
+                        return True
+                    return False
+
                 if "device_id" in cfg and not isinstance(cfg["device_id"], str):
                     vio(f"{label}: config.device_id must be a SKU string")
-                elif not cfg.get("device_id"):
-                    warn(f"{label}: config.device_id is pending — resolve the exact device SKU")
+                device_id = cfg.get("device_id") if isinstance(cfg.get("device_id"), str) else ""
+                device_id = device_id.strip()
+                if not device_id and flash_has_payload(cfg):
+                    vio(
+                        f"{label}: config.device_id is required before create/update once flash-firmware has "
+                        "firmware or flash settings. Resolve the material SKU with `sensecraft-cli app bom search` "
+                        "or `app blocks` → flash-firmware.device_defaults. Empty config {{}} remains allowed as a pending scaffold"
+                    )
+                elif not device_id:
+                    warn(f"{label}: config.device_id is pending — resolve the exact device SKU before create/update")
+                elif device_id and flash_has_payload(cfg) and device_id not in FLASH_ADDRESS_FIXED and device_id not in XIAO_ZIP_SKUS:
+                    # Ordinary XIAO zip SKUs are also in the Go hard table (non-fixed).
+                    if fixed_flash_address(device_id) is None and not (material_name_by_id.get(device_id) or "").strip():
+                        # XIAO C3/C6/Sense are known non-fixed SKUs; allow without materials.
+                        if device_id not in {"113991054", "113991254", "113991115"}:
+                            vio(
+                                f"{label}: config.device_id {device_id!r} is not in flash-firmware.device_defaults and no "
+                                "matching materials[].name was provided. Add a BOM row with that id/sku and the catalog "
+                                "product name, or use a listed SKU from `app blocks`"
+                            )
                 for key in ("device_type", "firmware_name", "project_zip_name", "flash_mode", "flash_address", "firmware_url", "project_zip_url"):
                     if key in cfg and not isinstance(cfg[key], str):
                         vio(f"{label}: config.{key} must be a string (empty is allowed for a pending value)")
@@ -304,28 +407,146 @@ def main():
                 if mode is None or mode == "":
                     warn(f"{label}: config.flash_mode is pending")
                 elif mode not in ("bin", "zip"):
-                    vio(f"{label}: config.flash_mode must be bin or zip")
+                    vio(f"{label}: config.flash_mode must be \"bin\" or \"zip\" (got {mode!r}); .hex is only for Grove Beginner file content")
                 else:
                     prefix = "firmware" if mode == "bin" else "project_zip"
                     if not cfg.get(prefix + "_url"):
                         warn(f"{label}: config.{prefix}_url is pending — deployment input incomplete")
+                    if mode == "zip":
+                        want_addr = fixed_flash_address(device_id)
+                        if want_addr:
+                            vio(
+                                f"{label}: config.flash_mode \"zip\" rejected — device_id {device_id} only accepts a "
+                                f"single .bin at {want_addr}. Set flash_mode to \"bin\". Zip is only for ordinary "
+                                "XIAO ESP32 (C3/C6/S3 Sense, …)"
+                            )
+                        elif device_id and device_id not in XIAO_ZIP_SKUS and device_id not in FLASH_ADDRESS_FIXED:
+                            vio(
+                                f"{label}: config.flash_mode \"zip\" rejected — device_id {device_id!r} is not a "
+                                "known ordinary XIAO zip target. Use flash_mode \"bin\", or set device_id to "
+                                "113991054 / 113991254 / 113991115"
+                            )
                 for size_key in ("firmware_size", "project_zip_size"):
                     if size_key in cfg and not isinstance(cfg[size_key], str):
                         vio(f"{label}: config.{size_key} must be a string")
                     elif cfg.get(size_key) and not QUANTITY_RE.fullmatch(cfg[size_key]):
                         vio(f"{label}: config.{size_key} must be a positive byte count string or pending empty string")
+                if mode == "bin" and cfg.get("firmware_url") and not cfg.get("firmware_size"):
+                    vio(
+                        f"{label}: config.firmware_size is required when config.firmware_url is set — copy numeric "
+                        "`size` from the type-4 file upload response"
+                    )
+                if mode == "zip" and cfg.get("project_zip_url") and not cfg.get("project_zip_size"):
+                    vio(
+                        f"{label}: config.project_zip_size is required when config.project_zip_url is set — copy "
+                        "numeric `size` from the upload response"
+                    )
                 address = cfg.get("flash_address")
                 if address is not None and address != "" and (not isinstance(address, str) or address not in FLASH_ADDRESSES):
-                    vio(f"{label}: unsupported config.flash_address; read tool-blocks.md for device defaults")
+                    vio(
+                        f"{label}: unsupported config.flash_address {address!r} — allowed: 0x0, 0x4000, 0x10000, "
+                        "0x90000 (never 0x20000; Muse app offset is applied by the site). See tool-blocks.md"
+                    )
+                want_addr = fixed_flash_address(device_id)
+                if want_addr and isinstance(address, str) and address and address != want_addr:
+                    vio(
+                        f"{label}: config.flash_address {address!r} is unsafe for device_id {device_id} — this board "
+                        f"is fixed at {want_addr}. Omit it for CLI default, or set {want_addr}"
+                    )
+                if not address:
+                    warn(f"{label}: config.flash_address is empty — CLI fills the device default on create/update; prefer writing it explicitly")
                 for key in ("muse_gadget", "full_flash"):
                     if key in cfg and type(cfg[key]) is not bool:
-                        vio(f"{label}: config.{key} must be a JSON boolean")
+                        vio(f"{label}: config.{key} must be a JSON boolean true/false, not a string or number")
                 if cfg.get("muse_gadget") is True and cfg.get("full_flash") is True:
-                    vio(f"{label}: config.full_flash must be false when config.muse_gadget is true")
+                    vio(
+                        f"{label}: config.full_flash must be false when config.muse_gadget is true — Muse uses a "
+                        "multi-segment layout without erase-all"
+                    )
                 elif cfg.get("muse_gadget") is True or cfg.get("full_flash") is True:
-                    device_id = cfg.get("device_id")
-                    if not isinstance(device_id, str) or device_id.strip() not in MUSE_GADGET_SKUS:
-                        vio(f"{label}: config.muse_gadget and config.full_flash can be true only for a Muse device SKU")
+                    if not muse_capable(device_id):
+                        vio(
+                            f"{label}: config.muse_gadget/full_flash can be true only for Muse-capable SKUs "
+                            f"(Indicator/Watcher/E1001/E1002/1.47 Touch/Sticky). device_id {device_id!r} is not in that set"
+                        )
+                name = str(cfg.get("firmware_name") or "")
+                url = str(cfg.get("firmware_url") or "")
+                looks_muse = "muse-gadget" in (name + " " + url).lower()
+                if cfg.get("muse_gadget") is True:
+                    if (name or url) and not looks_muse:
+                        vio(
+                            f"{label}: muse_gadget is true but firmware_url/firmware_name do not look like "
+                            f"muse-gadget.bin (firmware_name={name!r}). Upload Muse SDK output as muse-gadget.bin, "
+                            "or set muse_gadget false for a normal image"
+                        )
+                elif (name or url) and looks_muse:
+                    vio(
+                        f"{label}: firmware looks like muse-gadget.bin but muse_gadget is false "
+                        f"(firmware_name={name!r}). Set muse_gadget true and full_flash false on a Muse-capable SKU, "
+                        "or upload a normal board image without \"muse-gadget\" in the name"
+                    )
+                elif muse_capable(device_id) and cfg.get("muse_gadget") is not True:
+                    if forces_full_flash_when_muse_off(device_id):
+                        if cfg.get("full_flash") is False:
+                            vio(
+                                f"{label}: device_id {device_id} writes merged firmware at 0x0 — config.full_flash "
+                                "must be true and cannot be turned off (CLI/App force it). Omit the field or set true"
+                            )
+                        elif "full_flash" not in cfg:
+                            warn(
+                                f"{label}: merged-at-0x0 Muse SKU with muse_gadget off should set full_flash true "
+                                "(forced on create/update)"
+                            )
+                    elif "full_flash" not in cfg:
+                        warn(
+                            f"{label}: Muse SKU with muse_gadget off should set full_flash true "
+                            "(CLI defaults it on create/update; E100x may set false explicitly)"
+                        )
+                size_raw = cfg.get("firmware_size") if isinstance(cfg.get("firmware_size"), str) else ""
+                if mode == "bin" and size_raw and QUANTITY_RE.fullmatch(size_raw):
+                    size = int(size_raw)
+                    shape_addr = address if isinstance(address, str) and address else (want_addr or "")
+                    display_name = name or "(unnamed)"
+                    if cfg.get("muse_gadget") is True and size > FLASH_MAX_APP_REGION_BYTES:
+                        vio(
+                            f"{label}: firmware_size {size_raw} bytes ({display_name}) is too large for Muse "
+                            "muse-gadget.bin (app segment). Rebuild the Muse app binary only, or disable Muse"
+                        )
+                    elif (
+                        cfg.get("muse_gadget") is not True
+                        and shape_addr == "0x0"
+                        and device_id != "110061162"
+                        and size < FLASH_MIN_MERGED_BYTES
+                    ):
+                        vio(
+                            f"{label}: firmware_size {size_raw} bytes ({display_name}) is too small for flash_address "
+                            f"0x0 on device_id {device_id} — 0x0 expects a merged image (typically ≥ "
+                            f"{FLASH_MIN_MERGED_BYTES} bytes). Rebuild a merge, or on ordinary XIAO use 0x10000 for an "
+                            "application package"
+                        )
+                    elif (
+                        cfg.get("muse_gadget") is not True
+                        and shape_addr == "0x0"
+                        and device_id != "110061162"
+                        and want_addr == "0x0"
+                        and "application" in (name + " " + url).lower()
+                    ):
+                        vio(
+                            f"{label}: firmware_url/firmware_name {display_name!r} looks like an application-only "
+                            f"package, but device_id {device_id} flash_address 0x0 requires a merged image "
+                            "(bootloader+partitions+app). Rebuild a merge; ordinary XIAO application packages use "
+                            "0x10000 — not Watcher/Sticky/Indicator/IPS/1.47"
+                        )
+                    elif (
+                        cfg.get("muse_gadget") is not True
+                        and shape_addr in ("0x90000", "0x4000", "0x10000")
+                        and size > FLASH_MAX_APP_REGION_BYTES
+                    ):
+                        vio(
+                            f"{label}: firmware_size {size_raw} bytes ({display_name}) is too large for flash_address "
+                            f"{shape_addr} on device_id {device_id} — that offset expects an application-region .bin "
+                            f"(typically ≤ {FLASH_MAX_APP_REGION_BYTES} bytes), not a whole-flash/merged image"
+                        )
             if block_type == "node-red":
                 if cfg.get("flow_data") is not None and not isinstance(cfg["flow_data"], (dict, list)):
                     vio(f"{label}: config.flow_data must be an object or array, not a JSON string")

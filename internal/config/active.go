@@ -28,7 +28,7 @@ func RemoteTypeOf(cli *CliConfig) string {
 	return ""
 }
 
-// ResolveActiveAPIConfig returns the SenseCAP OpenAPI credential selected in the CLI config.
+// ResolveActiveAPIConfig 从 CLI 配置中解析当前使用的 SenseCAP OpenAPI 凭证。
 func ResolveActiveAPIConfig(cli *CliConfig) (AccessApiConfig, error) {
 	if cli == nil || len(cli.AppConfigList) == 0 {
 		return AccessApiConfig{}, errors.New(authhint.NeedLogin())
@@ -55,7 +55,7 @@ func ResolveActiveAPIConfig(cli *CliConfig) (AccessApiConfig, error) {
 	return WithResolvedHost(selected)
 }
 
-// WithResolvedHost fills Host from remote_type, or from the Private host, for the OpenAPI client.
+// WithResolvedHost 根据 remote_type（或 Private 的 host）填充 Host，供 OpenAPI 客户端使用。
 func WithResolvedHost(cfg AccessApiConfig) (AccessApiConfig, error) {
 	host, err := resolveAPIHost(cfg)
 	if err != nil {

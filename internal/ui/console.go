@@ -15,7 +15,7 @@ import (
 	"golang.org/x/term"
 )
 
-// Console wraps interactive CLI input and output.
+// Console 封装 CLI 交互输入输出。
 type Console struct {
 	in     io.Reader
 	reader *bufio.Reader
@@ -88,7 +88,7 @@ func (c *Console) ReadLine(prompt string) (string, error) {
 	return strings.TrimSpace(line), nil
 }
 
-// Select prints a numbered menu and returns the chosen options index (0-based).
+// Select 展示编号菜单并读取选择，返回 options 下标（0-based）。
 func (c *Console) Select(prompt string, options []string, defaultIndex int) (int, error) {
 	if len(options) == 0 {
 		return 0, errors.New("options cannot be empty")
@@ -112,7 +112,7 @@ func (c *Console) Select(prompt string, options []string, defaultIndex int) (int
 	return n - 1, nil
 }
 
-// Confirm asks Y/n. When defaultYes is true, Enter means yes.
+// Confirm 询问 Y/n，defaultYes 为 true 时回车视为确认。
 func (c *Console) Confirm(prompt string, defaultYes bool) (bool, error) {
 	hint := "[y/N]"
 	if defaultYes {
@@ -129,7 +129,7 @@ func (c *Console) Confirm(prompt string, defaultYes bool) (bool, error) {
 	return line == "y" || line == "yes", nil
 }
 
-// Input reads one line. Enter keeps defaultVal when it is non-empty.
+// Input 读取单行文本，defaultVal 非空时回车使用默认值。
 func (c *Console) Input(prompt, defaultVal string) (string, error) {
 	hint := prompt
 	if defaultVal != "" {
@@ -147,7 +147,7 @@ func (c *Console) Input(prompt, defaultVal string) (string, error) {
 	return line, nil
 }
 
-// WaitSpinner shows a spinner while fn runs.
+// WaitSpinner 在 fn 执行期间显示等待动画；fn 应响应 ctx 取消。
 func (c *Console) WaitSpinner(message string, fn func() error) error {
 	done := make(chan error, 1)
 	go func() {
@@ -171,7 +171,7 @@ func (c *Console) WaitSpinner(message string, fn func() error) error {
 	}
 }
 
-// OpenBrowser opens url in the system browser.
+// OpenBrowser 尝试用系统默认浏览器打开 URL。
 func (c *Console) OpenBrowser(url string) error {
 	var cmd *exec.Cmd
 	switch runtime.GOOS {

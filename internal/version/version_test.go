@@ -21,3 +21,20 @@ func TestGetDefaultsMarkLocalBuild(t *testing.T) {
 		t.Fatalf("String=%q", s)
 	}
 }
+
+func TestLineAppendsLocalDevDate(t *testing.T) {
+	origV, origD := Version, Date
+	t.Cleanup(func() {
+		Version, Date = origV, origD
+	})
+
+	Version, Date = "dev", "2026-11-13 11:20"
+	if got := Line(); got != "dev 2026-11-13 11:20" {
+		t.Fatalf("Line()=%q", got)
+	}
+
+	Version, Date = "0.4.1", "2026-11-13T03:20:00Z"
+	if got := Line(); got != "0.4.1" {
+		t.Fatalf("release Line() should stay bare version, got %q", got)
+	}
+}

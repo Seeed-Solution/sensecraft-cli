@@ -93,12 +93,15 @@ ls "$(npm root -g)/@seeed-studio/sensecraft-cli/skills"
 | 命令 | 说明 |
 |------|------|
 | `auth add` | 校验 Access Key，写入本机，并设为当前钥匙 |
-| `auth info` | 显示站点、组织 ID 和 Key ID |
+| `auth info` | 显示本地认证摘要；加 `--json` 输出结构化数据 |
 
 ```bash
 sensecraft-cli auth add --key-id <Key ID> --access-key <Access Key> --site Global
 sensecraft-cli auth info
+sensecraft-cli auth info --json
 ```
+
+`auth info --json` 返回 `{ "profiles": [...] }`，每项仅含 `site`、`org_id`、`key_id`、`kind`、`created_at` 和 `active`。
 
 | `--site` | SenseCAP OpenAPI | SenseCraft AI OpenAPI |
 |----------|------------------|------------------------|
@@ -136,9 +139,17 @@ sensecraft-cli recamera check --model-id <id>
 
 `app list --sort` 取 `popular`、`newest` 或 `likes`。常用 `--uniform-type`：`40` reCamera，`32` XIAO ESP32S3，`53` reCamera Pro。
 
+从未发布的应用，`app view --id <id>` 只能读到名称。读取已保存草稿用 `app view --id <id> --sketch`。
+
+`app bom search --name "XIAO ESP32-S3 1.47"` 会逐词匹配产品名称、SKU、分类、备注或描述，忽略大小写和标点。结果保持目录原顺序。目录保留 `block_support`，并增加布尔值 `block_supported`（`"是"` 对应 `true`）。
+
+`file upload --name <文件名>` 是发给服务器的文件名。服务器出于安全考虑可能会改写其中一部分。访问上传后的文件请使用返回的 `file_url`。
+
+`app activity list` 返回当前还在举办的全部活动，`count` 是这次 `list` 的条数。
+
 ## 进阶
 
-成功的数据命令把缩进 JSON 打到 stdout。`auth add` 和 `auth info` 打可读文本。失败在 stderr，退出码非 0。
+成功的数据命令把缩进 JSON 打到 stdout。含 `list` 且没有 `count` 的对象会补上当前结果的条数；`page` 和服务器已经给出的 `count` 保持原值。`auth add` 和默认的 `auth info` 打可读文本，`auth info --json` 输出认证摘要。失败在 stderr，退出码非 0。
 
 `sensecraft-cli --version` 打印 npm 包版本。直接 `go build` 的二进制打印 `dev`。
 

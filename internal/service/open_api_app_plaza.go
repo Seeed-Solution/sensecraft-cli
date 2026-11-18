@@ -95,7 +95,7 @@ func sandboxOngoingActivities() []ongoingActivity {
 	return []ongoingActivity{{
 		ActivityID: 1,
 		Name:       "Muse Gadget",
-		GuideURL:   "https://test-codecraft.seeed.cc/hub/application?tab=public",
+		GuideURL:   "https://codecraft.seeed.cc/hub/application?tab=public",
 		TagIDs:     []string{"1"},
 		StartTime:  &start,
 		EndTime:    &end,

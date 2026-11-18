@@ -13,7 +13,11 @@ import (
 const consoleAIPathPrefix = "/ai"
 
 func consoleAIOrigin(string) string {
-	return strings.TrimSuffix(enum.DomainNameAIConsole, "/")
+	origin, err := enum.EffectiveConsoleOrigin()
+	if err != nil || origin == "" {
+		return strings.TrimSuffix(enum.DomainNameAIConsole, "/")
+	}
+	return strings.TrimSuffix(origin, "/")
 }
 
 // ModelDetailConsoleURL matches Console post-create navigation:
@@ -30,13 +34,13 @@ func ModelDetailConsoleURL(remoteType, modelID string) string {
 }
 
 // appSiteOrigin is the CodeCraft Hub app site. API calls stay on the AI host.
-// A test AI host (name containing "test-", including remote_type Develop) maps to the test hub.
-func appSiteOrigin(remoteType string) string {
-	host, err := enum.EffectiveAIHost(remoteType)
-	if err == nil && strings.Contains(strings.ToLower(host), "test-") {
-		return "https://test-codecraft.seeed.cc/hub"
+// SENSECRAFT_APP_SITE replaces the hub. An unset or invalid value uses the public hub.
+func appSiteOrigin(string) string {
+	origin, err := enum.EffectiveAppSiteOrigin()
+	if err != nil || origin == "" {
+		return enum.DomainNameAppHub
 	}
-	return "https://codecraft.seeed.cc/hub"
+	return strings.TrimSuffix(origin, "/")
 }
 
 // appTitleSlug matches the app site formatToTitleCase used in /view-application/{id}-{slug}.

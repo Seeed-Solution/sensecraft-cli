@@ -19,7 +19,7 @@ func TestResolveAPIHostUsesOverride(t *testing.T) {
 
 func TestDevelopProfileUsesGlobalDataHost(t *testing.T) {
 	t.Setenv(enum.EnvNameDataHost, "")
-	got, err := WithResolvedHost(AccessApiConfig{RemoteType: enum.RemoteTypeDevelop})
+	got, err := WithResolvedHost(AccessApiConfig{RemoteType: "Develop"})
 	if err != nil {
 		t.Fatal(err)
 	}

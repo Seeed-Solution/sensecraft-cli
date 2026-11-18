@@ -45,6 +45,42 @@ func EffectiveAIHost(remoteType string) (string, error) {
 	return ResolveAIServerHost(remoteType), nil
 }
 
+// EffectiveConsoleOrigin returns SENSECRAFT_CONSOLE_HOST when set, otherwise the
+// public SenseCraft AI website. Model links append /ai.
+func EffectiveConsoleOrigin() (string, error) {
+	if origin, ok, err := HostOverride(EnvNameConsoleHost); ok || err != nil {
+		return origin, err
+	}
+	return DomainNameAIConsole, nil
+}
+
+// EffectiveAppSiteOrigin returns SENSECRAFT_APP_SITE when set, otherwise the
+// public CodeCraft Hub. The value may include a path. A trailing slash is removed.
+func EffectiveAppSiteOrigin() (string, error) {
+	raw := strings.TrimSpace(os.Getenv(EnvNameAppSite))
+	if raw == "" {
+		return DomainNameAppHub, nil
+	}
+	origin, err := NormalizeSiteURL(raw)
+	if err != nil {
+		return "", fmt.Errorf("%s: %w", EnvNameAppSite, err)
+	}
+	return origin, nil
+}
+
+// NormalizeSiteURL accepts an http(s) URL with an optional path.
+// A trailing slash is removed. Query, fragment, and userinfo are rejected.
+func NormalizeSiteURL(raw string) (string, error) {
+	s := strings.TrimSpace(raw)
+	s = strings.TrimSuffix(s, "/")
+	u, err := url.Parse(s)
+	if err != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") || u.RawQuery != "" || u.Fragment != "" || u.User != nil {
+		return "", fmt.Errorf("invalid site %q; use an http(s) URL such as https://codecraft.seeed.cc/hub", raw)
+	}
+	path := strings.TrimSuffix(u.EscapedPath(), "/")
+	return u.Scheme + "://" + u.Host + path, nil
+}
+
 // EffectiveAuthOrigin returns SENSECRAFT_AUTH_HOST when set, otherwise the
 // production account center for remoteType (China or Global). The value is an
 // origin; callers append /authapi.

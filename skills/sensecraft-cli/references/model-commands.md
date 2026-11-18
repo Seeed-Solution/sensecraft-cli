@@ -133,7 +133,7 @@ reCamera Pro is detected automatically when an `adapteds` entry resolves to `uni
 
 `create` refuses payloads that still carry a **public-library** `id` / `model_id` / `from_id` (others' public models cannot be cloned). Upload your own file via `model upload`, then create. Public models are deploy-only.
 
-`create` response always includes `model_id` + `console_url` (Console `/ai/model/detail?id=…&tab=custom`). Show `console_url` to the user after success.
+`create` response always includes `model_id` + `console_url` (`https://sensecraft.seeed.cc/ai/model/detail?id=…&tab=custom`, or the origin in `SENSECRAFT_CONSOLE_HOST`). Show `console_url` to the user after success.
 
 ```bash
 sensecraft-cli model create --from-json ./model.json --yes

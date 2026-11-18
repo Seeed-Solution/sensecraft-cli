@@ -121,12 +121,12 @@ Use stdout `deployment` in `app create` / `app update`, or skip this step and pa
 
 Rejects `be_public=1` / `privacy=1`. Do **not** confuse with `app update` (existing app → L2).
 
-**Success output:** CLI always prints `app_id`, `console_url`, and `detail_url` on CodeCraft Hub (`https://codecraft.seeed.cc/hub`, or `https://test-codecraft.seeed.cc/hub` when the AI host contains `test-`, including `remote_type=Develop`):
+**Success output:** CLI always prints `app_id`, `console_url`, and `detail_url` on CodeCraft Hub (`https://codecraft.seeed.cc/hub`, or the base in `SENSECRAFT_APP_SITE` when that variable is set):
 
 - edit: `/application/edit?id=<app_id>`
 - app detail: `/view-application/<app_id>-<slug>`
 
-Owner and plaza links are the same path. Do not append `from`, `section`, `state`, or `tab`. The site shows the author's draft when they are logged in, and the published page to everyone else. If a list item has a non-empty `web_link`, give the user that URL instead of `view-application`. Model and legal pages stay on `sensecraft.seeed.cc`.
+Owner and plaza links are the same path. Do not append `from`, `section`, `state`, or `tab`. The site shows the author's draft when they are logged in, and the published page to everyone else. If a list item has a non-empty `web_link`, give the user that URL instead of `view-application`. Model pages use `https://sensecraft.seeed.cc` unless `SENSECRAFT_CONSOLE_HOST` is set. Legal pages stay on `sensecraft.seeed.cc`.
 
 **Do not retry create blindly:**
 

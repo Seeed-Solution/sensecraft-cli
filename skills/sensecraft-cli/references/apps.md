@@ -160,7 +160,7 @@ For a local project/repository or an existing `codecraft-app.json`, use [create-
    sensecraft-cli app create --from-json ./app.json
    # CLI returns app_id + console_url + detail_url (even if update_app body was {}).
    # detail_url is https://codecraft.seeed.cc/hub/view-application/<id>-<slug>
-   # (test AI host or remote_type Develop → https://test-codecraft.seeed.cc/hub). No query.
+   # SENSECRAFT_APP_SITE replaces that hub. No query.
    # Content landed in the sketch — verify with app view --sketch (view_kind=sketch).
    # For private drafts, test flash on the editor (console_url), not the bare preview alone.
    # A non-empty web_link on a list item is the link to give the user.

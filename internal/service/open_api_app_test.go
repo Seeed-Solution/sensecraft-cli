@@ -208,7 +208,7 @@ func TestListActivitiesPrintsCurrentWindow(t *testing.T) {
 	if item["activity_id"] != float64(1) || item["name"] != "Muse Gadget" {
 		t.Fatalf("item=%#v", item)
 	}
-	if item["guide_url"] != "https://test-codecraft.seeed.cc/hub/application?tab=public" {
+	if item["guide_url"] != "https://codecraft.seeed.cc/hub/application?tab=public" {
 		t.Fatalf("guide=%v", item["guide_url"])
 	}
 	if item["start_time"] != "2026-10-18T16:00:00Z" || item["end_time"] != "2026-11-20T15:59:59Z" {
@@ -272,7 +272,7 @@ func TestListPublicActivitiesOmitsKey(t *testing.T) {
 	activityNow = func() time.Time { return time.Unix(1793000000, 0) }
 	t.Cleanup(func() { activityNow = prev })
 
-	raw, err := ListPublicActivities("Develop", false)
+	raw, err := ListPublicActivities("Global", false)
 	if err != nil {
 		t.Fatal(err)
 	}

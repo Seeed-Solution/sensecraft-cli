@@ -118,7 +118,7 @@ Publish / unpublish / delete still need a **chat confirm first**, then `--yes` (
    sensecraft-cli model delete --id <model_id> --yes
    ```
 
-Successful `model create` JSON includes `model_id` and `console_url` (Console detail: `/ai/model/detail?id=…&tab=custom`). Show that link to the user.
+Successful `model create` JSON includes `model_id` and `console_url` (Console detail: `https://sensecraft.seeed.cc/ai/model/detail?id=…&tab=custom`, or the origin in `SENSECRAFT_CONSOLE_HOST`). Show that link to the user.
 
 Create must contain the complete field set in [model-fields.md](model-fields.md). Update may be an incremental input patch: CLI loads `view_model`, merges and validates it, then submits the normalized complete Console form so removed conditional fields (such as Pro Classification `ai_framework`) do not remain stale.
 

@@ -92,6 +92,13 @@ Delete, unbind, publish, and deploy commands require `--yes`. The agent confirma
 | `go build` binary default | `sensecraft.json` in the current working directory |
 | `SENSECRAFT_CLI_PATH` | Config directory (the file name is `sensecraft.json`) |
 | `SENSECRAFT_CONFIG_FILE` | Full path to the config file (wins over the two rows above) |
+| `SENSECRAFT_DATA_HOST` | SenseCAP OpenAPI origin. Unset means `https://sensecap.seeed.cc` for Global and `https://sensecap.seeed.cn` for China |
+| `SENSECRAFT_AI_HOST` | App and model API origin. Unset means `https://api-gateway.seeed.cc`. This does not change the pages the CLI prints |
+| `SENSECRAFT_AUTH_HOST` | Account-center origin. Unset means `https://account.seeed.cc` for Global and `https://account.seeed.cn` for China |
+| `SENSECRAFT_APP_SITE` | App edit and detail pages. Unset means `https://codecraft.seeed.cc/hub`. A path is allowed |
+| `SENSECRAFT_CONSOLE_HOST` | Model detail page origin. Unset means `https://sensecraft.seeed.cc` |
+
+The CLI does not switch sites because a hostname contains `test-`. Export the variable for the host you want; leave it unset to use the public site above. Values are origins with no query string. `SENSECRAFT_DATA_HOST`, `SENSECRAFT_AI_HOST`, `SENSECRAFT_AUTH_HOST`, and `SENSECRAFT_CONSOLE_HOST` must not include a path; a trailing `/openapi` or `/authapi` is removed. `SENSECRAFT_APP_SITE` may be `https://example.com/hub`.
 
 ## Output
 

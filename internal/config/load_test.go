@@ -19,10 +19,10 @@ func TestRemoteTypeOf(t *testing.T) {
 		UseApi: "k",
 		AppConfigList: []AccessApiConfig{{
 			KeyId:      "k",
-			RemoteType: " Develop ",
+			RemoteType: " Global ",
 		}},
 	})
-	if got != "Develop" {
+	if got != "Global" {
 		t.Fatalf("got %q", got)
 	}
 	if got := RemoteTypeOf(&CliConfig{UseApi: "missing"}); got != "" {

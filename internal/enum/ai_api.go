@@ -1,11 +1,12 @@
 package enum
 
 const (
-	DomainNameAIServerGlobal  = "https://api-gateway.seeed.cc"
-	DomainNameAIServerChina   = "https://api-gateway.seeed.cc" // SenseCraft AI is single-domain; China uses CN account + same AI host
-	DomainNameAIServerDevelop = "https://test-api-gateway.seeed.cc"
+	DomainNameAIServerGlobal = "https://api-gateway.seeed.cc"
+	DomainNameAIServerChina  = "https://api-gateway.seeed.cc" // SenseCraft AI is single-domain; China uses CN account + same AI host
 	// DomainNameAIConsole is the SenseCraft AI website. API calls use the gateway above.
 	DomainNameAIConsole = "https://sensecraft.seeed.cc"
+	// DomainNameAppHub is the CodeCraft Hub site printed in app links.
+	DomainNameAppHub = "https://codecraft.seeed.cc/hub"
 
 	AIApiPathAppList              = "/flow/app/v2/list_app"
 	AIApiPathAppView              = "/flow/app/v3/view_app"
@@ -39,8 +40,6 @@ func ResolveAIServerHost(remoteType string) string {
 	switch remoteType {
 	case RemoteTypeChina:
 		return DomainNameAIServerChina
-	case RemoteTypeDevelop:
-		return DomainNameAIServerDevelop
 	default:
 		return DomainNameAIServerGlobal
 	}

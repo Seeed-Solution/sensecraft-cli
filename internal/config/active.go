@@ -10,6 +10,11 @@ import (
 	"sensecraft-cloud-terminal/internal/utils"
 )
 
+// legacyRemoteTypeDevelop is an old saved remote_type. It is not a public site.
+// Data and AI hosts match Global. Override them with SENSECRAFT_DATA_HOST and
+// SENSECRAFT_AI_HOST.
+const legacyRemoteTypeDevelop = "Develop"
+
 // RemoteTypeOf is the selected profile's remote_type.
 // No config, no selection, or an unknown key returns "" so callers use the default host.
 func RemoteTypeOf(cli *CliConfig) string {
@@ -77,9 +82,10 @@ func resolveAPIHost(cfg AccessApiConfig) (string, error) {
 		return origin, err
 	}
 	switch cfg.RemoteType {
-	case enum.RemoteTypeGlobal, enum.RemoteTypeDevelop, "":
-		// Develop is a CodeCraft test label on a Global Access Key. Data OpenAPI
-		// stays on the global host; app calls use the test AI gateway instead.
+	case enum.RemoteTypeGlobal, legacyRemoteTypeDevelop, "":
+		// legacyRemoteTypeDevelop is an old config label on a Global Access Key.
+		// It uses the same public data host. Test hosts are SENSECRAFT_DATA_HOST,
+		// SENSECRAFT_AI_HOST, and SENSECRAFT_AUTH_HOST.
 		return enum.DomainNameOpenApiGlobal, nil
 	case enum.RemoteTypeChina:
 		return enum.DomainNameOpenApiChina, nil

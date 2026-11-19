@@ -64,7 +64,7 @@ Matched folder names (Muse SDK slugs or display names like `E1001设备`) select
 | Situation | Upload | Write into `flash-firmware` config |
 |-----------|--------|------------------------------------|
 | Muse SDK folder with `muse-gadget.bin` | Only that file; companions ignored | `muse_gadget: true`, `full_flash: false`, device default `flash_address` (not `0x20000`) |
-| Muse-capable board + normal app/merged bin | That one firmware file | `muse_gadget: false`, **`full_flash: true`** (forced on Sticky/Watcher/Indicator/1.47; default on E100x) |
+| Muse-capable board + normal app/merged bin | That one firmware file | `muse_gadget: false`, **`full_flash: true`** on Sticky/Indicator/1.47 (forced); **`full_flash: false`** on Watcher (forced); default `true` on E100x |
 | Wio / Grove / non-Muse | That one firmware file | `muse_gadget: false`, `full_flash: false` |
 | Bare file + `--device-id` | That file | Same as above from the SKU; also `build_artifact` |
 | Bare file **without** `--device-id` | That file | `muse.note` only — incomplete; re-run with `--device-id` or a matched folder |

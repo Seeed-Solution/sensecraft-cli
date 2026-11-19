@@ -240,7 +240,7 @@ func TestUploadDisplayNameMatchesDevice(t *testing.T) {
 		if res.Muse.DeviceName != tc.name || res.Muse.DeviceID != tc.id || res.Muse.FlashAddress != tc.address {
 			t.Fatalf("%s %#v", tc.folder, res.Muse)
 		}
-		wantFull := !tc.muse && isMuseGadgetSKU(tc.id)
+		wantFull := !tc.muse && isMuseGadgetSKU(tc.id) && !isWatcherMuseFlashDevice(tc.id)
 		if res.Muse.FullFlash != wantFull {
 			t.Fatalf("%s full_flash=%v want %v", tc.folder, res.Muse.FullFlash, wantFull)
 		}

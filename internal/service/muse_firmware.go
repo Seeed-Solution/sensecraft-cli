@@ -318,7 +318,13 @@ func museUploadInfo(dev museDevice, ignored []string) MuseUploadInfo {
 
 func deviceUploadInfo(dev museDevice, ignored []string) MuseUploadInfo {
 	note := "Folder name matched this device. Write config.device_id, flash_address, flash_mode, muse_gadget, and full_flash. The app site reads config."
-	if dev.muse && dev.flashAddress == "0x0" {
+	primary := ""
+	if len(dev.deviceIDs) > 0 {
+		primary = dev.deviceIDs[0]
+	}
+	if isWatcherMuseFlashDevice(primary) {
+		note += " Watcher: muse_gadget=false keeps full_flash=false (no erase-all; preserves nvsfactory). Use a merged .bin at 0x0 — not muse-gadget.bin unless muse_gadget is true."
+	} else if dev.muse && dev.flashAddress == "0x0" {
 		note += " Merged firmware at 0x0 requires full_flash=true (forced; cannot turn off). Use a merged .bin — not muse-gadget.bin unless muse_gadget is true."
 	} else if dev.muse {
 		note += " This SKU supports Muse: muse_gadget=false defaults full_flash=true (E100x may set false explicitly). Use an application-region bin for this board — not muse-gadget.bin unless muse_gadget is true."
@@ -334,9 +340,13 @@ const flashMergedAtZeroGuidance = "flash_address 0x0 requires a merged .bin (boo
 
 func firmwareUploadInfo(dev museDevice, muse bool, ignored []string, note string) MuseUploadInfo {
 	ids := append([]string(nil), dev.deviceIDs...)
+	primary := ""
+	if len(ids) > 0 {
+		primary = ids[0]
+	}
 	// Align with the app editor: Muse ON never erase-all; Muse-capable board
-	// flashing a normal image defaults to full erase to cover Muse layout.
-	fullFlash := !muse && dev.muse
+	// flashing a normal image defaults to full erase — except Watcher (nvsfactory).
+	fullFlash := !muse && dev.muse && !isWatcherMuseFlashDevice(primary)
 	addr := dev.flashAddress
 	info := MuseUploadInfo{
 		DeviceName:    dev.name,

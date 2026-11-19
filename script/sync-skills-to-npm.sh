@@ -39,9 +39,9 @@ npx @seeed-studio/sensecraft-cli install
 sensecraft-cli --version
 ```
 
-Requires Node.js ≥ 16. Downloads a platform binary pinned to this package version.
+Requires Node.js ≥ 16. Downloads a platform binary and checks it against the SHA-256 shipped in this package.
 
-**Full guide** (PATH, Windows, upgrade, uninstall, offline mirror, Cursor Skills): [`INSTALL.md`](INSTALL.md).
+**Full guide** (PATH, Windows, upgrade, uninstall, offline install, Cursor Skills): [`INSTALL.md`](INSTALL.md).
 
 ## Agent Skills
 

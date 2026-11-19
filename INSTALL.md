@@ -86,13 +86,11 @@ npx @seeed-studio/sensecraft-cli@<version> install
 npm install -g @seeed-studio/sensecraft-cli@<version>
 ```
 
-Binary URLs look like:
+The installer downloads:
 
-`{RELEASE_BASE}/v{version}/sensecraft-cli-{os}-{arch}[.exe]`
+`https://sensecraft-statics.seeed.cc/static/bin/sensecraft-cli/v{version}/sensecraft-cli-{os}-{arch}[.exe]`
 
-Default `RELEASE_BASE`:
-
-`https://sensecraft-statics.seeed.cc/static/bin/sensecraft-cli`
+Each npm package includes `checksums.json`. The installer hashes the download and compares it with that file before saving or running the binary. A mismatch stops the install.
 
 ---
 
@@ -223,7 +221,7 @@ The `vendor/` binary inside the package directory goes away with the global pack
 
 ---
 
-## 7. Offline, intranet, or a custom binary host
+## 7. Offline or a local build
 
 ### Use a local `dist/` you already built
 
@@ -235,39 +233,12 @@ npx @seeed-studio/sensecraft-cli install
 # SENSECRAFT_CLI_LOCAL_DIST=$PWD/../../dist npm run postinstall
 ```
 
-### Override the download base URL
-
-By default the installer fetches `{base}/v{version}/{artifact}` from OSS. For an internal mirror:
-
-```bash
-export SENSECRAFT_CLI_RELEASE_BASE="https://your-mirror.example.com/sensecraft-cli"
-npx @seeed-studio/sensecraft-cli install
-```
-
-The mirror layout must match a release, for example:
-
-```text
-…/sensecraft-cli/v<version>/sensecraft-cli-darwin-arm64
-…/sensecraft-cli/v<version>/sensecraft-cli-linux-amd64
-…
-```
-
 ### Skip the download and reuse `vendor/`
 
 ```bash
 export SENSECRAFT_CLI_SKIP_DOWNLOAD=1
 # Install fails when vendor has no binary for the current version
 ```
-
-### Optional checksum
-
-If the publisher provides a SHA256:
-
-```bash
-export SENSECRAFT_CLI_SHA256="<hex>"
-```
-
-Install fails when the download does not match.
 
 ### Proxy
 
@@ -292,6 +263,9 @@ go build -o sensecraft-cli .
 
 # Release artifacts for every platform → dist/
 ./script/build.sh
+
+# SHA-256 of those artifacts → packages/cli/checksums.json
+./script/release.sh <version>
 ```
 
 A binary built from source stores config in `sensecraft.json` in the **current directory**. To share the npm install's config:
@@ -372,11 +346,10 @@ sensecraft-cli data latest --eui SANDBOXEUI000001 --sandbox
 
 The installer suggests:
 
-1. Confirm the release artifacts are at `{RELEASE_BASE}/v{version}/`
+1. Confirm the release artifacts are at `https://sensecraft-statics.seeed.cc/static/bin/sensecraft-cli/v{version}/`
 2. Point `SENSECRAFT_CLI_LOCAL_DIST` at a local `dist/`
-3. Point `SENSECRAFT_CLI_RELEASE_BASE` at a mirror that works
 
-When a company network blocks OSS, use a local `dist/` or an internal mirror.
+A checksum mismatch stops the install. When a company network blocks the download, install from a local `dist/`.
 
 ### `auth info` says it is not initialized, or install asks for init again
 

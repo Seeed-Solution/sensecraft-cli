@@ -19,10 +19,11 @@ func TestViewOrganizationReadsOrgIDFromEnvelope(t *testing.T) {
 		_, _ = w.Write([]byte(`{"code":0,"msg":"Success","data":{"orgId":346466133785600}}`))
 	}))
 	t.Cleanup(srv.Close)
-	t.Setenv(enum.EnvNameDataHost, srv.URL)
+	host := srv.URL
 
 	org, err := ViewOrganization(config.AccessApiConfig{
-		RemoteType: enum.RemoteTypeGlobal,
+		RemoteType: enum.RemoteTypePrivate,
+		Host:       &host,
 		KeyId:      "key",
 		AccessKey:  "secret",
 	})

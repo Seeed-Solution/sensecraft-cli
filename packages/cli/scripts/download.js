@@ -2,7 +2,6 @@
 
 const fs = require('fs');
 const https = require('https');
-const http = require('http');
 const path = require('path');
 const crypto = require('crypto');
 
@@ -10,19 +9,46 @@ const {
   VERSION,
   releaseArtifactURL,
   versionStampPath,
+  checksumFilePath,
 } = require('./constants');
 const { getVendorDir, getBinaryPath } = require('./paths');
 const { resolvePlatformTarget } = require('./platform');
 
-function request(url, redirects = 0) {
+class ChecksumError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'ChecksumError';
+    this.code = 'CHECKSUM';
+  }
+}
+
+function assertDownloadURL(url, allowedHost) {
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new Error(`Unsupported download URL: ${url}`);
+  }
+  if (parsed.protocol !== 'https:') {
+    throw new Error(`Refusing non-HTTPS download URL: ${url}`);
+  }
+  if (allowedHost && parsed.host !== allowedHost) {
+    throw new Error(`Refusing download host ${parsed.host}`);
+  }
+  return parsed;
+}
+
+function request(url, redirects = 0, allowedHost) {
   return new Promise((resolve, reject) => {
-    if (!url.startsWith('https:') && !url.startsWith('http:')) {
-      reject(new Error(`Unsupported download URL scheme: ${url}`));
+    let parsed;
+    try {
+      parsed = assertDownloadURL(url, allowedHost);
+    } catch (err) {
+      reject(err);
       return;
     }
-    // Prefer HTTPS; allow http only for local override bases (e.g. file mirrors).
-    const client = url.startsWith('https:') ? https : http;
-    client
+    const permit = allowedHost || parsed.host;
+    https
       .get(url, { headers: { 'User-Agent': `sensecraft-cli-npm-installer/${VERSION}` } }, (res) => {
         if (
           res.statusCode &&
@@ -35,7 +61,7 @@ function request(url, redirects = 0) {
           }
           const next = new URL(res.headers.location, url).toString();
           res.resume();
-          request(next, redirects + 1).then(resolve, reject);
+          request(next, redirects + 1, permit).then(resolve, reject);
           return;
         }
 
@@ -83,6 +109,33 @@ function sha256(buf) {
   return crypto.createHash('sha256').update(buf).digest('hex');
 }
 
+function readChecksums() {
+  const file = checksumFilePath();
+  let parsed;
+  try {
+    parsed = JSON.parse(fs.readFileSync(file, 'utf8'));
+  } catch (err) {
+    throw new ChecksumError(`Cannot read release checksums (${file}): ${err.message}`);
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new ChecksumError(`Release checksums file is invalid: ${file}`);
+  }
+  return parsed;
+}
+
+function verifyDownload(artifact, data, checksums) {
+  const expected = checksums[artifact];
+  if (typeof expected !== 'string' || !/^[0-9a-f]{64}$/.test(expected)) {
+    throw new ChecksumError(`Missing checksum for ${artifact}`);
+  }
+  const got = sha256(data);
+  if (got !== expected) {
+    throw new ChecksumError(
+      `Checksum mismatch for ${artifact}: expected ${expected}, got ${got}`
+    );
+  }
+}
+
 async function installBinary() {
   const { artifact, binary } = resolvePlatformTarget();
   const vendorDir = getVendorDir();
@@ -116,18 +169,7 @@ async function installBinary() {
 
   const url = releaseArtifactURL(artifact);
   const data = await request(url);
-
-  // Optional integrity check: if a sibling .sha256 file is published next to
-  // the artifact, verify it. Missing checksum is not fatal (OSS may lag).
-  const expectedChecksum = process.env.SENSECRAFT_CLI_SHA256;
-  if (expectedChecksum) {
-    const got = sha256(data);
-    if (got !== expectedChecksum.toLowerCase()) {
-      throw new Error(
-        `Checksum mismatch for ${artifact}: expected ${expectedChecksum}, got ${got}`
-      );
-    }
-  }
+  verifyDownload(artifact, data, readChecksums());
 
   fs.mkdirSync(vendorDir, { recursive: true });
   // Atomic-ish write: write to temp then rename so a partial download never
@@ -143,4 +185,8 @@ async function installBinary() {
 
 module.exports = {
   installBinary,
+  ChecksumError,
+  assertDownloadURL,
+  verifyDownload,
+  sha256,
 };

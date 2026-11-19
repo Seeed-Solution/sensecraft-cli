@@ -12,7 +12,8 @@ const os = require('os');
 const path = require('path');
 
 const { VERSION } = require('./constants');
-const { installBinary } = require('./download');
+const { installBinary, assertDownloadURL, verifyDownload, sha256, ChecksumError } = require('./download');
+const { buildChecksums } = require('./write-checksums');
 const { getVendorDir, getBinaryPath } = require('./paths');
 const { resolvePlatformTarget } = require('./platform');
 
@@ -98,11 +99,64 @@ async function testMissingStampForcesReinstall() {
   });
 }
 
+function testDownloadUrlMustStayHttpsOnTheReleaseHost() {
+  const ok = assertDownloadURL(
+    'https://sensecraft-statics.seeed.cc/static/bin/sensecraft-cli/v1/sensecraft-cli-darwin-arm64',
+    'sensecraft-statics.seeed.cc'
+  );
+  assert.equal(ok.host, 'sensecraft-statics.seeed.cc');
+  assert.throws(
+    () => assertDownloadURL('http://sensecraft-statics.seeed.cc/a', 'sensecraft-statics.seeed.cc'),
+    /non-HTTPS/
+  );
+  assert.throws(
+    () => assertDownloadURL('https://example.invalid/a', 'sensecraft-statics.seeed.cc'),
+    /Refusing download host/
+  );
+}
+
+function testVerifyDownloadAcceptsTheShippedHash() {
+  const body = Buffer.from('release-bytes');
+  const artifact = 'sensecraft-cli-darwin-arm64';
+  verifyDownload(artifact, body, { [artifact]: sha256(body) });
+}
+
+function testVerifyDownloadRejectsMismatchAndMissing() {
+  const artifact = 'sensecraft-cli-darwin-arm64';
+  const checksums = { [artifact]: sha256(Buffer.from('expected')) };
+  assert.throws(
+    () => verifyDownload(artifact, Buffer.from('other'), checksums),
+    ChecksumError
+  );
+  assert.throws(() => verifyDownload(artifact, Buffer.from('x'), {}), ChecksumError);
+  assert.throws(
+    () => verifyDownload(artifact, Buffer.from('x'), { [artifact]: 'abc' }),
+    ChecksumError
+  );
+}
+
+function testWriteChecksumsMatchesFileBytes() {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sc-sum-'));
+  const name = 'sensecraft-cli-linux-amd64';
+  fs.writeFileSync(path.join(dir, name), 'artifact-bytes');
+  try {
+    const sums = buildChecksums(dir, [name]);
+    assert.equal(sums[name], sha256(Buffer.from('artifact-bytes')));
+    verifyDownload(name, Buffer.from('artifact-bytes'), sums);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+}
+
 (async () => {
   await testFreshInstallWritesVersionStamp();
   await testReuseWhenVersionMatches();
   await testStaleVersionForcesReinstall();
   await testMissingStampForcesReinstall();
+  testDownloadUrlMustStayHttpsOnTheReleaseHost();
+  testVerifyDownloadAcceptsTheShippedHash();
+  testVerifyDownloadRejectsMismatchAndMissing();
+  testWriteChecksumsMatchesFileBytes();
   console.log('OK: packages/cli/scripts/download.test.js');
 })().catch((err) => {
   console.error(err);

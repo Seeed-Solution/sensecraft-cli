@@ -34,6 +34,7 @@ ARTIFACTS=(
   sensecraft-cli-darwin-amd64
   sensecraft-cli-darwin-arm64
   sensecraft-cli-windows-amd64.exe
+  sensecraft-cli-windows-arm64.exe
 )
 
 echo "准备发布 ${TAG}"
@@ -45,6 +46,12 @@ for name in "${ARTIFACTS[@]}"; do
   echo "  ✓ ${name}"
 done
 
+CHECKSUM_FILE="${ROOT_DIR}/packages/cli/checksums.json"
+node "${ROOT_DIR}/packages/cli/scripts/write-checksums.js" \
+  "${DIST_DIR}" \
+  "${CHECKSUM_FILE}" \
+  "${ARTIFACTS[@]}"
+
 echo ""
 echo "请在 GitHub 仓库 sensecraft-cli 创建 Release："
 echo "  Tag:  ${TAG}"
@@ -54,5 +61,5 @@ for name in "${ARTIFACTS[@]}"; do
   echo "  ${DIST_DIR}/${name}"
 done
 echo ""
-echo "发布 npm 包："
+echo "npm 包必须带上刚写好的 checksums.json，再发布："
 echo "  cd packages/cli && npm publish --access public"

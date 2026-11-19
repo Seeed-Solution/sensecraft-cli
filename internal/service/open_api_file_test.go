@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"sensecraft-cloud-terminal/internal/client"
 )
@@ -55,6 +56,18 @@ func TestParseAcquireFileURL(t *testing.T) {
 
 	if _, err := parseAcquireFileURL([]byte(`{"upload_url":"https://up.example/x","file_url":"https://cdn.example/y.bin"}`)); err == nil {
 		t.Fatal("expected legacy upload_url payload to fail")
+	}
+	if _, err := parseAcquireFileURL([]byte(`{
+		"host":"http://oss.example",
+		"policy":"cG9s",
+		"signature":"sig",
+		"OSSAccessKeyId":"STS.id",
+		"security_token":"tok",
+		"key":"refer/model/m.bin",
+		"file_url":"https://cdn.example/m.bin",
+		"max_bytes":"10"
+	}`)); err == nil {
+		t.Fatal("expected http host to fail")
 	}
 	if _, err := parseAcquireFileURL([]byte(`{
 		"host":"ftp://files.example",
@@ -217,7 +230,7 @@ func newUploadServer(t *testing.T, body string, ossStatus int, ossBody string) (
 	t.Helper()
 	cap := &ossCapture{fields: map[string]string{}}
 	var srv *httptest.Server
-	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv = httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet {
 			cap.query = map[string]string{}
 			for k, vs := range r.URL.Query() {
@@ -260,6 +273,14 @@ func newUploadServer(t *testing.T, body string, ossStatus int, ossBody string) (
 		_, _ = io.WriteString(w, ossBody)
 	}))
 	t.Cleanup(srv.Close)
+	prev := externalHTTPClient
+	externalHTTPClient = func(timeout time.Duration) *http.Client {
+		c := srv.Client()
+		c.Timeout = timeout
+		c.CheckRedirect = refuseCrossHostRedirect
+		return c
+	}
+	t.Cleanup(func() { externalHTTPClient = prev })
 	return srv, cap
 }
 

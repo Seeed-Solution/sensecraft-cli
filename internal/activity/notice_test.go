@@ -151,13 +151,17 @@ func TestEndpointUsesOverrideAndDefault(t *testing.T) {
 	if got != "https://api-gateway.seeed.cc/openapi/activity/list" {
 		t.Fatalf("default=%s", got)
 	}
-	t.Setenv("SENSECRAFT_AI_HOST", "https://ai.test.example/openapi/")
+	t.Setenv("SENSECRAFT_AI_HOST", "https://test-api-gateway.seeed.cc/openapi/")
 	got, err = Endpoint()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got != "https://ai.test.example/openapi/activity/list" {
+	if got != "https://test-api-gateway.seeed.cc/openapi/activity/list" {
 		t.Fatalf("override=%s", got)
+	}
+	t.Setenv("SENSECRAFT_AI_HOST", "http://127.0.0.1:9")
+	if _, err := Endpoint(); err == nil {
+		t.Fatal("expected unofficial host rejection")
 	}
 }
 
@@ -169,7 +173,11 @@ func TestFetchUsesEndpoint(t *testing.T) {
 		_, _ = w.Write([]byte(`{"code":"0","data":{"list":[{"activity_id":"9","name":"线上"}]}}`))
 	}))
 	defer srv.Close()
-	t.Setenv("SENSECRAFT_AI_HOST", srv.URL)
+	orig := activityEndpoint
+	activityEndpoint = func() (string, error) {
+		return srv.URL + "/openapi/activity/list", nil
+	}
+	t.Cleanup(func() { activityEndpoint = orig })
 	items, err := fetchFromNetwork(context.Background())
 	if err != nil {
 		t.Fatal(err)

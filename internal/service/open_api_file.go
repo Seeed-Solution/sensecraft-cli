@@ -266,9 +266,8 @@ func parseAcquireFileURL(raw json.RawMessage) (acquiredFile, error) {
 	if err != nil {
 		return acquiredFile{}, err
 	}
-	u, err := url.Parse(host)
-	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
-		return acquiredFile{}, fmt.Errorf("acquire_file_url host is not an http(s) URL")
+	if err := requireHTTPSURL(host); err != nil {
+		return acquiredFile{}, fmt.Errorf("acquire_file_url host is not an https URL")
 	}
 	policy, err := requireAcquireString(m, "policy")
 	if err != nil {
@@ -381,6 +380,9 @@ func postOSSFile(cred acquiredFile, fileName string, body io.Reader, size int64)
 		return fmt.Errorf("build OSS form: %w", err)
 	}
 	suffix := "\r\n--" + w.Boundary() + "--\r\n"
+	if err := requireHTTPSURL(cred.Host); err != nil {
+		return fmt.Errorf("OSS upload: %w", err)
+	}
 	req, err := http.NewRequest(http.MethodPost, cred.Host, io.MultiReader(bytes.NewReader(prefix.Bytes()), body, strings.NewReader(suffix)))
 	if err != nil {
 		return fmt.Errorf("build OSS POST: %w", err)
@@ -388,7 +390,7 @@ func postOSSFile(cred acquiredFile, fileName string, body io.Reader, size int64)
 	req.Header.Set("Content-Type", w.FormDataContentType())
 	req.ContentLength = int64(prefix.Len()) + size + int64(len(suffix))
 
-	httpClient := &http.Client{Timeout: 30 * time.Minute}
+	httpClient := externalHTTPClient(30 * time.Minute)
 	resp, err := httpClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("OSS upload: %w", err)

@@ -1,7 +1,7 @@
 'use strict';
 
 const { VERSION, RELEASE_BASE } = require('./constants');
-const { installBinary } = require('./download');
+const { installBinary, ChecksumError } = require('./download');
 
 async function main() {
   try {
@@ -16,17 +16,19 @@ async function main() {
   } catch (err) {
     console.error('');
     console.error(`sensecraft-cli binary download failed: ${err.message}`);
+    if (err instanceof ChecksumError) {
+      console.error('The download does not match the checksum shipped in this package.');
+      console.error('');
+      process.exit(1);
+    }
     console.error('');
     console.error('Try:');
     console.error(
-      `  1. Confirm Release / OSS has the v${VERSION} artifact under:`
+      `  1. Confirm the v${VERSION} artifact is published under:`
     );
-    console.error(`     ${RELEASE_BASE.replace(/\/+$/, '')}/v${VERSION}/`);
+    console.error(`     ${RELEASE_BASE}/v${VERSION}/`);
     console.error(
       '  2. Set SENSECRAFT_CLI_LOCAL_DIST to a local dist/ directory and reinstall'
-    );
-    console.error(
-      '  3. Set SENSECRAFT_CLI_RELEASE_BASE to override the download base URL'
     );
     console.error('');
     // Don't fail the whole npm install on a transient download error when the

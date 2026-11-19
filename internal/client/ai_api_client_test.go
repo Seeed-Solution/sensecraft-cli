@@ -77,12 +77,8 @@ func TestAIApiClientPublicOmitsAuthorization(t *testing.T) {
 		})
 	}))
 	t.Cleanup(srv.Close)
-	t.Setenv(enum.EnvNameAIHost, srv.URL)
 
-	c, err := NewAIApiClientPublic("")
-	if err != nil {
-		t.Fatal(err)
-	}
+	c := NewAIApiClientAt(srv.URL+"/openapi", srv.Client())
 	raw, err := c.Get("/activity/list", nil)
 	if err != nil {
 		t.Fatal(err)
@@ -99,16 +95,31 @@ func TestAIApiClientPublicOmitsAuthorization(t *testing.T) {
 }
 
 func TestAIApiClientAccessKeyUsesHostOverride(t *testing.T) {
+	t.Setenv(enum.EnvNameAIHost, "https://test-api-gateway.seeed.cc")
+	c := NewAIApiClientAccessKey(config.AccessApiConfig{
+		RemoteType: "Global",
+		KeyId:      "kid",
+		AccessKey:  "secret",
+	}, false)
+	if c.base.baseURL != "https://test-api-gateway.seeed.cc/openapi" {
+		t.Fatalf("base=%s", c.base.baseURL)
+	}
+	if c.hostErr != nil {
+		t.Fatal(c.hostErr)
+	}
+}
+
+func TestAIApiClientAccessKeyRejectsUnofficialHost(t *testing.T) {
 	t.Setenv(enum.EnvNameAIHost, "https://ai.test.example")
 	c := NewAIApiClientAccessKey(config.AccessApiConfig{
 		RemoteType: "Global",
 		KeyId:      "kid",
 		AccessKey:  "secret",
 	}, false)
-	if c.base.baseURL != "https://ai.test.example/openapi" {
-		t.Fatalf("base=%s", c.base.baseURL)
+	if c.hostErr == nil {
+		t.Fatal("expected host error")
 	}
-	if c.hostErr != nil {
-		t.Fatal(c.hostErr)
+	if _, err := c.Get("/model/list_model", nil); err == nil {
+		t.Fatal("expected request to fail before using the key")
 	}
 }

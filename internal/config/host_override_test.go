@@ -7,13 +7,24 @@ import (
 )
 
 func TestResolveAPIHostUsesOverride(t *testing.T) {
-	t.Setenv(enum.EnvNameDataHost, "https://cap.test.example/openapi/")
+	t.Setenv(enum.EnvNameDataHost, "https://sensecap-test.seeed.cc/openapi/")
 	got, err := WithResolvedHost(AccessApiConfig{RemoteType: enum.RemoteTypeGlobal})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Host == nil || *got.Host != "https://cap.test.example" {
+	if got.Host == nil || *got.Host != "https://sensecap-test.seeed.cc" {
 		t.Fatalf("host=%v", got.Host)
+	}
+}
+
+func TestResolveAPIHostRejectsUnofficialOverride(t *testing.T) {
+	t.Setenv(enum.EnvNameDataHost, "https://cap.test.example")
+	if _, err := WithResolvedHost(AccessApiConfig{RemoteType: enum.RemoteTypeGlobal}); err == nil {
+		t.Fatal("expected foreign host rejection")
+	}
+	t.Setenv(enum.EnvNameDataHost, "http://sensecap.seeed.cc")
+	if _, err := WithResolvedHost(AccessApiConfig{RemoteType: enum.RemoteTypeGlobal}); err == nil {
+		t.Fatal("expected http rejection")
 	}
 }
 

@@ -64,6 +64,12 @@ func WriteBytes(path string, data []byte, perm os.FileMode) error {
 		cleanup()
 		return fmt.Errorf("close temp file %s: %w", tmpPath, err)
 	}
+	if ownerOnly(perm) {
+		if err := restrictToCurrentUser(tmpPath); err != nil {
+			cleanup()
+			return fmt.Errorf("set file permissions %s: %w", path, err)
+		}
+	}
 
 	if err := os.Rename(tmpPath, path); err != nil {
 		if removeErr := os.Remove(path); removeErr == nil {
@@ -122,6 +128,11 @@ func Exists(path string) bool {
 // IsNotExist 判断错误是否为文件不存在。
 func IsNotExist(err error) bool {
 	return errors.Is(err, os.ErrNotExist)
+}
+
+// ownerOnly 表示权限没有分给同组用户和其他用户。
+func ownerOnly(perm os.FileMode) bool {
+	return perm.Perm()&0o077 == 0
 }
 
 // EnsureDir 创建目录（含父级），已存在则忽略。

@@ -16,7 +16,7 @@ SenseCraft CLI（`sensecraft-cli`）是 [SenseCraft](https://sensecraft.seeed.cc
 
 也可以放进脚本和 CI。Agent Skills 见 `skills/`。
 
-**安装与排障请先读 → [`INSTALL.md`](INSTALL.md)**（平台要求、PATH、升级卸载、离线镜像、Cursor Skills）。
+**安装与排障请先读 → [`INSTALL.md`](INSTALL.md)**（平台要求、PATH、升级卸载、离线安装、Cursor Skills）。
 
 ## 环境要求
 
@@ -92,13 +92,8 @@ sensecraft-cli app list --public --uniform-type 40
 | 源码直接运行默认 | 当前工作目录下的 `sensecraft.json` |
 | `SENSECRAFT_CLI_PATH` | 配置目录（文件名为 `sensecraft.json`） |
 | `SENSECRAFT_CONFIG_FILE` | 配置文件完整路径（优先于上面两项） |
-| `SENSECRAFT_DATA_HOST` | SenseCAP OpenAPI 源站。不设则 Global 用 `https://sensecap.seeed.cc`，China 用 `https://sensecap.seeed.cn` |
-| `SENSECRAFT_AI_HOST` | 应用和模型接口源站。不设则 `https://api-gateway.seeed.cc`。不改变打开的网页 |
-| `SENSECRAFT_AUTH_HOST` | 登录账号中心源站。不设则 Global 用 `https://account.seeed.cc`，China 用 `https://account.seeed.cn` |
-| `SENSECRAFT_APP_SITE` | 应用编辑页和详情页。不设则 `https://codecraft.seeed.cc/hub`。可带路径 |
-| `SENSECRAFT_CONSOLE_HOST` | 模型详情页源站。不设则 `https://sensecraft.seeed.cc` |
 
-站点不会根据主机名里是否含有 `test-` 切换。要打到别的环境，自己 export 对应变量；不设就用上面的正式站。值只写源站，不要带查询参数。`SENSECRAFT_DATA_HOST`、`SENSECRAFT_AI_HOST`、`SENSECRAFT_AUTH_HOST`、`SENSECRAFT_CONSOLE_HOST` 不要带路径；末尾的 `/openapi` 或 `/authapi` 会被去掉。`SENSECRAFT_APP_SITE` 可以写成 `https://example.com/hub`。
+站点不会根据主机名里是否含有 `test-` 切换。
 
 ## 输出格式
 

@@ -21,6 +21,19 @@ func HostOverride(envName string) (origin string, ok bool, err error) {
 	return origin, true, nil
 }
 
+// OfficialHostOverride reads a credential-bearing origin.
+// The value must be https, and the hostname must be seeed.cc, seeed.cn, or a subdomain.
+func OfficialHostOverride(envName string) (origin string, ok bool, err error) {
+	origin, ok, err = HostOverride(envName)
+	if err != nil || !ok {
+		return origin, ok, err
+	}
+	if err = requireOfficialOrigin(origin); err != nil {
+		return "", true, fmt.Errorf("%s: %w", envName, err)
+	}
+	return origin, true, nil
+}
+
 // NormalizeOrigin accepts an http(s) origin. A trailing slash, /openapi, or /authapi is removed.
 func NormalizeOrigin(raw string) (string, error) {
 	s := strings.TrimSpace(raw)
@@ -37,9 +50,25 @@ func NormalizeOrigin(raw string) (string, error) {
 	return u.Scheme + "://" + u.Host, nil
 }
 
+func requireOfficialOrigin(origin string) error {
+	u, err := url.Parse(origin)
+	if err != nil || u.Scheme != "https" || !officialSeeedHost(u.Hostname()) {
+		return fmt.Errorf("only https origins under seeed.cc or seeed.cn are allowed, got %q", origin)
+	}
+	return nil
+}
+
+func officialSeeedHost(host string) bool {
+	host = strings.TrimSuffix(strings.ToLower(strings.TrimSpace(host)), ".")
+	if host == "seeed.cc" || host == "seeed.cn" {
+		return true
+	}
+	return strings.HasSuffix(host, ".seeed.cc") || strings.HasSuffix(host, ".seeed.cn")
+}
+
 // EffectiveAIHost returns SENSECRAFT_AI_HOST when set, otherwise the production AI origin.
 func EffectiveAIHost(remoteType string) (string, error) {
-	if origin, ok, err := HostOverride(EnvNameAIHost); ok || err != nil {
+	if origin, ok, err := OfficialHostOverride(EnvNameAIHost); ok || err != nil {
 		return origin, err
 	}
 	return ResolveAIServerHost(remoteType), nil
@@ -48,7 +77,7 @@ func EffectiveAIHost(remoteType string) (string, error) {
 // EffectiveConsoleOrigin returns SENSECRAFT_CONSOLE_HOST when set, otherwise the
 // public SenseCraft AI website. Model links append /ai.
 func EffectiveConsoleOrigin() (string, error) {
-	if origin, ok, err := HostOverride(EnvNameConsoleHost); ok || err != nil {
+	if origin, ok, err := OfficialHostOverride(EnvNameConsoleHost); ok || err != nil {
 		return origin, err
 	}
 	return DomainNameAIConsole, nil
@@ -63,6 +92,9 @@ func EffectiveAppSiteOrigin() (string, error) {
 	}
 	origin, err := NormalizeSiteURL(raw)
 	if err != nil {
+		return "", fmt.Errorf("%s: %w", EnvNameAppSite, err)
+	}
+	if err = requireOfficialOrigin(origin); err != nil {
 		return "", fmt.Errorf("%s: %w", EnvNameAppSite, err)
 	}
 	return origin, nil
@@ -85,7 +117,7 @@ func NormalizeSiteURL(raw string) (string, error) {
 // production account center for remoteType (China or Global). The value is an
 // origin; callers append /authapi.
 func EffectiveAuthOrigin(remoteType string) (string, error) {
-	if origin, ok, err := HostOverride(EnvNameAuthHost); ok || err != nil {
+	if origin, ok, err := OfficialHostOverride(EnvNameAuthHost); ok || err != nil {
 		return origin, err
 	}
 	switch strings.TrimSpace(remoteType) {

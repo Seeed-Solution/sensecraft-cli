@@ -78,7 +78,7 @@ func accessConfigCheck(cfg AccessApiConfig) error {
 }
 
 func resolveAPIHost(cfg AccessApiConfig) (string, error) {
-	if origin, ok, err := enum.HostOverride(enum.EnvNameDataHost); ok || err != nil {
+	if origin, ok, err := enum.OfficialHostOverride(enum.EnvNameDataHost); ok || err != nil {
 		return origin, err
 	}
 	switch cfg.RemoteType {

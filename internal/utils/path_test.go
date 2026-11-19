@@ -3,6 +3,7 @@ package utils
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -77,5 +78,14 @@ func TestWriteAndReadJSON(t *testing.T) {
 	}
 	if loaded["hello"] != "world" {
 		t.Fatalf("unexpected payload: %#v", loaded)
+	}
+	if runtime.GOOS != "windows" {
+		info, err := os.Stat(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if info.Mode().Perm() != 0o600 {
+			t.Fatalf("perm = %o, want 600", info.Mode().Perm())
+		}
 	}
 }

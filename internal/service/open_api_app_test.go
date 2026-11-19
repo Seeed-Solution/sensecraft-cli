@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"sensecraft-cloud-terminal/internal/app"
-	"sensecraft-cloud-terminal/internal/enum"
+	"sensecraft-cloud-terminal/internal/client"
 )
 
 var errActivityList = errors.New("activity list down")
@@ -267,9 +267,11 @@ func TestListPublicActivitiesOmitsKey(t *testing.T) {
 		})
 	}))
 	t.Cleanup(srv.Close)
-	t.Setenv(enum.EnvNameAIHost, srv.URL)
 
-	raw, err := ListPublicActivities("Global", false)
+	raw, err := (AppService{
+		client:     client.NewAIApiClientAt(srv.URL+"/openapi", srv.Client()),
+		remoteType: "Global",
+	}).ListActivities()
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -109,13 +109,17 @@ func TestAppSiteIgnoresAIHost(t *testing.T) {
 }
 
 func TestAppSiteOriginUsesAppSiteEnv(t *testing.T) {
-	t.Setenv(enum.EnvNameAppSite, "https://hub.example/hub/")
+	t.Setenv(enum.EnvNameAppSite, "https://test-codecraft.seeed.cc/hub/")
 	got := AppEditConsoleURL("Global", "app-1")
-	if got != "https://hub.example/hub/application/edit?id=app-1" {
+	if got != "https://test-codecraft.seeed.cc/hub/application/edit?id=app-1" {
 		t.Fatalf("got %s", got)
 	}
-	if detail := AppDetailConsoleURL("Global", "app-1", "Smoke"); detail != "https://hub.example/hub/view-application/app-1-smoke" {
+	if detail := AppDetailConsoleURL("Global", "app-1", "Smoke"); detail != "https://test-codecraft.seeed.cc/hub/view-application/app-1-smoke" {
 		t.Fatalf("detail=%s", detail)
+	}
+	t.Setenv(enum.EnvNameAppSite, "https://hub.example/hub")
+	if edit := AppEditConsoleURL("Global", "app-1"); edit != "https://codecraft.seeed.cc/hub/application/edit?id=app-1" {
+		t.Fatalf("foreign app site must stay on the public hub, got %s", edit)
 	}
 }
 
@@ -129,13 +133,17 @@ func TestConsoleURLIgnoresAIHostOverride(t *testing.T) {
 }
 
 func TestConsoleURLUsesConsoleHost(t *testing.T) {
-	t.Setenv(enum.EnvNameConsoleHost, "https://console.example")
+	t.Setenv(enum.EnvNameConsoleHost, "https://console.seeed.cc")
 	t.Setenv(enum.EnvNameAppSite, "")
 	got := ModelDetailConsoleURL("Global", "abc")
-	if got != "https://console.example/ai/model/detail?id=abc&tab=custom" {
+	if got != "https://console.seeed.cc/ai/model/detail?id=abc&tab=custom" {
 		t.Fatalf("got %s", got)
 	}
 	if edit := AppEditConsoleURL("Global", "app-1"); edit != "https://codecraft.seeed.cc/hub/application/edit?id=app-1" {
 		t.Fatalf("app url must stay on the hub, got %s", edit)
+	}
+	t.Setenv(enum.EnvNameConsoleHost, "https://console.example")
+	if model := ModelDetailConsoleURL("Global", "abc"); model != "https://sensecraft.seeed.cc/ai/model/detail?id=abc&tab=custom" {
+		t.Fatalf("foreign console host must stay on the public site, got %s", model)
 	}
 }

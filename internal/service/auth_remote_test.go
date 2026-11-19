@@ -7,12 +7,12 @@ import (
 )
 
 func TestDeviceAuthURLUsesAuthHost(t *testing.T) {
-	t.Setenv(enum.EnvNameAuthHost, "https://account.test.example")
+	t.Setenv(enum.EnvNameAuthHost, "https://account-test.seeed.cc")
 	got, err := getDeviceAuthURL(enum.RemoteTypeGlobal)
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := "https://account.test.example/authapi/api/v1/auth/oauth/device"
+	want := "https://account-test.seeed.cc/authapi/api/v1/auth/oauth/device"
 	if got != want {
 		t.Fatalf("device=%s", got)
 	}
@@ -20,7 +20,7 @@ func TestDeviceAuthURLUsesAuthHost(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	wantToken := "https://account.test.example/authapi/api/v1/auth/oauth/device/token"
+	wantToken := "https://account-test.seeed.cc/authapi/api/v1/auth/oauth/device/token"
 	if token != wantToken {
 		t.Fatalf("token=%s", token)
 	}
@@ -28,7 +28,7 @@ func TestDeviceAuthURLUsesAuthHost(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if base != "https://account.test.example/authapi" {
+	if base != "https://account-test.seeed.cc/authapi" {
 		t.Fatalf("portal=%s", base)
 	}
 }

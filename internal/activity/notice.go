@@ -55,8 +55,11 @@ type state struct {
 // fetchActivities is replaced in tests.
 var fetchActivities = fetchFromNetwork
 
+// activityEndpoint is replaced in tests that need a local server.
+var activityEndpoint = Endpoint
+
 func fetchFromNetwork(ctx context.Context) ([]Item, error) {
-	endpoint, err := Endpoint()
+	endpoint, err := activityEndpoint()
 	if err != nil {
 		return nil, err
 	}

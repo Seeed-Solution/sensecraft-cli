@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -417,10 +416,13 @@ func resolveDownloadOutPath(out, filename string) (string, error) {
 }
 
 func downloadURLToFile(rawURL, outPath string) (int64, error) {
+	if err := requireHTTPSURL(rawURL); err != nil {
+		return 0, fmt.Errorf("download file: %w", err)
+	}
 	if err := utils.EnsureDir(filepath.Dir(outPath)); err != nil {
 		return 0, err
 	}
-	client := &http.Client{Timeout: 10 * time.Minute}
+	client := externalHTTPClient(10 * time.Minute)
 	resp, err := client.Get(rawURL)
 	if err != nil {
 		return 0, fmt.Errorf("download file: %w", err)

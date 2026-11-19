@@ -61,11 +61,24 @@ FLASH_ADDRESS_FIXED = {
 }
 
 
+# Watcher never erase-all (preserve nvsfactory / EUI), even though non-Muse
+# firmware is still a merged image at 0x0. Aligns with App isWatcherMuseFlashDevice.
+WATCHER_MUSE_SKUS = {"113991315", "113991275", "114993275"}
+
+
 def forces_full_flash_when_muse_off(device_id):
-    """Sticky/Watcher/Indicator/1.47: only non-Muse address is 0x0 — full_flash locked on."""
+    """Sticky/Indicator/1.47: only non-Muse address is 0x0 — full_flash locked on.
+    Watcher is excluded (full_flash must stay false)."""
     if device_id not in MUSE_GADGET_SKUS:
         return False
+    if device_id in WATCHER_MUSE_SKUS:
+        return False
     return FLASH_ADDRESS_FIXED.get(device_id) == "0x0"
+
+
+def forbids_full_flash_when_muse_off(device_id):
+    """Watcher: muse off keeps full_flash false (CLI/App coerce historical true)."""
+    return device_id in WATCHER_MUSE_SKUS
 XIAO_EE_DIY_RE = re.compile(r"(?i)\bee0[2-5]\b")
 FLASH_MIN_MERGED_BYTES = 200 * 1024
 FLASH_MAX_APP_REGION_BYTES = 4 * 1024 * 1024
@@ -486,7 +499,18 @@ def main():
                         "or upload a normal board image without \"muse-gadget\" in the name"
                     )
                 elif muse_capable(device_id) and cfg.get("muse_gadget") is not True:
-                    if forces_full_flash_when_muse_off(device_id):
+                    if forbids_full_flash_when_muse_off(device_id):
+                        if cfg.get("full_flash") is True:
+                            vio(
+                                f"{label}: device_id {device_id} (Watcher) must keep config.full_flash false — "
+                                "no erase-all (preserves nvsfactory). Omit the field or set false"
+                            )
+                        elif "full_flash" not in cfg:
+                            warn(
+                                f"{label}: Watcher with muse_gadget off should set full_flash false "
+                                "(CLI/App coerce historical true → false)"
+                            )
+                    elif forces_full_flash_when_muse_off(device_id):
                         if cfg.get("full_flash") is False:
                             vio(
                                 f"{label}: device_id {device_id} writes merged firmware at 0x0 — config.full_flash "

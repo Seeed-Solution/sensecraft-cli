@@ -70,6 +70,20 @@ func isMuseGadgetDevice(deviceID string, materials []map[string]any) bool {
 	return false
 }
 
+// Watcher Muse SKUs never erase-all (preserve nvsfactory / EUI), even though
+// non-Muse firmware is still a merged image at 0x0. Aligns with App
+// isWatcherMuseFlashDevice / resolveEffectiveFullFlash.
+var watcherMuseFlashSKUs = map[string]struct{}{
+	"113991315": {},
+	"113991275": {},
+	"114993275": {},
+}
+
+func isWatcherMuseFlashDevice(deviceID string) bool {
+	_, ok := watcherMuseFlashSKUs[strings.TrimSpace(deviceID)]
+	return ok
+}
+
 // isMuseMergedZeroAddressDevice mirrors App: Muse-capable boards whose only
 // non-Muse address is 0x0 (Sticky / Watcher / Indicator / 1.47). E100x stays
 // at 0x90000 and is not forced. Grove is 0x0 but not Muse-capable.
@@ -84,8 +98,8 @@ func isMuseMergedZeroAddressDevice(deviceID string, materials []map[string]any) 
 	return true
 }
 
-// shouldForceFullFlashWhenMuseOff mirrors App: merged-at-0x0 Muse boards must
-// keep full_flash true whenever muse_gadget is off (cannot turn off).
+// shouldForceFullFlashWhenMuseOff mirrors App: Sticky / Indicator / 1.47 keep
+// full_flash true when Muse is off. Watcher is excluded (never erase-all).
 func shouldForceFullFlashWhenMuseOff(cfg map[string]any, materials []map[string]any) bool {
 	if cfg == nil {
 		return false
@@ -93,7 +107,11 @@ func shouldForceFullFlashWhenMuseOff(cfg map[string]any, materials []map[string]
 	if muse, ok := cfg["muse_gadget"].(bool); ok && muse {
 		return false
 	}
-	return isMuseMergedZeroAddressDevice(strings.TrimSpace(stringFromMap(cfg, "device_id")), materials)
+	id := strings.TrimSpace(stringFromMap(cfg, "device_id"))
+	if isWatcherMuseFlashDevice(id) {
+		return false
+	}
+	return isMuseMergedZeroAddressDevice(id, materials)
 }
 
 // flashAddressPolicy returns the device default flash_address.
@@ -344,8 +362,11 @@ func normalizeFlashFirmwareConfig(cfg map[string]any, materials []map[string]any
 		}
 		// Non-bool values stay for validateAppToolBlock to reject.
 	} else if museDevice {
-		if isMuseMergedZeroAddressDevice(deviceID, materials) {
-			// Sticky/Watcher/Indicator/1.47: force full erase; ignore explicit false
+		if isWatcherMuseFlashDevice(deviceID) {
+			// Watcher: never erase-all (preserve nvsfactory); coerce historical true → false.
+			cfg["full_flash"] = false
+		} else if isMuseMergedZeroAddressDevice(deviceID, materials) {
+			// Sticky/Indicator/1.47: force full erase; ignore explicit false
 			// (matches App editor lock when writing merged firmware at 0x0).
 			cfg["full_flash"] = true
 		} else if _, present := cfg["full_flash"]; !present {

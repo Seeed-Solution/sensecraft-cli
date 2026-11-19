@@ -68,7 +68,7 @@ Type 4 firmware guidance:
   - Muse SDK folders upload muse-gadget.bin only; companion segments stay local (app site supplies them).
   - Success JSON may include muse{device_id,flash_address,muse_gadget,full_flash,build_artifact,note}.
   - Muse ON → muse_gadget true, full_flash false, keep device default flash_address (not 0x20000).
-  - Muse-capable board + normal firmware → muse_gadget false, default full_flash true.
+  - Muse-capable board + normal firmware → muse_gadget false; full_flash true on Sticky/Indicator/1.47 (forced), false on Watcher (forced), default true on E100x.
   - E100x @ 0x90000 only; Wio @ 0x4000 only; Watcher/Sticky/Indicator/1.47 merged @ 0x0 only.
   - Generate firmware by address: 0x0 → merged image; 0x90000/0x4000/0x10000 → app-region; Muse → muse-gadget.bin.
   - muse.note always states when 0x0 needs a merged .bin; uploads that are far too small for a 0x0 merge are rejected before OSS.

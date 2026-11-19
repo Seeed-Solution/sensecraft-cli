@@ -180,14 +180,16 @@ class ManifestValidationTests(unittest.TestCase):
         self.assertEqual(self.validate().returncode, 0)
         cfg.update(firmware_url="https://files.example.invalid/app.bin", firmware_name="app.bin")
         self.assert_invalid(self.manifest)
-        # Watcher merged-at-0x0: muse off + full_flash false is rejected (forced true)
+        # Watcher: muse off keeps full_flash false (no erase-all); true is rejected
         cfg.update(
             muse_gadget=False, full_flash=False,
             firmware_url="https://files.example.invalid/merged.bin",
             firmware_name="merged.bin", firmware_size="1048576",
         )
-        self.assert_invalid(self.manifest)
+        self.assertEqual(self.validate().returncode, 0)
         cfg["full_flash"] = True
+        self.assert_invalid(self.manifest)
+        cfg["full_flash"] = False
         self.assertEqual(self.validate().returncode, 0)
 
     def test_firmware_modes_sizes_and_addresses(self):
@@ -233,7 +235,7 @@ class ManifestValidationTests(unittest.TestCase):
         cfg.update(
             device_id="113991315", flash_address="0x0", firmware_name="app.bin",
             firmware_url="https://files.example.invalid/app.bin", firmware_size="1234",
-            muse_gadget=False, full_flash=True,
+            muse_gadget=False, full_flash=False,
         )
         self.assert_invalid(self.manifest)
 
@@ -255,7 +257,8 @@ class ManifestValidationTests(unittest.TestCase):
                 cfg = manifest["deployment"]["blocks"][0]["config"]
                 cfg.update(
                     device_id=sku, flash_address=bad, muse_gadget=False,
-                    full_flash=sku in {"113991315", "100017057"},
+                    # Watcher forbids full_flash; E1002 may use true for this address check
+                    full_flash=sku in {"100017057"},
                 )
                 self.assert_invalid(manifest)
 

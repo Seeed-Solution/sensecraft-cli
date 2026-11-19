@@ -90,9 +90,9 @@ func firmwareDeviceSpecs() []firmwareDeviceSpec {
 			file: "merged .bin from 0x0 only (no 0x10000); also 113991275 / 114993275; Muse → muse-gadget.bin",
 			chip: "esp32s3", folder: "sensecap-watcher", aliases: []string{"113991275", "114993275"},
 			muse: true, fixed: true, artifact: "merged_at_0x0",
-			forbid:          []string{"0x10000", "zip", "app-only-at-0x0"},
+			forbid:          []string{"0x10000", "zip", "app-only-at-0x0", "full_flash true"},
 			recommendedName: "merged.bin",
-			notes:           "Flash on the Xiao / ESP32-S3 port. Default upload: merged image at 0x0 — not an SSCMA application package.",
+			notes:           "Flash on the Xiao / ESP32-S3 port. Default upload: merged image at 0x0 with full_flash=false (no erase-all; preserves nvsfactory). Muse: muse-gadget.bin; site EN soft-reset, token send after USB replug.",
 		},
 		{
 			name: "reTerminal E1001", sku: "100073581", address: "0x90000",
@@ -224,7 +224,8 @@ func flashUploadGuideForSpec(s firmwareDeviceSpec, musePath bool) FirmwareUpload
 	switch s.artifact {
 	case "merged_at_0x0":
 		if s.muse {
-			fullFlash = true
+			// Sticky/Indicator/1.47 force full erase; Watcher never erase-all.
+			fullFlash = !isWatcherMuseFlashDevice(s.sku)
 		}
 		return FirmwareUploadGuide{
 			Kind:             "merged_at_0x0",
@@ -404,7 +405,7 @@ func flashFirmwareDeviceDefaults() []map[string]any {
 			"flash_address_fixed":  s.fixed,
 			"muse_capable":         s.muse,
 			"file":                 s.file,
-			"full_flash_default":   s.muse,
+			"full_flash_default":   s.muse && !isWatcherMuseFlashDevice(s.sku),
 			"rule":                 firmwareRuleForSpec(s),
 			"upload_guide":         guide,
 			"muse_gadget_requires": "muse-gadget.bin when muse_gadget is true; keep flash_address as device default",
@@ -561,7 +562,7 @@ func FirmwareAdvise(deviceID, name string) (FirmwareAdviseResult, error) {
 		FlashAddress:      s.address,
 		FlashAddressFixed: s.fixed,
 		MuseCapable:       s.muse,
-		FullFlashDefault:  s.muse,
+		FullFlashDefault:  s.muse && !isWatcherMuseFlashDevice(s.sku),
 		Rule:              firmwareRuleForSpec(s),
 		UploadGuide:       guide,
 		BuildArtifact:     flashBuildArtifactHint(s.address, s.muse),

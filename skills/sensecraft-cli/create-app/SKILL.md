@@ -72,14 +72,14 @@ Resolve SKU via `app bom search` / BOM. Muse OFF unless the user explicitly want
 | **`0x10000`** (ordinary XIAO application package) | **Application** `.bin` (name/URL often contains `application`) | Merged `0x0` unless user asked for full image |
 | **Muse Gadget** (user chooses Muse on a Muse SKU) | **`muse-gadget.bin` only** | Companion bootloader/partition files; writing `flash_address: "0x20000"` |
 
-If Muse is requested: upload the device folder (`--type 4`) or `muse-gadget.bin`, set `muse_gadget: true`, `full_flash: false`, keep the **device default** address (not `0x20000`). If Muse is not requested on a Muse-capable SKU: upload the non-Muse row above and set `full_flash: true` (Sticky/Watcher/Indicator/1.47 **must** keep it true; E100x may set false only when intentional).
+If Muse is requested: upload the device folder (`--type 4`) or `muse-gadget.bin`, set `muse_gadget: true`, `full_flash: false`, keep the **device default** address (not `0x20000`). If Muse is not requested on a Muse-capable SKU: upload the non-Muse row above and set `full_flash: true` for Sticky/Indicator/1.47 (**must** keep true); **Watcher must keep `full_flash: false`**; E100x may set false only when intentional.
 
 ### B. Map the file you upload into config
 
 | File you upload | Muse-capable SKU? | `muse_gadget` | `full_flash` | `flash_address` |
 |-----------------|-------------------|---------------|--------------|-----------------|
 | `muse-gadget.bin` / Muse SDK folder | yes | `true` | `false` | device default (**never** `0x20000`) |
-| Merged image for `0x0` | yes / no | `false` | **`true` forced** on Sticky/Watcher/Indicator/1.47; else `false` | `0x0` |
+| Merged image for `0x0` | yes / no | `false` | **`true` forced** on Sticky/Indicator/1.47; **`false` forced** on Watcher; else `false` | `0x0` |
 | App-region bin for `0x90000` / `0x4000` | as SKU | `false` | `true` default on E100x (explicit `false` ok); else `false` | that offset |
 | XIAO `application` package | no (ordinary XIAO) | `false` | `false` | `0x10000` |
 

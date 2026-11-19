@@ -308,8 +308,8 @@ func TestFlashFirmwareDefaultsFullFlashAndAddress(t *testing.T) {
 		t.Fatal("E1002 explicit full_flash false must be kept")
 	}
 
-	// Sticky / Watcher / Indicator / 1.47: force full_flash even when explicit false
-	for _, sku := range []string{"100056818", "113991315", "114993068", "100069905"} {
+	// Sticky / Indicator / 1.47: force full_flash even when explicit false
+	for _, sku := range []string{"100056818", "114993068", "100069905"} {
 		forced := map[string]any{
 			"id": "flash_force_" + sku, "type": "flash-firmware",
 			"config": map[string]any{
@@ -324,6 +324,25 @@ func TestFlashFirmwareDefaultsFullFlashAndAddress(t *testing.T) {
 		}
 		if forced["config"].(map[string]any)["full_flash"] != true {
 			t.Fatalf("%s: merged-at-0x0 Muse board must force full_flash true, got %#v", sku, forced["config"])
+		}
+	}
+
+	// Watcher: never erase-all; coerce historical true → false
+	for _, sku := range []string{"113991315", "113991275", "114993275"} {
+		watcher := map[string]any{
+			"id": "flash_watcher_" + sku, "type": "flash-firmware",
+			"config": map[string]any{
+				"device_id": sku, "device_type": "37", "flash_mode": "bin",
+				"firmware_url": "https://example.invalid/merged.bin", "firmware_name": "merged.bin",
+				"firmware_size": "1048576", "flash_address": "0x0",
+				"muse_gadget": false, "full_flash": true,
+			},
+		}
+		if err := ValidateDeploymentBlocks(toolBlockBody(watcher)); err != nil {
+			t.Fatalf("%s: %v", sku, err)
+		}
+		if watcher["config"].(map[string]any)["full_flash"] != false {
+			t.Fatalf("%s: Watcher must coerce full_flash false, got %#v", sku, watcher["config"])
 		}
 	}
 }

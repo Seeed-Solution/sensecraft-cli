@@ -185,7 +185,7 @@ sensecraft-cli auth add --key-id <Key ID> --access-key <Access Key> --site Globa
 
 #### `auth info`
 
-`info` 展示当前 Access Key 的站点、组织 ID 和 Key ID，不打印密钥。
+`info` 展示当前 Access Key 的站点、组织 ID 和 Key ID，不打印密钥。`auth info --json` 返回 `{ "profiles": [...] }`，每项仅含 `site`、`org_id`、`key_id`、`kind`、`created_at` 和 `active`。
 
 ---
 
@@ -443,6 +443,20 @@ sensecraft-cli data chart --eui 0123456789ABCDEF --interval 60 --time-start 1700
 ```
 
 ---
+
+## 应用与上传
+
+从未发布的应用，`app view --id <id>` 只能读到名称。读取已保存草稿用 `app view --id <id> --sketch`。
+
+`app bom search --name "XIAO ESP32-S3 1.47"` 会逐词匹配产品名称、SKU、分类、备注或描述，忽略大小写和标点。结果保持目录原顺序。目录保留 `block_support`，并增加布尔值 `block_supported`（`"是"` 对应 `true`）。
+
+`file upload --name <文件名>` 是发给服务器的文件名。下载时用的是返回的 `file_url` 里的对象名。上传时指定的名字不一定就是这个下载名。
+
+`app activity list` 返回当前还在举办的全部活动，`count` 等于 `list` 的条数。
+
+## 进阶
+
+成功的数据命令把缩进 JSON 打到 stdout。含 `list` 且没有 `count` 的对象会补上当前结果的条数；`page` 和服务器已经给出的 `count` 保持原值。`auth add` 和默认的 `auth info` 打可读文本，`auth info --json` 输出认证摘要。失败在 stderr，退出码非 0。
 
 ## 典型工作流
 

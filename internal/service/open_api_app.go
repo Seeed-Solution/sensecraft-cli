@@ -36,11 +36,8 @@ type AppListParams struct {
 	UniformType        string
 	Page               int
 	Length             int
-	MarkType           string
 	Sort               string
 	PriorityActivityID string
-	Likes              bool
-	Collections        bool
 }
 
 func (s AppService) ListApps(p AppListParams) (json.RawMessage, error) {
@@ -203,9 +200,6 @@ func buildAppListQuery(p AppListParams) url.Values {
 	if ut := strings.TrimSpace(p.UniformType); ut != "" {
 		q.Set("uniform_type", ut)
 	}
-	if p.MarkType != "" {
-		q.Set("mark_type", p.MarkType)
-	}
 	if sort := strings.TrimSpace(p.Sort); sort != "" {
 		q.Set("sort_by", sort)
 	}
@@ -223,17 +217,6 @@ func prepareAppListQuery(p AppListParams, activities []ongoingActivity, activiti
 	default:
 		return nil, fmt.Errorf("--sort must be popular, newest, or likes")
 	}
-	mark, forcePublic, err := resolveListMark(p)
-	if err != nil {
-		return nil, err
-	}
-	if forcePublic {
-		if p.Mine {
-			return nil, fmt.Errorf("--likes and --collections cannot be combined with --mine")
-		}
-		p.Public = true
-	}
-	p.MarkType = mark
 
 	priority := strings.TrimSpace(p.PriorityActivityID)
 	switch p.Sort {
@@ -260,31 +243,6 @@ func prepareAppListQuery(p AppListParams, activities []ongoingActivity, activiti
 	}
 	p.PriorityActivityID = priority
 	return buildAppListQuery(p), nil
-}
-
-func resolveListMark(p AppListParams) (mark string, forcePublic bool, err error) {
-	if p.Likes && p.Collections {
-		return "", false, fmt.Errorf("use only one of --likes or --collections")
-	}
-	explicit := strings.TrimSpace(p.MarkType)
-	switch {
-	case p.Likes:
-		mark = "1"
-		forcePublic = true
-	case p.Collections:
-		mark = "0"
-		forcePublic = true
-	}
-	if explicit != "" {
-		if explicit != "0" && explicit != "1" {
-			return "", false, fmt.Errorf("--mark-type must be 1 (my likes) or 0 (my collections)")
-		}
-		if mark != "" && mark != explicit {
-			return "", false, fmt.Errorf("--mark-type %s does not match --likes/--collections", explicit)
-		}
-		mark = explicit
-	}
-	return mark, forcePublic, nil
 }
 
 func sandboxAppList(q url.Values) json.RawMessage {

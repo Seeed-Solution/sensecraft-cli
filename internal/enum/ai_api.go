@@ -16,7 +16,6 @@ const (
 	AIApiPathAppUpdate            = "/flow/app/v3/update_app"
 	AIApiPathAppClone             = "/flow/app/v3/clone_app"
 	AIApiPathAppCallbackSketch    = "/flow/app/v3/callback_sketch"
-	AIApiPathAppMark              = "/flow/app/v2/mark_app"
 	AIApiPathModelList            = "/model/list_model"
 	AIApiPathModelMine            = "/model/list_custom_model"
 	AIApiPathModelView            = "/model/view_model"

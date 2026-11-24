@@ -33,11 +33,6 @@ func NewAppCmd() *cobra.Command {
 	cmd.AddCommand(newAppUnpublishCmd())
 	cmd.AddCommand(newAppWithdrawCmd())
 	cmd.AddCommand(newAppDeleteCmd())
-	cmd.AddCommand(newAppLikeCmd())
-	cmd.AddCommand(newAppUnlikeCmd())
-	cmd.AddCommand(newAppCollectCmd())
-	cmd.AddCommand(newAppUncollectCmd())
-	cmd.AddCommand(newAppMarkDeployCmd())
 	cmd.AddCommand(newAppCloneCmd())
 	cmd.AddCommand(newAppBOMCmd())
 	return cmd
@@ -52,11 +47,8 @@ func newAppListCmd() *cobra.Command {
 		uniformType        string
 		page               int
 		length             int
-		markType           string
 		sort               string
 		priorityActivityID string
-		likes              bool
-		collections        bool
 		sandbox            bool
 	)
 	cmd := &cobra.Command{
@@ -73,9 +65,6 @@ func newAppListCmd() *cobra.Command {
   --sort            popular | newest | likes. Omitted: do not send sort_by
   --priority-activity-id
                     Only with --sort popular. Omitted on popular: first ongoing activity
-  --mark-type       1 = my likes, 0 = my collections
-  --likes           mark_type=1 and be_public=1. Not with --mine
-  --collections     mark_type=0 and be_public=1. Not with --mine
   --page / --length Pagination (default 1 / 20)`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx, err := cmdctx.GetAICmdContext()
@@ -83,7 +72,7 @@ func newAppListCmd() *cobra.Command {
 				return err
 			}
 			ctx.SandBox = sandbox
-			if !public && !mine && !likes && !collections {
+			if !public && !mine {
 				mine = true
 			}
 			if public && mine {
@@ -97,11 +86,8 @@ func newAppListCmd() *cobra.Command {
 				UniformType:        uniformType,
 				Page:               page,
 				Length:             length,
-				MarkType:           markType,
 				Sort:               sort,
 				PriorityActivityID: priorityActivityID,
-				Likes:              likes,
-				Collections:        collections,
 			})
 			if err != nil {
 				return err
@@ -116,11 +102,8 @@ func newAppListCmd() *cobra.Command {
 	cmd.Flags().StringVar(&uniformType, "uniform-type", "", "Filter by device type (uniform_type: 40=reCamera, 32=XIAO ESP32S3, 53=reCamera Pro)")
 	cmd.Flags().IntVar(&page, "page", 1, "Page number")
 	cmd.Flags().IntVar(&length, "length", 20, "Page size")
-	cmd.Flags().StringVar(&markType, "mark-type", "", "1 = my likes, 0 = my collections")
 	cmd.Flags().StringVar(&sort, "sort", "", "Sort: popular, newest, or likes")
 	cmd.Flags().StringVar(&priorityActivityID, "priority-activity-id", "", "With --sort popular, pin this activity first (positive integer)")
-	cmd.Flags().BoolVar(&likes, "likes", false, "My likes (mark_type=1, be_public=1). Not with --mine")
-	cmd.Flags().BoolVar(&collections, "collections", false, "My collections (mark_type=0, be_public=1). Not with --mine")
 	cmd.Flags().BoolVar(&sandbox, "sandbox", false, "Sandbox mode: no real network; return sample JSON")
 	return cmd
 }
@@ -571,35 +554,6 @@ Refuses unless be_public=2. A public app uses app unpublish. A private app
 has nothing to withdraw.`,
 		func(ctx cmdctx.AICmdContext, id string, yes bool) (json.RawMessage, error) {
 			return service.GetAppService(ctx).WithdrawApp(service.AppDeleteParams{AppID: id, Yes: yes})
-		})
-}
-
-func newAppLikeCmd() *cobra.Command {
-	return newAppMarkCmd("like", "Like an app (op_type=1, L2: --yes)", 1)
-}
-
-func newAppUnlikeCmd() *cobra.Command {
-	return newAppMarkCmd("unlike", "Remove a like (op_type=0, L2: --yes)", 0)
-}
-
-func newAppCollectCmd() *cobra.Command {
-	return newAppMarkCmd("collect", "Collect an app (op_type=3, L2: --yes)", 3)
-}
-
-func newAppUncollectCmd() *cobra.Command {
-	return newAppMarkCmd("uncollect", "Remove a collection (op_type=2, L2: --yes)", 2)
-}
-
-func newAppMarkDeployCmd() *cobra.Command {
-	return newAppMarkCmd("mark-deploy", "Record one public-detail deploy (op_type=4, L2: --yes)", 4)
-}
-
-func newAppMarkCmd(use, short string, op int) *cobra.Command {
-	return newAppIDYesCmd(use, short,
-		`POST /flow/app/v2/mark_app. Does not flash a device.
-stdout includes app_id and op_type even when the API body is empty.`,
-		func(ctx cmdctx.AICmdContext, id string, yes bool) (json.RawMessage, error) {
-			return service.GetAppService(ctx).MarkApp(id, op, yes)
 		})
 }
 

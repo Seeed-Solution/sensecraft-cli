@@ -120,26 +120,6 @@ func TestPrepareAppListQueryTagAndMarks(t *testing.T) {
 	if q.Get("tag_id") != "" || q.Get("priority_activity_id") != "4" {
 		t.Fatalf("tag_id must stay off the query, got %v", q)
 	}
-	likes, err := prepareAppListQuery(AppListParams{Likes: true}, nil, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if likes.Get("mark_type") != "1" || likes.Get("be_public") != "1" {
-		t.Fatalf("likes=%v", likes)
-	}
-	cols, err := prepareAppListQuery(AppListParams{Collections: true}, nil, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if cols.Get("mark_type") != "0" || cols.Get("be_public") != "1" {
-		t.Fatalf("collections=%v", cols)
-	}
-	if _, err := prepareAppListQuery(AppListParams{Likes: true, Mine: true}, nil, nil); err == nil {
-		t.Fatal("likes must not combine with mine")
-	}
-	if _, err := prepareAppListQuery(AppListParams{MarkType: "like"}, nil, nil); err == nil {
-		t.Fatal("like/star strings must be rejected")
-	}
 }
 
 func TestListAppsSandboxShowsQueryIntent(t *testing.T) {
@@ -337,21 +317,6 @@ func TestWithdrawRequiresReview(t *testing.T) {
 		t.Fatal(err)
 	}
 	if m["app_id"] != "review-app" || m["be_public"] != float64(0) {
-		t.Fatalf("got %#v", m)
-	}
-}
-
-func TestMarkAppFillsEmptyBody(t *testing.T) {
-	s := GetAppService(app.AICmdContext{SandBox: true})
-	raw, err := s.MarkApp("sandbox-app-1", 4, true)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var m map[string]any
-	if err := json.Unmarshal(raw, &m); err != nil {
-		t.Fatal(err)
-	}
-	if m["app_id"] != "sandbox-app-1" || m["op_type"] != float64(4) {
 		t.Fatalf("got %#v", m)
 	}
 }

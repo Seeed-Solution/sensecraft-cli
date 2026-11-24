@@ -15,7 +15,7 @@ Child skill: [`../create-app/SKILL.md`](../create-app/SKILL.md) — turn a local
    sensecraft-cli auth info
    ```
    Need an active **SenseCAP Access Key**. If missing, use the split `auth init` flow in [`../SKILL.md`](../SKILL.md). Do not run bare `auth init`.
-2. **L2 confirm is a separate chat turn** ([confirmation.md](confirmation.md)) before: `publish` (`--agree-declaration`), `unpublish`, `withdraw`, `delete`, `like`, `unlike`, `collect`, `uncollect`, `mark-deploy`, `clone`, **`app update` / `bom set`**. 「删除应用 demo」is **not** confirmation — ask `将从{环境}环境删除应用 demo（ID: …）。删除后可能无法恢复。是否确认执行？`, wait for `确认`, then `--yes`. Never pass `--yes` on the same turn as the first request. **Exception — batch authoring:** [`create-app`](../create-app/SKILL.md) confirms a whole push batch (fields + images + BOM + blocks) in one turn instead of per write; its one-go `app create` needs no confirmation at all.  
+2. **L2 confirm is a separate chat turn** ([confirmation.md](confirmation.md)) before: `publish` (`--agree-declaration`), `unpublish`, `withdraw`, `delete`, `clone`, **`app update` / `bom set`**. 「删除应用 demo」is **not** confirmation — ask `将从{环境}环境删除应用 demo（ID: …）。删除后可能无法恢复。是否确认执行？`, wait for `确认`, then `--yes`. Never pass `--yes` on the same turn as the first request. **Exception — batch authoring:** [`create-app`](../create-app/SKILL.md) confirms a whole push batch (fields + images + BOM + blocks) in one turn instead of per write; its one-go `app create` needs no confirmation at all.  
    **`app create` is not L2** — including `--from-json` with full fields (create + internal follow-up `update_app` on the **new** `app_id` only). Prefer one-shot create when the payload is ready. Still tell the user what will be created before running create.
 3. **Privacy values**: submit review → `privacy` / flow uses **`2`** (pending); unpublish/private → **`0`**. **Never send `1`** (ops-approved public; Admin only).
 4. Tool-block **configuration** may be written into `deployment.blocks`. **Executing** flash / USB deploy / container install on hardware is **L3**. Classic reCamera (`40`): [`sensecraft-recamera`](recamera.md) (`check` / `open`). Other benches: Console `/ai/device/local/32|36|37|41|52`. `flash-firmware` run is out of scope this pass.
@@ -59,7 +59,7 @@ Do **not** confuse these with `is_sketch` from the API (`1` means a draft differ
 | `app list` / `app view` / `app fields` / `app blocks` / `app activity list` | **Implemented**. CodeCraft Hub hot list is `--public --sort popular` |
 | `app doc compile` | **Implemented**. Markdown → editor `deployment.blocks`. No auth, no network. `app create --from-md` / `app update --from-md` compile then write. `--from-json` fills video, file-link, and image HTML, and rejects raw Markdown in text-block `content` |
 | `app create` / `update` / `publish` / `unpublish` / `withdraw` / `delete` | **Implemented** (L2 = `--yes`; publish also `--agree-declaration`; **`create` never needs `--yes`**, even with full `--from-json`). `withdraw` is review-only (`be_public=2`); `unpublish` is for an already public app |
-| `app like` / `unlike` / `collect` / `uncollect` / `mark-deploy` / `clone` | **Implemented** (L2 = `--yes`) |
+| `app clone` | **Implemented** (L2 = `--yes`) |
 | Cover / attachment upload                                              | `file upload --path <img> --type 1 --app-id <id> --yes` (prepends cover, **5 MB**). Unlinked: `file upload --type 1 --for-app` when building a new app payload.                        |
 | `app bom search\|list\|set`                                            | **Implemented** (catalog = local filter on `get_production_options`; set via `update_app`)                                                                                             |
 | `scene` / option ids                                                   | Use `sensecraft-cli model constants` (`app_scenarios_array`)                                                                                                                           |
@@ -228,7 +228,7 @@ Base: `{host}/openapi` with HTTP Basic (`key_id`:`access_key`).
 
 | Action  | Method | Path                                                             |
 | ------- | ------ | ---------------------------------------------------------------- |
-| List    | GET    | `/flow/app/v2/list_app` (`be_public`, `order_type` `1`/`2`/`3`, `priority_activity_id`, `mark_type` `1`/`0`) |
+| List    | GET    | `/flow/app/v2/list_app` (`be_public`, `order_type` `1`/`2`/`3`, `priority_activity_id`) |
 | Activities | GET | `/activity/list` (no `time`; server default is now, every activity currently being held) |
 | View    | GET    | `/flow/app/v3/view_app`                                          |
 | Create  | POST   | `/flow/app/v3/create_app`                                        |
@@ -236,7 +236,6 @@ Base: `{host}/openapi` with HTTP Basic (`key_id`:`access_key`).
 | Clone   | POST   | `/flow/app/v3/clone_app`                                         |
 | Privacy | POST   | `/flow/app/v3/edit_privacy_app` (`2` submit / `0` private). Not for withdrawing review |
 | Withdraw | POST  | `/flow/app/v3/callback_sketch` (`be_public=2` only)              |
-| Mark    | POST   | `/flow/app/v2/mark_app` (`op_type` 1/0/3/2/4)                    |
 | Delete  | POST   | `/flow/app/v2/delete_app`                                        |
 
 Authoritative field dump (Console repo): `website-sensecraft-console/docs/app-edit-v3-custom-app-field-reference.md`.

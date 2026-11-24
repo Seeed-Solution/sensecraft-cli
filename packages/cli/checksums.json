@@ -1,8 +1,8 @@
 {
-  "sensecraft-cli-linux-amd64": "76cb9aaefa562535584305b8f29653fc5fefcebd5a53ad56fc77db52c38893e8",
-  "sensecraft-cli-linux-arm64": "56dca940ae9d3dbb6c0a4359fc4f2cb314800801a0cfb8685d27429ce7afda7a",
-  "sensecraft-cli-darwin-amd64": "ba9614f38b144376b4d69f0c4cd2251f13db09610f4407a583f9052b2e865027",
-  "sensecraft-cli-darwin-arm64": "54ec5b6e679c125a24bbad404b3c180543c0dc4e7d2cabfb13c9695d2050c574",
-  "sensecraft-cli-windows-amd64.exe": "baebad740cab4a80bb2c04b36e6edb81e079ef6af4c950cbd70d9c3e42a892db",
-  "sensecraft-cli-windows-arm64.exe": "f2cd5dad9cf6dd10182dcf6d06dbf9e9b8c273da9d9ac4c9e5bb8f2ab450c723"
+  "sensecraft-cli-linux-amd64": "afaf2b6af2ece083f9ff9f43691a88f2556421eb44afc1c987305765e6d85f83",
+  "sensecraft-cli-linux-arm64": "5e8e2e169333467f5725c30e27361fefc75d86debb40981a637b907ca6d270d5",
+  "sensecraft-cli-darwin-amd64": "8e9f09aa0fdc9f34897981aea0a49f3b9591f9d1e44ddf63089e6f989446769c",
+  "sensecraft-cli-darwin-arm64": "2a862ccd50ff839bdb4e04e442b9e462e4c5c903e1f0195e1ca0c939026e9988",
+  "sensecraft-cli-windows-amd64.exe": "6f0f15608a7ff02d4260e96cafcc65a6c2f7c893094d68ee0852ecad0175a8f5",
+  "sensecraft-cli-windows-arm64.exe": "fcc08fd94100283980c632053e6d5aec789cf38f134a4996a01bc18667ce14d8"
 }
